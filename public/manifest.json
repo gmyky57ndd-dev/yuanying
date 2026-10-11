@@ -1,0 +1,13 @@
+{
+  "name": "元婴",
+  "short_name": "元婴",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c0a09",
+  "theme_color": "#0c0a09",
+  "icons": [
+    { "src": "/avatar.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/avatar.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
