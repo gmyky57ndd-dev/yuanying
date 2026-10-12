@@ -17,6 +17,9 @@ export default function Home() {
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
     fetch('/api/history')
       .then(r => r.json())
       .then(d => setMessages(d.messages ?? []))
