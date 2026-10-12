@@ -4,6 +4,10 @@ import './globals.css';
 export const metadata: Metadata = {
   title: '元婴',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/avatar.png',
+    apple: '/avatar.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
