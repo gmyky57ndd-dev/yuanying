@@ -9,6 +9,7 @@ export async function GET() {
     .from('messages')
     .select('role, content')
     .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
     .limit(50);
 
   return NextResponse.json({ messages: data ?? [] });

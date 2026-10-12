@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       .from('messages')
       .select('role, content')
       .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
       .limit(20);
 
     // Load today's signals
