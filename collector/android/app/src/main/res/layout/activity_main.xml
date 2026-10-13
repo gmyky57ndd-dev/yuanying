@@ -36,6 +36,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="授予使用访问权限"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="若开关不可用（受限设置）：设置 → 应用 → 元婴采集器 → 右上角菜单 → 允许受限设置"
+        android:textColor="#78716c"
+        android:textSize="12sp"
         android:layout_marginBottom="12dp" />
 
     <Button
