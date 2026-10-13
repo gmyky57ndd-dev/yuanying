@@ -4,7 +4,7 @@
   "private": true,
   "description": "元婴 Android 活动采集器（Capacitor + Java）",
   "scripts": {
-    "cap:init": "cap init \"元婴采集器\" \"com.yourorg.yuanying.collector\" --web-dir=public",
+    "cap:init": "cap init \"元婴采集器\" \"com.orbace.yuanying\" --web-dir=public",
     "cap:add": "cap add android",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android"

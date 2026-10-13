@@ -1,4 +1,4 @@
-package com.yourorg.yuanying.collector;
+package com.orbace.yuanying;
 
 import android.app.usage.UsageStats;
 import android.app.usage.UsageStatsManager;
