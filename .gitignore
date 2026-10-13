@@ -43,3 +43,9 @@ collector/android/app/build
 collector/android/local.properties
 collector/www
 .DS_Store
+
+# android signing (never commit)
+collector/keystore/
+collector/android/keystore.properties
+*.jks
+*.keystore

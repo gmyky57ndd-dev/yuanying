@@ -51,9 +51,20 @@ export default function Settings() {
           />
         </button>
       </div>
-      <p className="text-xs text-stone-500 mt-2">
-        关闭后，Android 采集器将停止上报。数据仅用于元婴自身的分析，不外传。
+      <p className="text-xs text-stone-500 mt-2 leading-relaxed">
+        关闭后，Android 采集器会在下一次运行时停止上报，已有数据保留。
       </p>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-2">隐私说明</h2>
+        <ul className="text-xs text-stone-500 leading-relaxed space-y-1 list-disc pl-4">
+          <li>采集内容：仅手机前台应用的使用时长（包名、名称、分钟数），不含消息、位置、照片或键盘输入。</li>
+          <li>数据去向：直接写入你自己的 Supabase（Postgres），经 HTTPS 传输，不经过任何第三方服务器。</li>
+          <li>用途：仅供元婴理解你的作息与注意力，用于对话时参考，不用于广告或对外分析。</li>
+          <li>控制权：可随时用上方开关暂停采集；数据可在 Supabase 中随时查询、导出或删除。</li>
+          <li>权限：需在系统「使用情况访问」中手动授予，可随时撤销。</li>
+        </ul>
+      </div>
     </div>
   );
 }
