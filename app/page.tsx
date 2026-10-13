@@ -1,9 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { SignalButton } from '@/components/SignalButton';
+import { postChat, fetchWithTimeout } from '@/lib/api';
 
 type Message = { role: 'user' | 'assistant'; content: string };
-type Signal = { name: string; created_at: string };
+type Signal = {
+  id: number;
+  name: string;
+  type: string;
+  value: any;
+  created_at: string;
+  context: Record<string, any>;
+};
 
 const SIGNALS = ['wake', 'sleep', 'water', 'sit'] as const;
 
@@ -13,14 +22,18 @@ export default function Home() {
   const [sending, setSending] = useState(false);
   const [todaySignals, setTodaySignals] = useState<Signal[]>([]);
   const [listening, setListening] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  const sessionIdRef = useRef<string>('');
+  if (!sessionIdRef.current) {
+    const c = typeof crypto !== 'undefined' ? (crypto as any) : undefined;
+    sessionIdRef.current = c?.randomUUID?.() ?? `s-${Date.now()}`;
+  }
+
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
-    fetch('/api/history')
+    fetchWithTimeout('/api/history', {})
       .then(r => r.json())
       .then(d => setMessages(d.messages ?? []))
       .catch(() => {});
@@ -33,7 +46,7 @@ export default function Home() {
 
   async function loadSignals() {
     try {
-      const r = await fetch('/api/signal');
+      const r = await fetchWithTimeout('/api/signal', {});
       const d = await r.json();
       setTodaySignals(d.signals ?? []);
     } catch {}
@@ -43,16 +56,12 @@ export default function Home() {
     const content = (text ?? input).trim();
     if (!content || sending) return;
     setInput('');
+    setError(null);
     setMessages(m => [...m, { role: 'user', content }]);
     setSending(true);
 
     try {
-      const r = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content }),
-      });
-      const d = await r.json();
+      const d = await postChat(content, sessionIdRef.current);
       if (d.reply) {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
       } else {
@@ -62,6 +71,7 @@ export default function Home() {
         ]);
       }
     } catch {
+      setError('连接失败');
       setMessages(m => [
         ...m,
         { role: 'assistant', content: '…（连接失败）' },
@@ -73,22 +83,27 @@ export default function Home() {
   }
 
   async function logSignal(name: string) {
-    await fetch('/api/signal', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    });
-    loadSignals();
+    try {
+      await fetchWithTimeout('/api/signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      loadSignals();
+    } catch {
+      setError('打卡失败');
+    }
   }
 
   function isLogged(name: string) {
     const today = new Date().toDateString();
     return todaySignals.some(
       s =>
-        s.name === name &&
-        new Date(s.created_at).toDateString() === today
+        s.name === name && new Date(s.created_at).toDateString() === today
     );
   }
+
+  const waterCount = todaySignals.filter(s => s.name === 'water').length;
 
   function startVoice() {
     const SpeechRecognition =
@@ -128,27 +143,31 @@ export default function Home() {
         <div className="text-[10px] text-stone-500 mt-1 tracking-widest">
           元婴
         </div>
+        <a
+          href="/settings"
+          className="absolute right-4 top-5 text-xs text-stone-600"
+        >
+          设置
+        </a>
       </div>
 
       {/* Signals */}
       <div className="flex gap-2 justify-center px-4 pb-3 shrink-0">
-        {SIGNALS.map(name => {
-          const logged = isLogged(name);
-          return (
-            <button
-              key={name}
-              onClick={() => logSignal(name)}
-              className={`px-3 py-1.5 rounded-full text-xs transition-colors ${
-                logged
-                  ? 'bg-emerald-900/60 text-emerald-300 border border-emerald-800'
-                  : 'bg-stone-800 text-stone-300 border border-stone-700 active:bg-stone-700'
-              }`}
-            >
-              {name}
-            </button>
-          );
-        })}
+        {SIGNALS.map(name => (
+          <SignalButton
+            key={name}
+            name={name}
+            logged={isLogged(name)}
+            count={name === 'water' ? waterCount : undefined}
+            onClick={() => logSignal(name)}
+          />
+        ))}
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="text-center text-xs text-red-400 pb-2">{error}</div>
+      )}
 
       {/* Chat */}
       <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-2">

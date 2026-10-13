@@ -34,3 +34,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# android collector
+collector/node_modules
+collector/android/.gradle
+collector/android/build
+collector/android/app/build
+collector/android/local.properties
+collector/www
+.DS_Store

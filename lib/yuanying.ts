@@ -1,32 +1,73 @@
 import fs from 'fs';
 import path from 'path';
 
-let cached: string | null = null;
+interface BuildOptions {
+  signals?: Array<{ name: string; created_at: string }>;
+  now?: string;
+}
 
-export function buildSystemPrompt(): string {
-  if (cached) return cached;
+let coreCache: string | null = null;
+let coreCacheMtime = 0;
 
-  const coreFiles = ['identity.md', 'values.md', 'voice.md'];
-  const core = coreFiles
-    .map(f =>
-      fs.readFileSync(path.join(process.cwd(), 'core', f), 'utf-8')
-    )
+function loadCore(): string {
+  const coreDir = path.join(process.cwd(), 'core');
+  const files = ['identity.md', 'values.md', 'voice.md'];
+
+  const stat = fs.statSync(path.join(coreDir, files[0]));
+
+  if (coreCache && stat.mtimeMs === coreCacheMtime) {
+    return coreCache;
+  }
+
+  coreCache = files
+    .map(f => {
+      const fp = path.join(coreDir, f);
+      const content = fs.readFileSync(fp, 'utf-8');
+      return `## ${f}\n\n${content}`;
+    })
     .join('\n\n---\n\n');
 
-  cached = `${core}
+  coreCacheMtime = stat.mtimeMs;
+
+  return coreCache;
+}
+
+function buildSignalContext(
+  signals: Array<{ name: string; created_at: string }>
+): string {
+  if (!signals || signals.length === 0) {
+    return "\n\n# Today's signals\n\nNone yet.";
+  }
+
+  const lines = signals.map(s => {
+    const t = new Date(s.created_at);
+    const time = t.toLocaleTimeString('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Shanghai',
+    });
+    return `- ${s.name} at ${time}`;
+  });
+
+  return `\n\n# Today's signals\n\n${lines.join('\n')}`;
+}
+
+export function buildSystemPrompt(opts: BuildOptions = {}): string {
+  const core = loadCore();
+  const signalCtx = buildSignalContext(opts.signals ?? []);
+  const now = opts.now ?? new Date().toISOString();
+
+  return `${core}
 
 ---
 
 # Runtime
 
-You are running as a phone PWA prototype. The user has
-four signals: wake, sleep, water, sit. Today's signals
-will be listed below when relevant.
+You are running as a phone PWA prototype.
+Keep responses short — this is a phone screen.
 
-Keep responses short. This is a phone screen.
-
-Current time: ${new Date().toISOString()}
+Current time: ${now}
+Timezone: Asia/Shanghai
+${signalCtx}
 `;
-
-  return cached;
 }
