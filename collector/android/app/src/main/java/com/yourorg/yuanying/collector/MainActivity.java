@@ -33,15 +33,12 @@ public class MainActivity extends AppCompatActivity {
         statusText = findViewById(R.id.status_text);
         Button grantBtn = findViewById(R.id.grant_button);
         Button testBtn = findViewById(R.id.test_button);
-        Button updateBtn = findViewById(R.id.update_button);
 
         grantBtn.setOnClickListener(v -> openUsageAccessSettings());
         testBtn.setOnClickListener(v -> runOnce());
-        updateBtn.setOnClickListener(v -> new UpdateChecker().checkAsync(this));
 
         schedulePeriodicWork();
         refreshStatus();
-        new UpdateChecker().checkAsync(this);
     }
 
     @Override

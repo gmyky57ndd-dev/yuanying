@@ -64,6 +64,9 @@ export default function Settings() {
           <li>控制权：可随时用上方开关暂停采集；数据可在 Supabase 中随时查询、导出或删除。</li>
           <li>权限：需在系统「使用情况访问」中手动授予，可随时撤销。</li>
         </ul>
+        <a href="/privacy" className="inline-block mt-3 text-xs text-emerald-400">
+          查看完整隐私政策 →
+        </a>
       </div>
     </div>
   );
