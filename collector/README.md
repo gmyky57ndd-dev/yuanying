@@ -8,16 +8,29 @@ P2 的 Android 活动采集器。独立 App，只负责采集手机 App 使用�
 - Node.js 18+
 - Android Studio（含 Android SDK / JDK 17）
 
-## 初始化（首次）
+## 构建
+
+`android/` 平台工程已生成并提交到本仓库，直接构建即可：
 
 ```bash
 cd collector
 npm install
+npx cap sync android
+cd android && ./gradlew assembleDebug
+```
+
+产物：`collector/android/app/build/outputs/apk/debug/app-debug.apk`
+
+或推送到 GitHub 后在 Actions → **Android Collector** 下载 APK artifact。
+
+从零重建平台（如需）：
+
+```bash
+cd collector
 npx cap add android
 ```
 
-生成 `android/` 平台工程后，将本仓库 `android/` 下的 Java / Manifest / layout / gradle
-文件覆盖到生成的工程对应位置（包名 `com.yourorg.yuanying.collector`）。
+之后用本仓库版本覆盖 `android/app/src/main/` 下的 Java / Manifest / layout 文件。
 
 ## 配置后端地址
 
