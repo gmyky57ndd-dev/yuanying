@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { getDayRange, getTodayRange, getConfigTimezone } from '@/lib/timezone';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,16 +20,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 幂等检查：wake/sleep/sit 当日不重复
+    // 幂等检查：wake/sleep 当日不重复（按用户本地日）
     if (IDEMPOTENT.includes(name)) {
-      const startOfDay = new Date();
-      startOfDay.setHours(0, 0, 0, 0);
+      const tz = await getConfigTimezone();
+      const { start } = getTodayRange(tz);
 
       const { data: existing } = await supabase
         .from('signals')
         .select('id')
         .eq('name', name)
-        .gte('created_at', startOfDay.toISOString())
+        .gte('created_at', start.toISOString())
         .limit(1)
         .maybeSingle();
 
@@ -66,23 +67,17 @@ export async function GET(req: NextRequest) {
   try {
     const url = new URL(req.url);
     const dateParam = url.searchParams.get('date');
+    const tz = await getConfigTimezone();
 
-    let startOfDay: Date;
-    if (dateParam) {
-      startOfDay = new Date(dateParam);
-    } else {
-      startOfDay = new Date();
-    }
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(startOfDay);
-    endOfDay.setDate(endOfDay.getDate() + 1);
+    const { start, end } = dateParam
+      ? getDayRange(dateParam, tz)
+      : getTodayRange(tz);
 
     const { data, error } = await supabase
       .from('signals')
       .select('*')
-      .gte('created_at', startOfDay.toISOString())
-      .lt('created_at', endOfDay.toISOString())
+      .gte('created_at', start.toISOString())
+      .lt('created_at', end.toISOString())
       .order('created_at', { ascending: false });
 
     if (error) {

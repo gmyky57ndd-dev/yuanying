@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import { buildSystemPrompt } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
+import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -39,17 +40,9 @@ export async function POST(req: NextRequest) {
       // Non-fatal: continue with empty history
     }
 
-    // 2. Today's data (anchored to Beijing time; serverless runs UTC)
-    const bj = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Shanghai',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).formatToParts(new Date());
-    const gp = (t: string) => bj.find(x => x.type === t)!.value;
-    const startOfDay = new Date(
-      `${gp('year')}-${gp('month')}-${gp('day')}T00:00:00+08:00`
-    );
+    // 2. Today's data (user's configured timezone; AGENTS.md §6)
+    const tz = await getConfigTimezone();
+    const { start: startOfDay, end: endOfDay } = getTodayRange(tz);
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
     const [signalsRes, stepsRes, goalRes, remindersRes] = await Promise.all([
@@ -57,6 +50,7 @@ export async function POST(req: NextRequest) {
         .from('signals')
         .select('name, created_at')
         .gte('created_at', startOfDay.toISOString())
+        .lt('created_at', endOfDay.toISOString())
         .order('created_at', { ascending: true }),
       supabase
         .from('signals')

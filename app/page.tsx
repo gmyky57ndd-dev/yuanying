@@ -122,11 +122,9 @@ export default function Home() {
   }
 
   function isLogged(name: string) {
-    const today = new Date().toDateString();
-    return todaySignals.some(
-      s =>
-        s.name === name && new Date(s.created_at).toDateString() === today
-    );
+    // todaySignals is already scoped server-side (see /api/signal GET).
+    // Do not re-filter on the client — the browser timezone may differ.
+    return todaySignals.some(s => s.name === name);
   }
 
   const waterCount = todaySignals.filter(s => s.name === 'water').length;

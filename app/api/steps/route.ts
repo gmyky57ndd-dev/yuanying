@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,24 +37,16 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  // "Today" anchored to Beijing time.
-  const now = new Date();
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Shanghai',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now);
-  const get = (t: string) => parts.find(x => x.type === t)!.value;
-  const startOfDay = new Date(
-    `${get('year')}-${get('month')}-${get('day')}T00:00:00+08:00`
-  );
+  // "Today" anchored to the user's configured timezone (AGENTS.md §6).
+  const tz = await getConfigTimezone();
+  const { start, end } = getTodayRange(tz);
 
   const { data } = await supabase
     .from('signals')
     .select('value, created_at')
     .eq('name', 'steps')
-    .gte('created_at', startOfDay.toISOString())
+    .gte('created_at', start.toISOString())
+    .lt('created_at', end.toISOString())
     .order('created_at', { ascending: false })
     .limit(1);
 
