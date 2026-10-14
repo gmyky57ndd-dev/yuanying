@@ -123,25 +123,25 @@
 - **Status**: In Review · **Phase** P1 · **Refs** spec v2 §6.3/§7; commit `cc952f3`
 - **Notes**: `buildSystemPrompt` includes steps/water/recent reminders; now day-scoped via B-16.
 
+### [P1-09] Reminder generation + delivery in Android collector
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/Dev Response 1014.md` §2.1; commit `c7ef80c`
+- **Description**: Collector WorkManager job decides due reminders (Beijing windows), records them via `POST /api/reminder/create`, then shows a notification + Chinese TTS. No cron, no PWA-open requirement.
+- **Acceptance**:
+  - [x] Collector checks water/standup/vitamin windows hourly
+  - [x] Notification + TTS fire without the PWA open (code path)
+  - [x] Writes `reminders` rows (shown/acted) for the summary
+  - [x] Respects `config.reminders_enabled`
+  - [ ] Owner confirms on device
+- **Notes**: Kotlin; minSdk 24; `POST_NOTIFICATIONS` requested on Android 13+. iOS deferred (P2). Replaces P1-02. **Device verification pending.** Build v1.0.9 (code 10).
+
 ---
 
 ## To Do
-
-### [P1-09] Reminder generation + delivery in Android collector
-
-- **Status**: To Do
-- **Owner**: —
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: `docs/Dev Response 1014.md` §2.1
-- **Description**: Move reminder **generation and delivery** into the collector: WorkManager hourly → check reminder windows → show notification + TTS directly. No cron, no PWA-open requirement.
-- **Acceptance**:
-  - [ ] Collector checks water/standup/vitamin windows hourly
-  - [ ] Notification + TTS fire without the PWA open
-  - [ ] Writes `reminders` rows (shown/acted) for the summary
-  - [ ] Respects `config.reminders_enabled`
-  - [ ] Owner confirms on device
-- **Notes**: Cross-platform (Kotlin). iOS deferred (P2). Replaces P1-02. Depends on B-16 for day scoping.
 
 ### [P1-10] Steps display on PWA home
 
@@ -188,7 +188,7 @@
   - [ ] Dedicated `VERCEL_TOKEN` (no expiration) with rotation note
   - [ ] Play upload automated (service account) OR documented manual fallback
   - [ ] A short runbook in `docs/`
-- **Notes**: **Dedicated session** — do not fold into other work.
+- **Notes**: **Dedicated session** — do not fold into other work. **Interim (owner, 2026-10-14):** use web auto-deployment (`deploy.yml`) for the PWA and **manual AAB upload to Google Play** for the collector until this session.
 
 ---
 
@@ -240,6 +240,8 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - Created P1-09, P1-10, P1-11, **P1-12 (self-upgrade review — dedicated session)**.
 - `AGENTS.md` finalized v1.3.
 - Removed duplicate `/api/summary` (replaced by P1-11's `/api/summary/today`).
+- **P1-09** implemented (collector generates + delivers reminders); In Review pending device check. Collector build **v1.0.9** (code 10).
+- **Self-upgrade interim** (owner, 2026-10-14): web auto-deploy is live; Google Play upload stays **manual** until the P1-12 dedicated session.
 
 ### 2026-10-14 (session 1)
 - Sprint v2 landed: P0-01 sit removal; B-15 duration fix; P1-01..P1-08.
