@@ -1,25 +1,23 @@
 package com.orbace.yuanying;
 
-import android.app.usage.UsageStats;
+import android.app.usage.UsageEvents;
 import android.app.usage.UsageStatsManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
-import android.util.Log;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
 
 public class UsageStatsCollector {
 
-    private static final String TAG = "UsageStatsCollector";
     private static final long MIN_FOREGROUND_MS = 60_000;  // 1 分钟
 
     private final Context ctx;
@@ -28,34 +26,64 @@ public class UsageStatsCollector {
         this.ctx = ctx;
     }
 
+    /**
+     * Computes exact per-window foreground time by walking raw usage events.
+     * queryAndAggregateUsageStats() returns cumulative totals on some ROMs
+     * (see TRACKING #B-15), so we derive deltas from ACTIVITY_RESUMED/PAUSED
+     * (and the API<29 MOVE_TO_FOREGROUND/BACKGROUND aliases).
+     */
     public JSONObject collectLastHour() throws Exception {
         UsageStatsManager usm = (UsageStatsManager)
             ctx.getSystemService(Context.USAGE_STATS_SERVICE);
 
         long now = System.currentTimeMillis();
-        long oneHourAgo = now - 60L * 60L * 1000L;
+        long start = now - 60L * 60L * 1000L;
+        int windowMinutes = (int) ((now - start) / 60_000L);
 
-        // Defensive clamp: an app cannot exceed the window length.
-        int windowMinutes = (int) ((now - oneHourAgo) / 60_000L);
+        UsageEvents events = usm.queryEvents(start, now);
+        UsageEvents.Event event = new UsageEvents.Event();
 
-        Map<String, UsageStats> stats = usm.queryAndAggregateUsageStats(
-            oneHourAgo, now
-        );
+        Map<String, Long> foregroundStart = new HashMap<>();
+        Map<String, Long> totalByPackage = new HashMap<>();
+
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event);
+            String pkg = event.getPackageName();
+            long ts = event.getTimeStamp();
+            int type = event.getEventType();
+
+            if (type == UsageEvents.Event.ACTIVITY_RESUMED
+                || type == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                foregroundStart.put(pkg, ts);
+            } else if (type == UsageEvents.Event.ACTIVITY_PAUSED
+                || type == UsageEvents.Event.MOVE_TO_BACKGROUND) {
+                Long s = foregroundStart.remove(pkg);
+                if (s != null) {
+                    totalByPackage.put(pkg, get(totalByPackage, pkg) + (ts - s));
+                }
+            }
+        }
+
+        // Close any interval still open at `now`.
+        for (Map.Entry<String, Long> e : foregroundStart.entrySet()) {
+            String pkg = e.getKey();
+            totalByPackage.put(pkg, get(totalByPackage, pkg) + (now - e.getValue()));
+        }
 
         JSONArray apps = new JSONArray();
 
-        for (Map.Entry<String, UsageStats> entry : stats.entrySet()) {
-            UsageStats s = entry.getValue();
-            long fg = s.getTotalTimeInForeground();
+        for (Map.Entry<String, Long> e : totalByPackage.entrySet()) {
+            String pkg = e.getKey();
+            long totalMs = e.getValue();
 
-            if (fg < MIN_FOREGROUND_MS) continue;
+            if (totalMs < MIN_FOREGROUND_MS) continue;
 
             // 跳过系统 UI 和自身
-            String pkg = s.getPackageName();
             if (pkg.equals("com.android.systemui")) continue;
             if (pkg.equals(ctx.getPackageName())) continue;
 
-            long rawMinutes = fg / 60_000;
+            // Defensive clamp: never exceed the window length.
+            long rawMinutes = totalMs / 60_000;
             long clampedMinutes = Math.min(rawMinutes, windowMinutes);
 
             JSONObject app = new JSONObject();
@@ -67,11 +95,16 @@ public class UsageStatsCollector {
 
         JSONObject payload = new JSONObject();
         payload.put("platform", "android");
-        payload.put("window_start", iso8601(oneHourAgo));
+        payload.put("window_start", iso8601(start));
         payload.put("window_end", iso8601(now));
         payload.put("apps", apps);
 
         return payload;
+    }
+
+    private static long get(Map<String, Long> m, String k) {
+        Long v = m.get(k);
+        return v == null ? 0L : v;
     }
 
     private String resolveAppName(String pkg) {
