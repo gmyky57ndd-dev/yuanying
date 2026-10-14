@@ -23,6 +23,9 @@ export default function Home() {
   const [todaySignals, setTodaySignals] = useState<Signal[]>([]);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [steps, setSteps] = useState<{ value: number; goal: number } | null>(
+    null
+  );
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -38,17 +41,35 @@ export default function Home() {
       .then(d => setMessages(d.messages ?? []))
       .catch(() => {});
     loadSignals();
+    loadSteps();
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, sending]);
 
+  // Refresh today's steps when the app returns to the foreground.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') loadSteps();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
   async function loadSignals() {
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/signal`, {});
       const d = await r.json();
       setTodaySignals(d.signals ?? []);
+    } catch {}
+  }
+
+  async function loadSteps() {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/steps`, {});
+      const d = await r.json();
+      setSteps({ value: d.steps ?? 0, goal: d.goal ?? 5000 });
     } catch {}
   }
 
@@ -187,6 +208,13 @@ export default function Home() {
           />
         ))}
       </div>
+
+      {/* Steps */}
+      {steps && (
+        <div className="text-center text-[11px] text-stone-500 pb-2">
+          步数 {steps.value} / {steps.goal}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
