@@ -139,22 +139,23 @@
   - [ ] Owner confirms on device
 - **Notes**: Kotlin; minSdk 24; `POST_NOTIFICATIONS` requested on Android 13+. iOS deferred (P2). Replaces P1-02. **Device verification pending.** Build v1.0.9 (code 10).
 
+### [P1-10] Steps display on PWA home
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/Dev Response 1014.md` §2.3; commit `832fcc8`
+- **Description**: Show today's steps + goal on the PWA home (reads `/api/steps`).
+- **Acceptance**:
+  - [x] Home shows `steps / goal`
+  - [x] Updates after a step report / reload (refresh on load + on foreground)
+  - [x] Honors daily scoping (B-16)
+- **Notes**: Verified in production — home renders `步数 0 / 5000`. Owner device check pending.
+
 ---
 
 ## To Do
-
-### [P1-10] Steps display on PWA home
-
-- **Status**: To Do
-- **Owner**: —
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: `docs/Dev Response 1014.md` §2.3
-- **Description**: Show today's steps + goal on the PWA home screen (reads `/api/steps`).
-- **Acceptance**:
-  - [ ] Home shows `steps / goal`
-  - [ ] Updates after a step report / reload
-  - [ ] Honors daily scoping (B-16)
 
 ### [P1-11] Daily summary v1
 
@@ -241,6 +242,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - `AGENTS.md` finalized v1.3.
 - Removed duplicate `/api/summary` (replaced by P1-11's `/api/summary/today`).
 - **P1-09** implemented (collector generates + delivers reminders); In Review pending device check. Collector build **v1.0.9** (code 10).
+- **P1-10** implemented (steps display on PWA home); In Review, production-verified.
 - **Self-upgrade interim** (owner, 2026-10-14): web auto-deploy is live; Google Play upload stays **manual** until the P1-12 dedicated session.
 
 ### 2026-10-14 (session 1)
