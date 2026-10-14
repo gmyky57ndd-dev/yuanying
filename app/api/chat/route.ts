@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { buildSystemPrompt } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
 import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
+import { getTodaySummaryCached } from '@/lib/summary-generator';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -76,6 +77,14 @@ export async function POST(req: NextRequest) {
       created_at: string;
     }>;
 
+    // Today's summary ("看今天的简报").
+    let summaryData = undefined;
+    try {
+      summaryData = (await getTodaySummaryCached()).data;
+    } catch (e) {
+      console.error('summary load failed (non-fatal):', e);
+    }
+
     // 3. Build system prompt
     const systemPrompt = buildSystemPrompt({
       signals: todaysSignals,
@@ -84,6 +93,7 @@ export async function POST(req: NextRequest) {
       stepsGoal: goalRes.data?.value ?? 5000,
       waterCount: todaysSignals.filter(s => s.name === 'water').length,
       recentReminders: remindersRes.data ?? [],
+      summary: summaryData,
     });
 
     // 4. Assemble messages

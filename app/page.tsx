@@ -42,6 +42,8 @@ export default function Home() {
       .catch(() => {});
     loadSignals();
     loadSteps();
+    // Generate today's summary on first open (idempotent server-side).
+    fetchWithTimeout(`${API_BASE}/api/summary/today`, {}).catch(() => {});
   }, []);
 
   useEffect(() => {

@@ -1,9 +1,11 @@
 import fs from 'fs';
 import path from 'path';
+import { SummaryData } from './summary-types';
 
 interface BuildOptions {
   signals?: Array<{ name: string; created_at: string }>;
   now?: string;
+  summary?: SummaryData;
   steps?: number | null;
   stepsGoal?: number;
   waterCount?: number;
@@ -84,10 +86,28 @@ function buildDailyContext(opts: BuildOptions): string {
   return `\n\n# Today's data\n\n${lines.join('\n')}`;
 }
 
+function buildSummaryLine(s: SummaryData): string {
+  return `
+## Today at a glance
+
+- Wake: ${s.wake.at ?? 'not logged'}
+- Water: ${s.water.count} / ${s.water.target}
+- Steps: ${s.steps.value} / ${s.steps.goal}
+- Reminders:
+  - water: ${s.reminders.water.acted}/${s.reminders.water.shown} acted
+  - standup: ${s.reminders.standup.acted}/${s.reminders.standup.shown} acted
+  - vitamin: ${s.reminders.vitamin.acted}/${s.reminders.vitamin.shown} acted
+
+If the user asks for "看今天的简报" / "今日简报" / "today's summary" / "how was my day",
+format the above into a short readable reply. Do not add interpretation.
+`;
+}
+
 export function buildSystemPrompt(opts: BuildOptions = {}): string {
   const core = loadCore();
   const signalCtx = buildSignalContext(opts.signals ?? []);
   const dailyCtx = buildDailyContext(opts);
+  const summaryLine = opts.summary ? buildSummaryLine(opts.summary) : '';
   const now = opts.now ?? new Date().toISOString();
 
   return `${core}
@@ -116,6 +136,6 @@ data below. If data is missing, say you don't know. Do not fabricate.
 ${now}
 
 Timezone: Asia/Shanghai
-${signalCtx}${dailyCtx}
+${signalCtx}${dailyCtx}${summaryLine}
 `;
 }
