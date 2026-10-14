@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { SWRegister } from '@/components/SWRegister';
+import { ReminderPoller } from '@/components/ReminderPoller';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -35,6 +36,7 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className="bg-stone-950 text-stone-100 antialiased">
         <SWRegister />
+        <ReminderPoller />
         {children}
       </body>
     </html>
