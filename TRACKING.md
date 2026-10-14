@@ -83,6 +83,22 @@
 - **Acceptance**: unit test passes (day range crosses UTC at 16:00); no `setHours(0,0,0,0)`/`toDateString()` in `app|lib`; **owner confirms reset across a real local midnight** (pending).
 - **Blocks**: P1-11.
 
+### [B-17] button/summary inconsistency `[BUG]`
+
+- **Status**: In Review · **Phase** P0 · **Refs** `docs/PM/PM Feedback — 2026-10-14.md` §2.4; commit `56a0762`
+- **Description**: Signal buttons read live `/api/signal` while the chat summary read a cached `summaries` row that never refreshed → buttons showed `wake` active / `water ×1` but the summary showed `起床: 未记录` / `喝水: 0/6`.
+- **Evidence**: `summaries` row `updated_at 2026-10-14T18:38:34Z` (wake null, water 0) while `wake`/`water` signals were written `19:16Z` (same Beijing day).
+- **Fix**: `getTodaySummaryCached` now regenerates when the cached row is older than the newest signal/reminder of the day.
+- **Acceptance**: summary matches buttons after new signals; owner confirms on device.
+- **Blocks**: P1-14.
+
+### [B-18] 元婴 states inference as fact `[BUG]`
+
+- **Status**: In Review · **Phase** P0 · **Refs** `docs/PM/PM Feedback — 2026-10-14.md` §2.5; commit `a184e33`
+- **Description**: 元婴 said "…有一串 app_usage。十九次。没睡。" — diagnosing instead of observing (learning loop step 3).
+- **Fix**: authored rule in `core/voice.md` (观察，不诊断) + runtime reinforcement in `lib/yuanying.ts` (propose, never conclude).
+- **Acceptance**: 元婴 presents inferences as questions, not facts; owner confirms.
+
 ### [P0-02] Signal button silent failure
 
 - **Status**: In Review · **Phase** P0 · **Refs** diagnostic F1; commit `89a8f04`
@@ -174,7 +190,7 @@
 
 ## To Do
 
-### [P1-12] Review & optimize self-upgrade
+### [P1-15] Review & optimize self-upgrade
 
 - **Status**: To Do
 - **Owner**: —
@@ -195,7 +211,26 @@
 
 ## Blocked
 
-*(none)*
+### [P1-12] Configurable habits
+
+- **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
+- **Refs**: `docs/specs/ES-001-habits-framework.md` (PM doc §2.2, decisions D3/D4/D5)
+- **Blocker**: ES-001 spec file is **not present** in the repo (`docs/specs/` missing). Design/implementation awaits the spec.
+- **Description**: Configurable habits (minimal) so adding/editing a tracking item needs no deploy; reminder rules support fixed times + per-day intervals; collector reads server config.
+
+### [P1-13] Daily notes
+
+- **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
+- **Refs**: `docs/specs/ES-002-daily-notes.md` (PM doc §2.3, decisions D6/D7)
+- **Blocker**: ES-002 spec file is **not present** in the repo.
+- **Description**: "记一笔" text note (voice transcribed at input; text only); notes stored as signals and integrated into the summary.
+
+### [P1-14] Tracking visibility
+
+- **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
+- **Refs**: `docs/specs/ES-003-tracking-visibility.md` (PM doc §2.1, decision D2)
+- **Blocker**: ES-003 spec **not present**; also depends on **B-17** (button/summary consistency) landing first.
+- **Description**: Close the gap between "what is tracked" and "what has a reminder" on the home/tracking panel. Not the full UX redesign (deferred to Phase v2).
 
 ---
 
@@ -234,6 +269,12 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-14 (session 3 — PM handoff)
+- Adopted PM Feedback 2026-10-14. Created + fixed **B-17** (button/summary inconsistency) and **B-18** (元婴 states inference as fact) → In Review.
+- Created **P1-12** (Configurable habits), **P1-13** (Daily notes), **P1-14** (Tracking visibility) — **Blocked**: the `ES-001/002/003` spec files are **not present** in the repo.
+- Renumbered the self-upgrade item **P1-12 → P1-15** to free P1-12 for Configurable habits (PM doc §6).
+- Reported the missing spec files and requested them (AGENTS §9).
 
 ### 2026-10-14 (session 2)
 - Adopted Dev Response 1014: reminders → Android collector (P1-09); cron (P1-02) → **Won't Do**; P1-01/P1-03 → In Progress.
