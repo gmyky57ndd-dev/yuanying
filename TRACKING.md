@@ -153,26 +153,26 @@
   - [x] Honors daily scoping (B-16)
 - **Notes**: Verified in production — home renders `步数 0 / 5000`. Owner device check pending.
 
+### [P1-11] Daily summary v1
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/APPENDIX for 1014 response.md` Appendix A; commit `5a276c4`
+- **Description**: Aggregate the day's signals + reminders into a `summaries` row (aggregation only). `POST /api/summary/generate`, `GET /api/summary/today`; chat "看今天的简报".
+- **Acceptance**:
+  - [x] `summaries` table created
+  - [x] generate endpoint idempotent (upsert)
+  - [x] `today` caches on hit, generates on miss
+  - [x] empty day produces a record
+  - [x] cross-day boundary per user timezone
+  - [x] chat "看今天的简报" works
+- **Notes**: Verified in production (generate → cached `today`; chat returns the formatted brief). Supersedes the deleted `/api/summary`.
+
 ---
 
 ## To Do
-
-### [P1-11] Daily summary v1
-
-- **Status**: To Do
-- **Owner**: —
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: `docs/APPENDIX for 1014 response.md` Appendix A
-- **Description**: Aggregate the day's signals + reminders into a `summaries` row (aggregation only). `POST /api/summary/generate`, `GET /api/summary/today`; chat "看今天的简报".
-- **Acceptance**:
-  - [ ] `summaries` table created
-  - [ ] generate endpoint idempotent (upsert)
-  - [ ] `today` caches on hit, generates on miss
-  - [ ] empty day produces a record
-  - [ ] cross-day boundary per user timezone
-  - [ ] chat "看今天的简报" works
-- **Notes**: Depends on B-16 (landed). Supersedes the deleted `/api/summary`.
 
 ### [P1-12] Review & optimize self-upgrade
 
@@ -243,6 +243,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - Removed duplicate `/api/summary` (replaced by P1-11's `/api/summary/today`).
 - **P1-09** implemented (collector generates + delivers reminders); In Review pending device check. Collector build **v1.0.9** (code 10).
 - **P1-10** implemented (steps display on PWA home); In Review, production-verified.
+- **P1-11** implemented (daily summary v1 + chat brief); In Review, production-verified.
 - **Self-upgrade interim** (owner, 2026-10-14): web auto-deploy is live; Google Play upload stays **manual** until the P1-12 dedicated session.
 
 ### 2026-10-14 (session 1)
