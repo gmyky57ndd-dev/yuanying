@@ -191,7 +191,7 @@ All items below are code-complete and deployed/build-ready. **Owner verification
 - **Refs**: spec v2 §7, App B; commit `75b243d`
 - **Description**: Kotlin `StepsCollector`, hourly report via `CollectorWorker`, permission UI. **New deps**: `androidx.health.connect:connect-client:1.1.0-alpha10`, `com.google.guava:guava:32.1.3-android` (transitive ListenableFuture), Kotlin Gradle plugin `1.9.24`. `minSdk` 24 → 26 (HealthConnect requires 26; spec requires Android 9+).
 - **Acceptance**: permission flow on Android 9+; hourly `name='steps'` rows; denied path non-crashing.
-- **Notes**: Built into v1.0.7 AAB (minSdk 26). **Requires device verification** — cannot be exercised on CI/host.
+- **Notes**: HealthConnect declares `minSdk 26`, but Play blocks releases that reduce device support. Fixed in **v1.0.8**: `tools:overrideLibrary="androidx.health.connect.client"` keeps app **minSdk 24**, and all HealthConnect classes are only touched when `SDK_INT >= 26`. On API 24–25 the app installs and steps show "需要 Android 9+". **Requires device verification** on Android 9+.
 
 ### [P1-08] Reference reminders + steps in chat
 
