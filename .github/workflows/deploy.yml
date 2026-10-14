@@ -1,0 +1,57 @@
+name: Deploy Web (Vercel)
+
+# Deploys the PWA to Vercel production on every push to main.
+# Requires repo secrets: VERCEL_TOKEN (vercel.com/account/tokens),
+# plus VERCEL_ORG_ID and VERCEL_PROJECT_ID (already set).
+# This does not depend on the Vercel <-> GitHub App integration.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'collector/**'
+      - '.github/workflows/android.yml'
+      - '.github/workflows/android-release.yml'
+      - 'TRACKING.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      HAS_TOKEN: ${{ secrets.VERCEL_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.HAS_TOKEN == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_TOKEN == 'true'
+        with:
+          node-version: '20'
+
+      - name: Install Vercel CLI
+        if: env.HAS_TOKEN == 'true'
+        run: npm i -g vercel@latest
+
+      - name: Pull Vercel env
+        if: env.HAS_TOKEN == 'true'
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        if: env.HAS_TOKEN == 'true'
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        if: env.HAS_TOKEN == 'true'
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Skipped (no VERCEL_TOKEN)
+        if: env.HAS_TOKEN != 'true'
+        run: echo "VERCEL_TOKEN not set — add it in repo Settings → Secrets to enable auto-deploy."
+
