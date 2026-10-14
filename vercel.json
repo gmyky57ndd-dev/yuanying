@@ -1,0 +1,7 @@
+{
+  "crons": [
+    { "path": "/api/cron/standup", "schedule": "0 1-10 * * *" },
+    { "path": "/api/cron/water", "schedule": "30 2,7,12 * * *" },
+    { "path": "/api/cron/vitamin", "schedule": "30 0 * * *" }
+  ]
+}
