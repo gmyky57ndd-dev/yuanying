@@ -1,32 +1,61 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { fetchWithTimeout } from '@/lib/api';
+import { fetchWithTimeout, API_BASE } from '@/lib/api';
+
+type Reminders = { water: boolean; standup: boolean; vitamin: boolean };
 
 export default function Settings() {
   const [enabled, setEnabled] = useState(true);
+  const [reminders, setReminders] = useState<Reminders>({
+    water: true,
+    standup: true,
+    vitamin: true,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchWithTimeout('/api/config', {})
+    fetchWithTimeout(`${API_BASE}/api/config`, {})
       .then(r => r.json())
       .then(d => {
-        setEnabled(d.activity_collection_enabled);
+        setEnabled(d.activity_collection_enabled ?? true);
+        setReminders({
+          water: true,
+          standup: true,
+          vitamin: true,
+          ...(d.reminders_enabled ?? {}),
+        });
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, []);
 
-  async function toggle() {
+  async function toggleActivity() {
     const next = !enabled;
     setEnabled(next);
-    await fetchWithTimeout('/api/config', {
+    await fetchWithTimeout(`${API_BASE}/api/config`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activity_collection_enabled: next }),
     });
   }
 
+  async function toggleReminder(name: keyof Reminders) {
+    const next = { ...reminders, [name]: !reminders[name] };
+    setReminders(next);
+    await fetchWithTimeout(`${API_BASE}/api/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reminders_enabled: next }),
+    });
+  }
+
   if (loading) return <div className="p-4">加载中…</div>;
+
+  const reminderRows: Array<{ key: keyof Reminders; label: string }> = [
+    { key: 'water', label: '喝水提醒（10:30 / 15:30 / 20:00）' },
+    { key: 'standup', label: '起身提醒（每小时，久坐后）' },
+    { key: 'vitamin', label: '维生素提醒（08:30）' },
+  ];
 
   return (
     <div className="p-4">
@@ -36,10 +65,11 @@ export default function Settings() {
         </a>
         <h1 className="text-lg">设置</h1>
       </div>
+
       <div className="flex justify-between items-center">
         <span>活动数据采集</span>
         <button
-          onClick={toggle}
+          onClick={toggleActivity}
           className={`w-12 h-6 rounded-full transition-colors ${
             enabled ? 'bg-emerald-700' : 'bg-stone-700'
           }`}
@@ -54,6 +84,29 @@ export default function Settings() {
       <p className="text-xs text-stone-500 mt-2 leading-relaxed">
         关闭后，Android 采集器会在下一次运行时停止上报，已有数据保留。
       </p>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-3">语音提醒</h2>
+        <div className="space-y-3">
+          {reminderRows.map(row => (
+            <div key={row.key} className="flex justify-between items-center gap-3">
+              <span className="text-sm">{row.label}</span>
+              <button
+                onClick={() => toggleReminder(row.key)}
+                className={`w-12 h-6 rounded-full shrink-0 transition-colors ${
+                  reminders[row.key] ? 'bg-emerald-700' : 'bg-stone-700'
+                }`}
+              >
+                <span
+                  className={`block w-5 h-5 rounded-full bg-white transition-transform ${
+                    reminders[row.key] ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div className="mt-6 border-t border-stone-800 pt-4">
         <h2 className="text-sm text-stone-300 mb-2">隐私说明</h2>
