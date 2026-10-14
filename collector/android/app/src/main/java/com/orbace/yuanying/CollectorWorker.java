@@ -29,27 +29,34 @@ public class CollectorWorker extends Worker {
                 return Result.success();
             }
 
-            // 2. 采集
-            JSONObject payload = new UsageStatsCollector(ctx)
-                .collectLastHour();
-
-            int appCount = payload.getJSONArray("apps").length();
-            if (appCount == 0) {
-                Log.i(TAG, "no apps to report");
-                return Result.success();
-            }
-
-            // 3. 上报
             ApiClient api = new ApiClient();
-            boolean ok = api.post(ApiClient.BASE_URL + "/api/activity", payload);
+            boolean okUsage = true;
 
-            if (ok) {
-                Log.i(TAG, "reported " + appCount + " apps");
-                return Result.success();
+            // 2. App usage
+            JSONObject payload = new UsageStatsCollector(ctx).collectLastHour();
+            int appCount = payload.getJSONArray("apps").length();
+            if (appCount > 0) {
+                okUsage = api.post(ApiClient.BASE_URL + "/api/activity", payload);
+                Log.i(TAG, "usage posted: " + okUsage + " (" + appCount + " apps)");
             } else {
-                Log.w(TAG, "post failed, will retry");
-                return Result.retry();
+                Log.i(TAG, "no apps to report");
             }
+
+            // 3. Steps (HealthConnect)
+            StepsCollector steps = new StepsCollector(ctx);
+            if (steps.sdkAvailable() && steps.hasPermission()) {
+                try {
+                    JSONObject stepsPayload = steps.collectToday();
+                    boolean okSteps = api.post(ApiClient.BASE_URL + "/api/steps", stepsPayload);
+                    Log.i(TAG, "steps posted: " + okSteps);
+                } catch (Exception se) {
+                    Log.w(TAG, "steps collect failed", se);
+                }
+            } else {
+                Log.w(TAG, "steps unavailable or permission not granted");
+            }
+
+            return okUsage ? Result.success() : Result.retry();
         } catch (Exception e) {
             Log.e(TAG, "collect failed", e);
             return Result.retry();

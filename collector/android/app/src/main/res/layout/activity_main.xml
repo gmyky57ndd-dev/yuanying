@@ -57,6 +57,30 @@
         android:id="@+id/test_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="立即上报一次" />
+        android:text="立即上报一次"
+        android:layout_marginBottom="24dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="步数采集（Health Connect）"
+        android:textColor="#f5f5f4"
+        android:textSize="16sp"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/steps_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="检查中…"
+        android:textColor="#a8a29e"
+        android:textSize="14sp"
+        android:layout_marginBottom="12dp" />
+
+    <Button
+        android:id="@+id/grant_steps_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="授予步数权限" />
 
 </LinearLayout>
