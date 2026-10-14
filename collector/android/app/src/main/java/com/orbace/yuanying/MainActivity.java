@@ -23,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String PWA_URL = "https://yuanying-rust.vercel.app";
+
     private TextView statusText;
 
     @Override
@@ -33,12 +35,24 @@ public class MainActivity extends AppCompatActivity {
         statusText = findViewById(R.id.status_text);
         Button grantBtn = findViewById(R.id.grant_button);
         Button testBtn = findViewById(R.id.test_button);
+        Button openPwaBtn = findViewById(R.id.open_pwa_button);
 
         grantBtn.setOnClickListener(v -> openUsageAccessSettings());
         testBtn.setOnClickListener(v -> runOnce());
+        openPwaBtn.setOnClickListener(v -> openPwa());
 
         schedulePeriodicWork();
         refreshStatus();
+    }
+
+    private void openPwa() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(PWA_URL));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, "无法打开浏览器", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override

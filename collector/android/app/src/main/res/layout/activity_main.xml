@@ -32,6 +32,13 @@
         android:layout_marginBottom="24dp" />
 
     <Button
+        android:id="@+id/open_pwa_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="打开元婴（聊天与打卡）"
+        android:layout_marginBottom="12dp" />
+
+    <Button
         android:id="@+id/grant_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
