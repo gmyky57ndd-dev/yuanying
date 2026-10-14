@@ -132,14 +132,14 @@ All items below are code-complete and deployed/build-ready. **Owner verification
 
 ### [P1-02] Reminder cron endpoints
 
-- **Status**: In Review
+- **Status**: Blocked
 - **Owner**: @agent
 - **Opened**: 2026-03-17
 - **Phase**: P1
 - **Refs**: spec v2 §4.3; work order §6.1; commit `1a32c1f`
 - **Description**: `/api/cron/{water,standup,vitamin}` with `CRON_SECRET`; `vercel.json` UTC schedules.
 - **Acceptance**: 401 unauth; 200 + `{ok,fired}` with secret; visible in Vercel dashboard.
-- **Notes**: `CRON_SECRET` set in Vercel (production + development). Preview not set (crons run in production only).
+- **Notes**: Endpoints + `CRON_SECRET` verified in production (401 without, `{ok:true,fired:[]}` with). **Blocked:** Vercel **Hobby** plan allows only once-per-day crons, so hourly `standup` and 3×/day `water` are rejected and currently removed from `vercel.json` (only daily `vitamin` kept). Unblocker: upgrade to Vercel Pro, OR drive `/api/cron/*` from an external scheduler (e.g. cron-job.org) with the same `CRON_SECRET`. **Escalated to owner.**
 
 ### [P1-04] `/api/reminder/due` + `/act`
 
@@ -294,6 +294,8 @@ Chronological record of state changes. Newest first.
 - `CRON_SECRET` provisioned (Vercel production + development).
 - Collector v1.0.7 AAB built (HealthConnect steps; minSdk 26).
 - New dependencies logged: kotlin-gradle-plugin 1.9.24, androidx.health.connect connect-client 1.1.0-alpha10, guava 32.1.3-android.
+- **P1-02 Blocked**: Vercel Hobby forbids hourly / 3×-daily crons; only daily `vitamin` scheduled. Escalated (Pro or external scheduler).
+- Deployed via `vercel --prod`. **GitHub auto-deploy not firing** — Vercel Git integration needs reconnection.
 - **Pending**: owner device verification of P0/P1, and production checks 1–4 for P0-01.
 
 ### 2026-03-17
