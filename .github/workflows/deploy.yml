@@ -39,17 +39,9 @@ jobs:
         if: env.HAS_TOKEN == 'true'
         run: npm i -g vercel@latest
 
-      - name: Pull Vercel env
+      - name: Deploy to production
         if: env.HAS_TOKEN == 'true'
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build
-        if: env.HAS_TOKEN == 'true'
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy
-        if: env.HAS_TOKEN == 'true'
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Skipped (no VERCEL_TOKEN)
         if: env.HAS_TOKEN != 'true'
