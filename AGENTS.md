@@ -1,354 +1,240 @@
-```
-AGENTS.md
-
-
-```
-```
-```markdown
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version**: 1.1
-**Status**: Active
-**Audience**: AI coding agents, human developers, tech lead
-**Applies to**: All code, all commits, all PRs in this repository
-**Changelog**: §11
+**Version:** 1.3  
+**Status:** Active  
+**Audience:** AI coding agents, human developers, tech lead  
+**Applies to:** Work in this repository  
+**Changelog:** §11
 
 ---
 
-## 1. What This Project Is
+## 1. Project context
 
-元婴 is a phone-first AI companion that grows with its owner. It captures signals (wake / sleep / water / steps), reminds the owner proactively (water / standup / vitamin), and holds memory across days, weeks, months.
+元婴 is a phone-first AI companion that captures signals (wake, sleep, water, steps, and activity), offers reminders, and retains memory over time.
 
-**One sentence**: *Not a chatbot. Not an assistant. Your second self, growing with you.*
+**One sentence:** *Not a chatbot. Not an assistant. Your second self, growing with you.*
 
-**Read first**: `yuanying-prd-v1.1.md` (why) and `yuanying-engineering-spec-v2.md` (what).
+Before implementation, read `AGENTS.md`, `TRACKING.md`, and the relevant code and project documentation. Product documents live under `docs/` — currently `docs/yuanying-prd-v1.1.md.md`, `docs/yuanying-engineering-spec-v2.md.md`, and session documents such as `docs/Dev Response 1014.md` with its appendix. Filenames may change; do not assume a path exists — locate the current source of truth, and ask the tech lead or owner if a required requirement cannot be found. Read `core/identity.md` and `core/voice.md` when work touches the companion's identity or language.
 
 ---
 
-## 2. Three Non-Negotiable Principles
+## 2. Three non-negotiable principles
 
-These override every other consideration. If a task conflicts with any of them, **stop and ask**.
+If a proposed change conflicts with one of these principles, stop and raise the conflict before implementing it.
 
 ### 2.1 Quiet by default
-元婴 speaks only when invited or when it has something that genuinely deserves the interruption. It never nags, never pushes, never floods. Every utterance must earn its place against silence.
-
-**In code**: no unsolicited notifications, no "engagement" loops, no growth-hacking patterns. Default to silence.
+元婴 speaks only when invited or when an interruption is justified. Avoid nagging, flooding, engagement loops, and growth-hacking patterns. Default to silence.
 
 ### 2.2 Confirm before action
-元婴 may observe, infer, and propose. It may not act on an inference until the owner confirms.
-
-**In code**: no autonomous actions based on inferred patterns. Proposals are shown, not executed. `inferred-patterns.md` is read-only for actions until a human or the owner promotes it to `confirmed-patterns.md`.
+元婴 may observe, infer, and propose. It must not take consequential action based only on an inferred pattern. Present proposals for confirmation first.
 
 ### 2.3 File-based core
-The 元婴's identity, values, voice, memory, and configuration live in human-readable, version-controlled files. The 元婴 does not belong to any platform, any model, or any vendor.
-
-**In code**: `core/*.md` and `memory/*` are the source of truth. Supabase and DeepSeek are replaceable backends. Never let a vendor's proprietary format become the only copy of anything important.
+Keep identity, values, voice, memory, and configuration in human-readable, version-controlled formats where applicable. Treat Supabase, DeepSeek, and other vendors as replaceable backends; do not make a vendor-specific format the only copy of important information.
 
 ---
 
-## 3. Work Classification (READ BEFORE FILING ANYTHING)
+## 3. Work classification and tracking
 
-Before you open a PR, file a tracking entry, or start work, classify it correctly. **Misclassification creates duplicate entries, wrong commit prefixes, and wasted discussion.** This is a common failure mode for both humans and agents.
+Classify work before creating a tracking item or choosing a commit/PR prefix. First search `TRACKING.md` for a related item so existing work is updated rather than duplicated. An existing entry does not, by itself, determine the classification.
 
-### 3.1 The three categories
-
-| Category | Definition | PR prefix | Tracking entry |
+| Category | Use when | Tracking action | Commit/PR type |
 |---|---|---|---|
-| **Bug** | Behavior deviates from spec. Expected behavior is already defined and was previously working, or is unambiguously required. | `fix(...)` | New entry under To Do, tagged `[BUG]` |
-| **Feature (planned)** | New behavior defined in spec, not yet built. | `feat(...)` | Entry already exists in TRACKING (or is created with owner approval). Update status. |
-| **Chore (completion)** | Planned change partially applied. Spec says X, code does Y. | `chore(...)` | Entry already exists. Update status. **Do NOT create a new entry.** |
+| **Bug** | Existing behavior violates an established requirement, or a previously working behavior regressed. | Update the related item, or create a `[BUG]` item if none exists. | `fix` |
+| **Feature** | Implements new behavior already specified and approved for scheduling. | Update the planned item; if none exists, obtain owner approval before adding it to active work. | `feat` |
+| **Chore (completion)** | Finishes or cleans up an already-started planned change or migration. | Update the existing item; do not create a duplicate. | `chore` |
+| **Maintenance/docs** | Work improves maintenance, tooling, or documentation without changing product behavior. | Track it when it is substantial or spans work sessions. | `chore` or `docs` |
 
-### 3.2 Decision tree
+### Classification steps
 
-Ask these questions **in order**. Stop at the first "yes."
+1. Find related entries in `TRACKING.md` and inspect their status, scope, and acceptance criteria.
+2. Decide whether the work is a correction, planned behavior, completion of started work, or maintenance (table above).
+3. If it is unclear whether the behavior is required or approved, do not invent a requirement. Record the uncertainty and ask the tech lead or owner before expanding scope.
+4. Update the relevant tracking entry when work starts, is blocked, enters review, or is verified complete.
 
-```
-1. Is there already a tracking entry for this? → Yes → Is it still open? → Yes → Chore (completion). Update the existing entry. → No → Go to question 2. → No → Go to question 2.  
-2. Is the current behavior violating the spec? → Yes → Bug. Create a new tracking entry tagged [BUG]. → No → Go to question 3.  
-3. Is there a spec section describing the desired behavior? → Yes → Feature (planned). Create an entry only if the owner approves. → No → Escalate. Do not proceed.  
-4. Still ambiguous? → Stop. Ask. Do not guess.  
-```
-### 3.3 Worked examples
+**Examples**
 
-**Example A — "API still accepts `sit` after v2 removal"**
+- The API still accepts `sit` during the open removal item P0-01: completion of an existing migration, so update P0-01 and use `chore(signal): ...`.
+- A duration exceeds the established collection window and no related item exists: bug; create a `[BUG]` tracking entry and use `fix(...)`.
+- A reminder settings page is specified and has an existing planned item: feature; update that item and use `feat(settings): ...`. Its existing entry does not make it a chore.
 
-- Is there a tracking entry? **Yes — P0-01.**
-- Is it still open? **Yes.**
-- Classification: **Chore (completion).**
-- Action: Verify the existing entry's acceptance criteria. Close it if satisfied. **Do not create a new bug entry.**
-- If code changes are needed: `chore(signal): complete sit removal from v2`
+### Historical records
 
-**Example B — "Bilibili reports 653 min in a 60-min window"**
-
-- Is there a tracking entry? **No.**
-- Is it violating the spec? **Yes — spec says window is 60 minutes.**
-- Classification: **Bug.**
-- Action: Create `### [B-XX] app_usage duration_min inflation` under To Do. Tag `[BUG]`.
-- PR: `fix(android/collector): clamp duration to window length`
-
-**Example C — "Add reminder settings page"**
-
-- Is there a tracking entry? **Yes — P1-05 in TRACKING or spec v2 §6.4.**
-- Is it still open? **Yes.**
-- Classification: **Feature (planned).**
-- PR: `feat(settings): add reminder toggles`
-
-**Example D — "Button color is slightly off from spec"**
-
-- Is there a tracking entry? **No.**
-- Is it violating the spec? **Depends — does the spec define the color?**
-  - Yes → Bug.
-  - No → Cosmetic. Log in Backlog. Do not implement.
-
-### 3.4 Why this matters
-
-Filing `sit`-type items as bugs has three concrete costs:
-
-1. **Duplicate tracking.** P0-01 and a new "[BUG] sit still accepted" entry describe the same work. Which one closes when the work is done? The answer is unclear, and both may linger.
-2. **Wrong commit prefix.** `fix:` implies "restore expected behavior." `chore:` implies "complete a planned change." For a migration, `chore:` is correct. Using `fix:` makes `git log` lie about what happened.
-3. **Confusion at review time.** Reviewers may question "did we decide to remove `sit`?" when the answer is already in the spec. This wastes a day.
-
-### 3.5 Historical data is not a bug
-
-When a migration removes or renames a signal, **old rows in the database are audit trail, not bugs.**
-
-- Do not delete them.
-- Do not migrate them.
-- Do not filter them out unless the owner asks.
-- Future analyses use `created_at > <migration_date>` as the cutoff.
-- Log the migration date in the tracking entry so future queries can filter correctly.
-
-If the spec wanted data cleaned, it would say so explicitly. Absent that instruction, leave history alone.
+When a migration removes or renames a signal, treat old rows as historical records unless the approved requirements explicitly call for data cleanup. Do not delete, rewrite, or filter historical data as part of unrelated work. Record relevant migration or clean-data cutoff dates in the tracking item.
 
 ---
 
-## 4. Development Cycle
+## 4. Development cycle
 
-### 4.1 Phase gates
+### 4.1 Select and scope the work
 
-Work moves through phases. A phase is closed only when its Definition of Done (see §6) is met and the tech lead signs off.
+Use `TRACKING.md` as the current status and acceptance-criteria log. Backlog items are unscheduled; do not start them without owner/tech-lead scheduling approval. Follow phase priorities recorded in the tracking log. Do not infer a blanket phase gate from item status: if a task appears to conflict with phase ordering, check the current sprint/phase decision with the tech lead.
 
+Before coding:
+
+- Read the relevant requirements and inspect the current implementation.
+- Confirm the task's scope and acceptance criteria from the user request or approved tracking item.
+- Check for existing code, migrations, or deployment constraints that affect the change.
+
+### 4.2 Diagnose defects proportionately
+
+For bugs, gather evidence before changing code. Reproduce when practical, document the steps or evidence, and state the root-cause hypothesis. If reproduction is not possible (for example, an intermittent or production-only issue), say so and use available logs, code-path analysis, or a safe diagnostic approach. Do not present an unverified hypothesis as a confirmed cause.
+
+### 4.3 Implement and verify
+
+Make the smallest change that meets the agreed acceptance criteria. Run checks relevant to the changed area and available in the repository; report checks that could not be run. Add or update tests for non-trivial logic when a suitable test path exists. For changes needing device, production, credentialed, or owner-only access, identify that verification explicitly instead of claiming it passed.
+
+For end-to-end behavior, inspect the full path. For reminders, for example, trace trigger → generation → delivery → user response. Verify each layer that the task affects; a working first layer does not establish that the user receives the result.
+
+For user-facing behavior, ask: **“Does this still work when the user is not looking?”** This is a prompt to verify background and delivery behavior where relevant, not a universal requirement that every feature run unattended.
+
+### 4.4 Review, release, and owner verification
+
+Use the repository's delivery path for the changed area:
+
+- **Web/PWA:** the deploy workflow is configured for pushes to `main` (subject to workflow configuration and credentials). Check the current workflow and deployment result; a local build alone is not deployment verification.
+- **Android collector:** the Android workflow builds a debug APK on relevant pushes and pull requests. Signed release artifacts use the release workflow and its configured tag/dispatch process. A debug build is not a signed production release.
+- **Other areas:** inspect the relevant workflow and project instructions rather than assuming the web or Android path applies.
+
+When implementation and available checks are complete but production, device, or owner verification remains, mark the tracking item **In Review** and record what remains. Mark **Done** only when the item's acceptance criteria are verified in the intended user environment and the tracking entry records the evidence and date. Do not claim deployment, merge, device testing, or owner confirmation that did not occur.
+
+### 4.5 PR and commit scope
+
+Keep each PR focused on one coherent tracking item when the repository uses PRs. Split unrelated tasks; include tightly coupled changes needed to satisfy the same acceptance criteria. Follow repository branch and review practices; do not assume every local task can or should be merged by the agent.
+
+Use conventional commit subjects when committing:
+
+```text
+<type>(<scope>): <subject>
+
+<body explaining why, when useful>
+
+Refs: TRACKING.md #[ID]
 ```
-## Phase P0 → Phase P1 → Phase P2 → ... ↓ ↓ ↓ ship ship ship  
-```
-**No phase skipping.** No starting P1 work while P0 is unfinished. If P0 is blocked, work on P0 or ask; do not start P1.
 
-### 4.2 Daily rhythm
+Use `fix` for bugs, `feat` for features, and `chore` for completion/maintenance work. Other useful types include `docs`, `refactor`, and `test`. Do not commit unless the user or the applicable workflow authorizes committing.
 
-| Time | Event | Owner | Output |
-|---|---|---|---|
-| 10:00 | Daily sync (15 min) | Tech lead + agent + owner | Yesterday / today / blockers |
-| Throughout day | Development | Agent / dev | Commits, PRs |
-| 18:00 | Status update | Agent / dev | `TRACKING.md` updated |
+### 4.6 Tracking cadence
 
-`TRACKING.md` is updated **daily at 18:00**. If it's not updated, the day did not happen.
-
-### 4.3 Diagnosis before code
-
-**Never write a fix for a bug you have not reproduced.**
-
-Before fixing a bug:
-1. Reproduce the bug (locally or on device)
-2. Document the reproduction in the tracking entry
-3. State the root cause hypothesis
-4. Only then write the fix
-
-If you cannot reproduce, say so. "I cannot reproduce this on my machine" is a valid and valuable report. Guessing at a fix is not.
-
-### 4.4 Verify before Done
-
-A task is done when:
-- The change works in the environment the user will use (not just localhost)
-- The acceptance criteria in the spec are met
-- The tracking log is updated
-- **A second person or agent has verified it**, or the owner has personally confirmed
-
-"It compiles" is not done. "It works on my machine" is not done. "Tests pass" is not done. **The owner runs it and it works for them** is done.
-
-### 4.5 One task, one PR
-
-- One feature = one PR
-- One bug fix = one PR
-- One chore = one PR
-- Never mix. Never "while I was in there, I also fixed…"
-
-Small PRs are reviewed faster and reverted cleaner.
-
-### 4.6 Commit conventions
-
-```
-## <type>(<scope>): <subject>  
-## <body: why, not what>  
-## <footer: refs to tracking entry>  
-```
-text
-Types: `feat`, `fix`, `chore`, `docs`, `refactor`, `test`.
-
-Choose the type based on §3 classification:
-- `fix` for Bug
-- `feat` for Feature
-- `chore` for Chore (completion)
-
-Example (Bug):
-
-```
-fix(android/collector): clamp duration to window length  
-## queryAndAggregateUsageStats returns cumulative totals on OnePlus ROMs, producing values > 60 min for a 60-min window. Clamping provides a defensive guard while v1.0.6 rewrites the collector to use queryEvents.  
-## Refs: TRACKING.md #B-15  
-```
-text
-Example (Chore):
-
-```
-chore(signal): complete sit removal from v2  
-## The v2 migration removed sit from spec and schema, but the API still accepted it. This finishes the removal. Historical sit rows are retained as audit trail per AGENTS.md §3.5.  
-## Refs: TRACKING.md #P0-01  
-```
-text
----
-
-## 5. Rules of Engagement
-
-### 5.1 Always do
-
-1. **Read the spec** (`yuanying-engineering-spec-v2.md`) before starting any task.
-2. **Read the tracking log** (`TRACKING.md`) to see what's in flight.
-3. **Classify the work** using §3 before filing or starting anything.
-4. **Update `TRACKING.md`** when you start, pause, or finish.
-5. **Write tests** for non-trivial logic (schemas, cron, reminder scheduling, permission flows).
-6. **Ask when uncertain.** Silent assumptions cost more than questions.
-7. **Prefer plaintext** over binary formats for anything that outlives this sprint.
-
-### 5.2 Never do
-
-1. **Never expand scope.** Log improvements in Backlog — do not implement.
-2. **Never refactor for style.** Improve only when a task requires it.
-3. **Never silently fail.** Every error must surface in the UI, log, or tracking file.
-4. **Never commit secrets.** `.env.local` is in `.gitignore`. Report any key you find.
-5. **Never touch `core/*.md`** without explicit instruction. These are the 元婴's identity.
-6. **Never "improve" the voice.** Tone is authored. No emoji, no exclamation marks, no softening.
-7. **Never `git push --force`** to `main` or any branch with open PRs.
-8. **Never add a dependency** without logging it and getting approval.
-9. **Never reclassify unfinished migrations as bugs.** See §3.
-
-### 5.3 When to stop and ask
-
-Stop immediately and ask when:
-
-- A task seems to require violating any of §2's three principles
-- The spec is ambiguous on a meaningful decision
-- A change would affect more than the task's stated scope
-- A bug's root cause is unclear after 30 minutes of investigation
-- An API key, permission, or external service is required that you don't have
-- You are unsure which category (§3) a task belongs to
-- You are tempted to add a feature "because it would be better"
-
-The cost of asking is a 2-minute message. The cost of not asking is a wasted day.
+Update `TRACKING.md` when the state, owner, blocker, acceptance evidence, or next step changes. The file describes a daily 18:00 update cadence, but work should not wait until that time to record a material state change. Keep scheduled sync times only when the team has explicitly arranged them; do not assume an agent or owner is available at a particular hour.
 
 ---
 
-## 6. Definition of Done
+## 5. Rules of engagement
 
-A task is Done when all of the following are true:
+### Always
 
-- [ ] Code is committed, pushed, and merged to `main` (or current working branch)
-- [ ] Deployed to Vercel (or built into the APK for Android changes)
-- [ ] The user-facing behavior matches the spec's acceptance criteria
-- [ ] The owner has run it and confirmed
-- [ ] `TRACKING.md` has an entry under Done with a date and PR link
-- [ ] No new warnings in build or runtime logs
-- [ ] No regression in previously verified behaviors
+1. Read this file, `TRACKING.md`, and the relevant requirements/code before implementation.
+2. Keep scope tied to the request and agreed acceptance criteria.
+3. Update tracking on meaningful state changes.
+4. Surface errors and blockers; distinguish observed facts from hypotheses.
+5. Prefer human-readable, portable formats for durable project information.
+6. Ask when a product decision, approval, or missing requirement blocks safe progress.
 
-If any checkbox is false, the task is **In Progress**, not Done.
+### Never
 
----
+1. Add unrelated improvements; record useful ideas in Backlog.
+2. Refactor solely for style during a scoped change.
+3. Hide failures or claim checks passed when they were not run.
+4. Commit secrets or expose credentials. Follow the repository's secret-handling guidance.
+5. Change `core/*.md` identity or voice files without an instruction that includes that scope.
+6. Add dependencies without approval when the change introduces a new dependency.
+7. Force-push or rewrite shared history.
+8. Reclassify incomplete planned migrations as bugs merely because implementation is unfinished.
 
-## 7. Common Agent Failure Modes (Read This Twice)
+### Stop and ask when
 
-AI agents fail on this project in predictable ways. Watch for these in yourself:
-
-### 7.1 Scope creep via "obvious improvements"
-You will see code that could be cleaner. You will think "while I'm here, let me just…" **Stop.** Log it under Backlog. Move on.
-
-### 7.2 Over-engineering
-You will want to build a plugin system, a config abstraction, a generic habit framework. **Don't.** The product has one user. Build exactly what the spec says.
-
-### 7.3 Silent failure
-You will catch an error and return `{ ok: false }`. The UI will look fine. **Every failure must surface** — alert, log, tracking entry, or all three.
-
-### 7.4 Premature generalization
-You will see "wake / sleep / water" and think "generic signals with pluggable types." The spec says three named signals. Build three named signals.
-
-### 7.5 Voice drift
-You will edit the 元婴's responses to be warmer or more helpful. **Stop.** Voice is authored. If it needs changing, ask.
-
-### 7.6 Deploy without verification
-You will push to `main`, Vercel will deploy, and you will mark Done without testing on the phone. **Stop.** Deployment ≠ working.
-
-### 7.7 Fabricated progress
-You will be tempted to write "Done" when you're 90% sure. **Don't.** Mark "In Review." A false Done is worse than an honest In Progress.
-
-### 7.8 Misclassification
-You will see a migration that partially landed and think "bug!" **Stop.** Check §3. If a tracking entry already exists and is open, it is a chore, not a bug. Do not duplicate.
+- The requested behavior conflicts with §2.
+- A material product requirement is missing or ambiguous.
+- The next step requires approval, credentials, or access that is unavailable.
+- The task would materially expand scope or change a product decision.
+- Classification remains unclear after checking the tracking item and requirements.
+- Investigation cannot establish a safe next step; report evidence and uncertainty rather than guessing.
 
 ---
 
-## 8. Escalation
+## 6. Data and timezone rules
 
-| Situation | Escalate to | Timeframe |
-|---|---|---|
-| Ambiguous spec | Tech lead | Before proceeding |
-| Blocked by missing access | Owner | Immediately |
-| Principle conflict | Owner | Before proceeding |
-| Root cause unclear after 30 min | Tech lead | Same day |
-| Bug affects production users | Owner + tech lead | Immediately |
-| Scope expansion temptation | Tech lead | Before proceeding |
-| Unsure about classification | Tech lead | Before filing |
+User-facing daily counts (such as water, steps, app usage, or reminders) must use the product's intended calendar day and must not accidentally accumulate across days. Retain historical records unless an approved requirement says otherwise.
 
-The owner is available daily at 10:00. Outside that window, use async channels and mark items **Blocked** in `TRACKING.md`.
+The current implementation uses `Asia/Shanghai` in several code paths. A `config.timezone` row exists (default `"Asia/Shanghai"`), and a shared helper `lib/timezone.ts` (`getTodayRange` / `getDayRange` / `getDateInTimezone`) is the required path for product-day boundaries; introduce or reuse it consistently and update all affected callers. Before changing date boundaries, inspect the relevant API, UI, and collector code and confirm the intended timezone. If a change needs configurable timezones, treat that as scoped design/implementation work.
+
+Avoid relying on the machine's implicit timezone for product-day boundaries. Avoid unbounded sums across all rows of a signal when the UI asks for a daily value. Store or return dates consistently with the established schema and API contract.
+
+Historical data should remain immutable for ordinary feature work. When fixing an aggregation bug, preserve audit history and document any clean-data cutoff needed to distinguish old and corrected records.
 
 ---
 
-## 9. Reading Order for New Agents
+## 7. Definition of Done
 
-Read in this order:
+A tracking item may be marked **Done** when:
 
-1. **This file** (`AGENTS.md`) — you are here
-2. `TRACKING.md` — current state
-3. `yuanying-prd-v1.1.md` — why we're building this
-4. `yuanying-engineering-spec-v2.md` — what we're building
-5. `core/identity.md` — who the 元婴 is
-6. The actual code in `app/` and `lib/`
+- Its acceptance criteria are met and the relevant evidence is recorded.
+- Applicable checks have been run, with limitations reported.
+- Required deployment or artifact delivery for that item is complete.
+- Required owner/device/production verification is recorded.
+- `TRACKING.md` reflects Done, the completion date, and useful references (PR, commit, release, or verification evidence).
+- No known regression introduced by the change remains unresolved.
 
-Do not write code until you have read 1–4.
+If code is complete but a required check or owner verification is pending, use **In Review** and name the outstanding step. If work cannot proceed, use **Blocked** with the reason and unblocker. A merge or deployment is not required for items whose approved scope does not include it.
 
 ---
 
-## 10. The One Rule
+## 8. Common failure modes
 
-If you remember nothing else:
+- **Scope creep:** log adjacent improvements in Backlog.
+- **Over-engineering:** build what the approved requirement needs; avoid generic frameworks without a concrete use case.
+- **Silent failure:** surface meaningful errors through the appropriate UI, logs, or tracking entry.
+- **Premature generalization:** keep the current named signals and concepts unless requirements call for extensibility.
+- **Voice drift:** preserve authored voice; do not make it more generic or chatbot-like.
+- **Deployment mistaken for verification:** confirm the actual user-facing path, including device behavior where relevant.
+- **Fabricated progress:** report partial completion and uncertainty honestly; use In Review when verification remains.
+- **Misclassification:** inspect related tracking entries and classify the work itself, not merely whether an entry exists.
+- **Stopping at the first layer:** trace affected end-to-end paths through delivery and response.
+- **Timezone blindness:** verify product-day boundaries in the UI, API, and storage paths; do not equate server or browser local time with the configured product day.
 
-> **The 元婴 earns its presence by being quiet. Every added feature, prompt, or signal must make the being feel *more* present, not *more* useful.**
+---
 
-Usefulness is downstream of presence. Not the other way around.
+## 9. Reading order for new agents
+
+1. `AGENTS.md`
+2. `TRACKING.md`
+3. Current requirements/specification for the task (locate the actual files first)
+4. Relevant `core/*.md` files when identity or voice is in scope
+5. Relevant code, tests, migrations, and workflows
+
+Do not begin implementation until the task's requirements and tracking context are understood. If a referenced document is missing, report that and locate the repository's current source of truth; do not rely on a stale filename.
+
+---
+
+## 10. The one rule
+
+> **元婴 earns its presence by being quiet. Every added feature, prompt, or signal should make the being feel more present, not merely more useful.**
+
+Usefulness is downstream of presence.
 
 ---
 
 ## 11. Changelog
 
+### v1.3 — 2026-10-14
+- Reworked work classification so existing entries do not automatically turn features into chores.
+- Replaced rigid phase and meeting assumptions with tracking-led scheduling and explicit escalation for conflicts.
+- Aligned development, review, release, and verification guidance with the repository's web and Android workflows and `In Review` tracking state.
+- Made diagnosis and testing requirements evidence-based and proportionate, with explicit handling for unavailable reproduction or environment access.
+- Corrected stale timezone guidance: `config.timezone` exists (default `Asia/Shanghai`); `lib/timezone.ts` / `getTodayRange()` is the required shared helper (introduced by B-16).
+- Pointed PRD/spec references at the actual `docs/` location and removed the assumption that they are absent.
+
+### v1.2 — 2026-10-14
+- Added daily data scoping and timezone guidance.
+- Added end-to-end investigation and “works when the user is not looking” guidance.
+- Added timezone uncertainty to escalation guidance.
+
 ### v1.1 — 2026-10-14
-- Added §3 (Work Classification) — Bug vs Feature vs Chore
-- Added §3.5 (Historical data is not a bug)
-- Added §5.3 bullet on classification uncertainty
-- Added §7.8 (Misclassification failure mode)
-- Added escalation row for classification uncertainty
-- Renumbered subsequent sections
+- Added work classification and historical-data guidance.
 
 ### v1.0 — 2026-03-17
-- Initial release
+- Initial release.
 
 ---
 
-**End of AGENTS.md**
-
-```
+**End of AGENTS.md v1.3 draft**
