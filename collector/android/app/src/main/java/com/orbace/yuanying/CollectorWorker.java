@@ -1,6 +1,7 @@
 package com.orbace.yuanying;
 
 import android.content.Context;
+import android.os.Build;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -42,18 +43,22 @@ public class CollectorWorker extends Worker {
                 Log.i(TAG, "no apps to report");
             }
 
-            // 3. Steps (HealthConnect)
-            StepsCollector steps = new StepsCollector(ctx);
-            if (steps.sdkAvailable() && steps.hasPermission()) {
-                try {
-                    JSONObject stepsPayload = steps.collectToday();
-                    boolean okSteps = api.post(ApiClient.BASE_URL + "/api/steps", stepsPayload);
-                    Log.i(TAG, "steps posted: " + okSteps);
-                } catch (Exception se) {
-                    Log.w(TAG, "steps collect failed", se);
+            // 3. Steps (HealthConnect) — API 26+ only
+            if (Build.VERSION.SDK_INT >= 26) {
+                StepsCollector steps = new StepsCollector(ctx);
+                if (steps.sdkAvailable() && steps.hasPermission()) {
+                    try {
+                        JSONObject stepsPayload = steps.collectToday();
+                        boolean okSteps = api.post(ApiClient.BASE_URL + "/api/steps", stepsPayload);
+                        Log.i(TAG, "steps posted: " + okSteps);
+                    } catch (Exception se) {
+                        Log.w(TAG, "steps collect failed", se);
+                    }
+                } else {
+                    Log.w(TAG, "steps unavailable or permission not granted");
                 }
             } else {
-                Log.w(TAG, "steps unavailable or permission not granted");
+                Log.i(TAG, "steps require API 26+");
             }
 
             return okUsage ? Result.success() : Result.retry();

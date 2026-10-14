@@ -4,6 +4,7 @@ import android.app.AppOpsManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Button;
@@ -29,18 +30,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView statusText;
     private TextView stepsStatus;
-
-    private final ActivityResultLauncher<Set<String>> stepsPermissionLauncher =
-        registerForActivityResult(HealthPermissionHelper.requestContract(), granted -> {
-            boolean ok = granted != null
-                && granted.containsAll(HealthPermissionHelper.permissions());
-            Toast.makeText(
-                this,
-                ok ? "步数权限已授予" : "步数权限被拒绝",
-                Toast.LENGTH_LONG
-            ).show();
-            refreshStepsStatus();
-        });
+    private ActivityResultLauncher<Set<String>> stepsPermissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,11 +44,33 @@ public class MainActivity extends AppCompatActivity {
         Button openPwaBtn = findViewById(R.id.open_pwa_button);
         Button grantStepsBtn = findViewById(R.id.grant_steps_button);
 
+        // HealthConnect is API 26+ only. Do not reference its classes on older
+        // devices so the app keeps minSdk 24 (Play device-support requirement).
+        if (Build.VERSION.SDK_INT >= 26) {
+            stepsPermissionLauncher = registerForActivityResult(
+                HealthPermissionHelper.requestContract(),
+                granted -> {
+                    boolean ok = granted != null
+                        && granted.containsAll(HealthPermissionHelper.permissions());
+                    Toast.makeText(
+                        this,
+                        ok ? "步数权限已授予" : "步数权限被拒绝",
+                        Toast.LENGTH_LONG
+                    ).show();
+                    refreshStepsStatus();
+                });
+        }
+
         grantBtn.setOnClickListener(v -> openUsageAccessSettings());
         testBtn.setOnClickListener(v -> runOnce());
         openPwaBtn.setOnClickListener(v -> openPwa());
-        grantStepsBtn.setOnClickListener(v ->
-            stepsPermissionLauncher.launch(HealthPermissionHelper.permissions()));
+        grantStepsBtn.setOnClickListener(v -> {
+            if (stepsPermissionLauncher != null) {
+                stepsPermissionLauncher.launch(HealthPermissionHelper.permissions());
+            } else {
+                Toast.makeText(this, "步数采集需要 Android 9+", Toast.LENGTH_LONG).show();
+            }
+        });
 
         schedulePeriodicWork();
         refreshStatus();
@@ -108,6 +120,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void refreshStepsStatus() {
+        if (Build.VERSION.SDK_INT < 26) {
+            stepsStatus.setText("步数采集需要 Android 9+");
+            return;
+        }
         new Thread(() -> {
             StepsCollector sc = new StepsCollector(this);
             String text;
@@ -155,16 +171,21 @@ public class MainActivity extends AppCompatActivity {
                     new ApiClient().post(ApiClient.BASE_URL + "/api/activity", payload);
                 }
 
-                StepsCollector steps = new StepsCollector(this);
                 String stepsMsg;
-                if (!steps.sdkAvailable()) {
-                    stepsMsg = "Health Connect 不可用";
-                } else if (steps.hasPermission()) {
-                    JSONObject sp = steps.collectToday();
-                    boolean ok = new ApiClient().post(ApiClient.BASE_URL + "/api/steps", sp);
-                    stepsMsg = ok ? "步数已上报" : "步数上报失败";
+                if (Build.VERSION.SDK_INT < 26) {
+                    stepsMsg = "步数需要 Android 9+";
                 } else {
-                    stepsMsg = "步数未授权";
+                    StepsCollector steps = new StepsCollector(this);
+                    if (!steps.sdkAvailable()) {
+                        stepsMsg = "Health Connect 不可用";
+                    } else if (steps.hasPermission()) {
+                        JSONObject sp = steps.collectToday();
+                        boolean ok = new ApiClient().post(
+                            ApiClient.BASE_URL + "/api/steps", sp);
+                        stepsMsg = ok ? "步数已上报" : "步数上报失败";
+                    } else {
+                        stepsMsg = "步数未授权";
+                    }
                 }
 
                 final String msg = "已上报 " + n + " 个应用；" + stepsMsg;

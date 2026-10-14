@@ -2,6 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- HealthConnect requires API 26; keep app minSdk 24 and gate its use at runtime. -->
+    <uses-sdk tools:overrideLibrary="androidx.health.connect.client" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
