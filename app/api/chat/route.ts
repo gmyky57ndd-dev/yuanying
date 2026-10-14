@@ -39,20 +39,57 @@ export async function POST(req: NextRequest) {
       // Non-fatal: continue with empty history
     }
 
-    // 2. Load today's signals
-    const startOfDay = new Date();
-    startOfDay.setHours(0, 0, 0, 0);
+    // 2. Today's data (anchored to Beijing time; serverless runs UTC)
+    const bj = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const gp = (t: string) => bj.find(x => x.type === t)!.value;
+    const startOfDay = new Date(
+      `${gp('year')}-${gp('month')}-${gp('day')}T00:00:00+08:00`
+    );
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
-    const { data: todaysSignals } = await supabase
-      .from('signals')
-      .select('name, created_at')
-      .gte('created_at', startOfDay.toISOString())
-      .order('created_at', { ascending: true });
+    const [signalsRes, stepsRes, goalRes, remindersRes] = await Promise.all([
+      supabase
+        .from('signals')
+        .select('name, created_at')
+        .gte('created_at', startOfDay.toISOString())
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('signals')
+        .select('value')
+        .eq('name', 'steps')
+        .gte('created_at', startOfDay.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1),
+      supabase
+        .from('config')
+        .select('value')
+        .eq('key', 'steps_goal')
+        .maybeSingle(),
+      supabase
+        .from('reminders')
+        .select('name, scheduled_at, context')
+        .gte('scheduled_at', twoHoursAgo.toISOString())
+        .order('scheduled_at', { ascending: true }),
+    ]);
+
+    const todaysSignals = (signalsRes.data ?? []) as Array<{
+      name: string;
+      created_at: string;
+    }>;
 
     // 3. Build system prompt
     const systemPrompt = buildSystemPrompt({
-      signals: todaysSignals ?? [],
+      signals: todaysSignals,
       now: new Date().toISOString(),
+      steps: stepsRes.data?.[0]?.value ?? null,
+      stepsGoal: goalRes.data?.value ?? 5000,
+      waterCount: todaysSignals.filter(s => s.name === 'water').length,
+      recentReminders: remindersRes.data ?? [],
     });
 
     // 4. Assemble messages

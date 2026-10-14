@@ -4,6 +4,14 @@ import path from 'path';
 interface BuildOptions {
   signals?: Array<{ name: string; created_at: string }>;
   now?: string;
+  steps?: number | null;
+  stepsGoal?: number;
+  waterCount?: number;
+  recentReminders?: Array<{
+    name: string;
+    scheduled_at: string;
+    context?: { message?: string } | null;
+  }>;
 }
 
 let coreCache: string | null = null;
@@ -32,6 +40,16 @@ function loadCore(): string {
   return coreCache;
 }
 
+const TZ = 'Asia/Shanghai';
+
+function beijingTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: TZ,
+  });
+}
+
 function buildSignalContext(
   signals: Array<{ name: string; created_at: string }>
 ): string {
@@ -39,22 +57,37 @@ function buildSignalContext(
     return "\n\n# Today's signals\n\nNone yet.";
   }
 
-  const lines = signals.map(s => {
-    const t = new Date(s.created_at);
-    const time = t.toLocaleTimeString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'Asia/Shanghai',
-    });
-    return `- ${s.name} at ${time}`;
-  });
-
+  const lines = signals.map(s => `- ${s.name} at ${beijingTime(s.created_at)}`);
   return `\n\n# Today's signals\n\n${lines.join('\n')}`;
+}
+
+function buildDailyContext(opts: BuildOptions): string {
+  const lines: string[] = [];
+
+  if (opts.steps !== undefined) {
+    const goal = opts.stepsGoal ?? 5000;
+    lines.push(
+      `- Steps today: ${opts.steps ?? 'unknown'} / goal ${goal}`
+    );
+  }
+  if (opts.waterCount !== undefined) {
+    lines.push(`- Water today: ${opts.waterCount} / 6`);
+  }
+  if (opts.recentReminders && opts.recentReminders.length > 0) {
+    const r = opts.recentReminders
+      .map(x => `${x.name} at ${beijingTime(x.scheduled_at)}`)
+      .join(', ');
+    lines.push(`- Reminders (last 2h): ${r}`);
+  }
+
+  if (lines.length === 0) return '';
+  return `\n\n# Today's data\n\n${lines.join('\n')}`;
 }
 
 export function buildSystemPrompt(opts: BuildOptions = {}): string {
   const core = loadCore();
   const signalCtx = buildSignalContext(opts.signals ?? []);
+  const dailyCtx = buildDailyContext(opts);
   const now = opts.now ?? new Date().toISOString();
 
   return `${core}
@@ -71,18 +104,18 @@ Keep responses short — this is a phone screen.
 - **wake** — 起床。每天第一次醒来时点击。
 - **sleep** — 入睡。准备睡觉时点击。
 - **water** — 喝水。每次喝水时点击，一天可多次。
-- **sit** — 久坐后起身。长时间坐着后站立或走动时点击。
 
 If the user asks what these buttons do, answer from the
 definitions above. Do not invent other meanings.
 
-If you don't know something, say so. Do not fabricate.
+Answer real-data questions (steps, water, reminders) only from the
+data below. If data is missing, say you don't know. Do not fabricate.
 
 ## Current time
 
 ${now}
 
 Timezone: Asia/Shanghai
-${signalCtx}
+${signalCtx}${dailyCtx}
 `;
 }
