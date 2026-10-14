@@ -35,6 +35,9 @@ public class UsageStatsCollector {
         long now = System.currentTimeMillis();
         long oneHourAgo = now - 60L * 60L * 1000L;
 
+        // Defensive clamp: an app cannot exceed the window length.
+        int windowMinutes = (int) ((now - oneHourAgo) / 60_000L);
+
         Map<String, UsageStats> stats = usm.queryAndAggregateUsageStats(
             oneHourAgo, now
         );
@@ -52,10 +55,13 @@ public class UsageStatsCollector {
             if (pkg.equals("com.android.systemui")) continue;
             if (pkg.equals(ctx.getPackageName())) continue;
 
+            long rawMinutes = fg / 60_000;
+            long clampedMinutes = Math.min(rawMinutes, windowMinutes);
+
             JSONObject app = new JSONObject();
             app.put("package", pkg);
             app.put("name", resolveAppName(pkg));
-            app.put("foreground_min", fg / 60_000);
+            app.put("foreground_min", clampedMinutes);
             apps.put(app);
         }
 
