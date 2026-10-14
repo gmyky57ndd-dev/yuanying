@@ -40,4 +40,29 @@ public class ApiClient {
             return false;
         }
     }
+
+    public String get(String url) {
+        try {
+            Request req = new Request.Builder().url(url).get().build();
+            try (Response res = client.newCall(req).execute()) {
+                if (!res.isSuccessful() || res.body() == null) return null;
+                return res.body().string();
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String postForBody(String url, JSONObject payload) {
+        try {
+            RequestBody body = RequestBody.create(payload.toString(), JSON);
+            Request req = new Request.Builder().url(url).post(body).build();
+            try (Response res = client.newCall(req).execute()) {
+                if (!res.isSuccessful() || res.body() == null) return null;
+                return res.body().string();
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }

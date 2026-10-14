@@ -37,6 +37,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- P1-09: reminder notification "已做" action -->
+        <receiver
+            android:name=".ReminderActionReceiver"
+            android:exported="false" />
         <activity-alias
             android:name="ViewPermissionUsageActivity"
             android:exported="true"

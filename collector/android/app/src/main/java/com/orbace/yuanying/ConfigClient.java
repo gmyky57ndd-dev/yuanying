@@ -32,4 +32,23 @@ public class ConfigClient {
             return true;  // 失败时默认开启
         }
     }
+
+    /** Full config JSON (for reminders_enabled etc.). Empty object on failure. */
+    public JSONObject getConfig() {
+        try {
+            Request req = new Request.Builder()
+                .url(CONFIG_URL)
+                .get()
+                .build();
+
+            try (Response res = client.newCall(req).execute()) {
+                if (!res.isSuccessful() || res.body() == null) {
+                    return new JSONObject();
+                }
+                return new JSONObject(res.body().string());
+            }
+        } catch (Exception e) {
+            return new JSONObject();
+        }
+    }
 }

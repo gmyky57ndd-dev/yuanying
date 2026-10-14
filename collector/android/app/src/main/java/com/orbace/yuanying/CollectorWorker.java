@@ -61,6 +61,13 @@ public class CollectorWorker extends Worker {
                 Log.i(TAG, "steps require API 26+");
             }
 
+            // 4. Reminders (P1-09): generate + deliver in the collector.
+            try {
+                ReminderScheduler.INSTANCE.checkAndFire(ctx);
+            } catch (Exception re) {
+                Log.w(TAG, "reminder check failed", re);
+            }
+
             return okUsage ? Result.success() : Result.retry();
         } catch (Exception e) {
             Log.e(TAG, "collect failed", e);
