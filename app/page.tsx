@@ -14,7 +14,7 @@ type Signal = {
   context: Record<string, any>;
 };
 
-const SIGNALS = ['wake', 'sleep', 'water', 'sit'] as const;
+const SIGNALS = ['wake', 'sleep', 'water'] as const;
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);

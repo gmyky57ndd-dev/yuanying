@@ -25,7 +25,6 @@ export async function GET() {
     wake: signals.find(s => s.name === 'wake')?.created_at ?? null,
     sleep: signals.find(s => s.name === 'sleep')?.created_at ?? null,
     water_count: signals.filter(s => s.name === 'water').length,
-    sit_count: signals.filter(s => s.name === 'sit').length,
     signals_total: signals.length,
   });
 }

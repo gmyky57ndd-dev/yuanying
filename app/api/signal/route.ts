@@ -4,8 +4,8 @@ import { supabase } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const VALID_NAMES = ['wake', 'sleep', 'water', 'sit'] as const;
-const IDEMPOTENT: readonly string[] = ['wake', 'sleep', 'sit'];
+const VALID_NAMES = ['wake', 'sleep', 'water'] as const;
+const IDEMPOTENT: readonly string[] = ['wake', 'sleep'];
 
 export async function POST(req: NextRequest) {
   try {

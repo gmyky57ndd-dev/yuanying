@@ -55,12 +55,18 @@ do $$ begin
   exception when duplicate_object then null; end;
 end $$;
 
--- name constraint: v1 four signals + P2 reserved names
+-- name constraint: v2 signals (sit removed per spec v2 §3.1)
 alter table signals drop constraint if exists signals_name_check;
 alter table signals drop constraint if exists v1_signal_name;
-alter table signals add constraint v1_signal_name check (
-  name in ('wake', 'sleep', 'water', 'sit', 'app_usage', 'phone_unlock')
-);
+alter table signals drop constraint if exists v2_signal_name;
+alter table signals add constraint v2_signal_name check (
+  name in (
+    'wake', 'sleep', 'water',
+    'app_usage', 'phone_unlock',
+    'steps',
+    'reminder_shown', 'reminder_acted'
+  )
+) not valid;
 
 create index if not exists idx_signals_created_at on signals (created_at desc);
 create index if not exists idx_signals_name_created on signals (name, created_at desc);
@@ -90,8 +96,32 @@ create table if not exists config (
 
 insert into config (key, value) values
   ('activity_collection_enabled', 'true'::jsonb),
-  ('timezone', '"Asia/Shanghai"'::jsonb)
+  ('timezone', '"Asia/Shanghai"'::jsonb),
+  ('reminders_enabled', '{"water":true,"standup":true,"vitamin":true}'::jsonb),
+  ('steps_goal', '5000'::jsonb)
 on conflict (key) do nothing;
+
+-- =============================================
+-- 表 6：reminders（P1 主动提醒，spec v2 §3.1）
+-- =============================================
+create table if not exists reminders (
+  id            bigserial primary key,
+  created_at    timestamptz not null default now(),
+  name          text not null check (name in ('water', 'standup', 'vitamin')),
+  scheduled_at  timestamptz not null,
+  shown_at      timestamptz,
+  acted_at      timestamptz,
+  dismissed_at  timestamptz,
+  context       jsonb default '{}'::jsonb
+);
+
+create index if not exists idx_reminders_scheduled
+  on reminders (scheduled_at desc);
+create index if not exists idx_reminders_name_scheduled
+  on reminders (name, scheduled_at desc);
+create index if not exists idx_reminders_unshown
+  on reminders (scheduled_at)
+  where shown_at is null;
 
 -- =============================================
 -- 表 5：activity_logs（P2 采集器上报的原始批次）

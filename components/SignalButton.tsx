@@ -1,7 +1,7 @@
 'use client';
 
 interface Props {
-  name: 'wake' | 'sleep' | 'water' | 'sit';
+  name: 'wake' | 'sleep' | 'water';
   logged: boolean;
   onClick: () => void;
   count?: number;
