@@ -1,11 +1,9 @@
-// 元婴 Service Worker v1
+// 元婴 Service Worker v2
+// Navigations are network-first so the installed PWA never runs stale code.
+// Hashed /_next/static assets are cache-first; API is never cached.
 
-const CACHE_NAME = 'yuanying-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/manifest.json',
-  '/avatar.png',
-];
+const CACHE_NAME = 'yuanying-v2';
+const STATIC_ASSETS = ['/', '/manifest.json', '/avatar.png'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
@@ -30,41 +28,59 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // 不缓存 API 调用
-  if (url.pathname.startsWith('/api/')) {
-    return; // 让浏览器直接处理
-  }
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
+  if (event.request.method !== 'GET') return;
 
-  // 只处理 GET
-  if (event.request.method !== 'GET') {
+  const accept = event.request.headers.get('accept') || '';
+  const isHTML =
+    event.request.mode === 'navigate' || accept.includes('text/html');
+
+  // Navigations / HTML: network-first, fall back to cache when offline.
+  if (isHTML) {
+    event.respondWith(
+      fetch(event.request)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          return res;
+        })
+        .catch(() =>
+          caches.match(event.request).then(r => r || caches.match('/'))
+        )
+    );
     return;
   }
 
-  // Cache-first for static assets
+  // Immutable hashed build assets: cache-first.
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(
+      caches.match(event.request).then(
+        cached =>
+          cached ||
+          fetch(event.request).then(res => {
+            const copy = res.clone();
+            caches
+              .open(CACHE_NAME)
+              .then(cache => cache.put(event.request, copy));
+            return res;
+          })
+      )
+    );
+    return;
+  }
+
+  // Everything else: stale-while-revalidate.
   event.respondWith(
     caches.match(event.request).then(cached => {
-      if (cached) return cached;
-
-      return fetch(event.request)
-        .then(response => {
-          // 只缓存成功响应
-          if (!response || response.status !== 200) {
-            return response;
-          }
-
-          const toCache = response.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, toCache);
-          });
-
-          return response;
+      const network = fetch(event.request)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy));
+          return res;
         })
-        .catch(() => {
-          // 离线 fallback
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-        });
+        .catch(() => cached);
+      return cached || network;
     })
   );
 });
