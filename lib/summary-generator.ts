@@ -88,7 +88,7 @@ export async function generateSummary(opts?: {
   return { date: range.date, timezone: tz, data };
 }
 
-/** Read today's summary; generate (idempotent upsert) on miss. */
+/** Read today's summary; regenerate when stale, else reuse the cached row. */
 export async function getTodaySummaryCached(): Promise<{
   date: string;
   timezone: string;
@@ -97,7 +97,8 @@ export async function getTodaySummaryCached(): Promise<{
   updated_at?: string;
 }> {
   const tz = await getConfigTimezone();
-  const { date } = getTodayRange(tz);
+  const range = getTodayRange(tz);
+  const { date } = range;
 
   const { data: existing } = await supabase
     .from('summaries')
@@ -106,18 +107,53 @@ export async function getTodaySummaryCached(): Promise<{
     .eq('timezone', tz)
     .maybeSingle();
 
+  // B-17: the cached summary must not go stale after new signals/reminders.
   if (existing) {
-    return {
-      date,
-      timezone: tz,
-      data: existing.data as SummaryData,
-      cached: true,
-      updated_at: existing.updated_at,
-    };
+    const latest = await latestDataAt(range.start, range.end);
+    const writtenAt = new Date(existing.updated_at).getTime();
+    if (latest <= writtenAt) {
+      return {
+        date,
+        timezone: tz,
+        data: existing.data as SummaryData,
+        cached: true,
+        updated_at: existing.updated_at,
+      };
+    }
   }
 
   const result = await generateSummary({ date, timezone: tz });
   return { ...result, cached: false };
+}
+
+/** Newest data timestamp within the day range (signals + reminders). */
+async function latestDataAt(start: Date, end: Date): Promise<number> {
+  const [sig, rem] = await Promise.all([
+    supabase
+      .from('signals')
+      .select('created_at')
+      .gte('created_at', start.toISOString())
+      .lt('created_at', end.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('reminders')
+      .select('scheduled_at, shown_at, acted_at, dismissed_at')
+      .gte('scheduled_at', start.toISOString())
+      .lt('scheduled_at', end.toISOString()),
+  ]);
+
+  let latest = 0;
+  if (sig.data?.created_at) {
+    latest = Math.max(latest, new Date(sig.data.created_at).getTime());
+  }
+  for (const r of (rem.data ?? []) as Array<Record<string, string | null>>) {
+    for (const f of ['scheduled_at', 'shown_at', 'acted_at', 'dismissed_at']) {
+      if (r[f]) latest = Math.max(latest, new Date(r[f] as string).getTime());
+    }
+  }
+  return latest;
 }
 
 // ---------- helpers ----------
