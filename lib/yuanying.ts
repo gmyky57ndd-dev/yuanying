@@ -66,7 +66,22 @@ export function buildSystemPrompt(opts: BuildOptions = {}): string {
 You are running as a phone PWA prototype.
 Keep responses short — this is a phone screen.
 
-Current time: ${now}
+## Signal definitions
+
+- **wake** — 起床。每天第一次醒来时点击。
+- **sleep** — 入睡。准备睡觉时点击。
+- **water** — 喝水。每次喝水时点击，一天可多次。
+- **sit** — 久坐后起身。长时间坐着后站立或走动时点击。
+
+If the user asks what these buttons do, answer from the
+definitions above. Do not invent other meanings.
+
+If you don't know something, say so. Do not fabricate.
+
+## Current time
+
+${now}
+
 Timezone: Asia/Shanghai
 ${signalCtx}
 `;

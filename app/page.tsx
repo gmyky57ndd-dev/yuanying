@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { SignalButton } from '@/components/SignalButton';
-import { postChat, fetchWithTimeout } from '@/lib/api';
+import { postChat, fetchWithTimeout, API_BASE } from '@/lib/api';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type Signal = {
@@ -33,7 +33,7 @@ export default function Home() {
   }
 
   useEffect(() => {
-    fetchWithTimeout('/api/history', {})
+    fetchWithTimeout(`${API_BASE}/api/history`, {})
       .then(r => r.json())
       .then(d => setMessages(d.messages ?? []))
       .catch(() => {});
@@ -46,7 +46,7 @@ export default function Home() {
 
   async function loadSignals() {
     try {
-      const r = await fetchWithTimeout('/api/signal', {});
+      const r = await fetchWithTimeout(`${API_BASE}/api/signal`, {});
       const d = await r.json();
       setTodaySignals(d.signals ?? []);
     } catch {}
@@ -83,15 +83,41 @@ export default function Home() {
   }
 
   async function logSignal(name: string) {
+    // 1. 乐观更新：立即反馈，不等服务器
+    const optimistic: Signal = {
+      id: -Date.now(),
+      name,
+      type: name === 'water' ? 'count' : 'event',
+      value: name === 'water' ? 1 : true,
+      created_at: new Date().toISOString(),
+      context: {},
+    };
+    setTodaySignals(prev => [...prev, optimistic]);
+    setError(null);
+
+    // 2. 发送请求（绝对路径，避免 standalone 模式解析错误）
     try {
-      await fetchWithTimeout('/api/signal', {
+      const res = await fetchWithTimeout(`${API_BASE}/api/signal`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      loadSignals();
-    } catch {
-      setError('打卡失败');
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}) as any);
+        console.error('signal failed:', res.status, err);
+        alert(`信号记录失败：${res.status}\n${err.error ?? '未知错误'}`);
+        // 回滚
+        setTodaySignals(prev => prev.filter(s => s.id !== optimistic.id));
+        return;
+      }
+
+      // 3. 用服务器数据校准（幂等去重后）
+      await loadSignals();
+    } catch (err) {
+      console.error('signal network error:', err);
+      alert('网络错误，信号未记录');
+      setTodaySignals(prev => prev.filter(s => s.id !== optimistic.id));
     }
   }
 
