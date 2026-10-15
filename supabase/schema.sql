@@ -227,3 +227,15 @@ on conflict (name) do nothing;
 insert into config (key, value) values
   ('quiet_window', '{"start":"22:00","end":"07:00"}'::jsonb)
 on conflict (key) do nothing;
+
+-- ES-004 §3.1: auth_events
+create table if not exists auth_events (
+  id bigserial primary key,
+  ts timestamptz not null default now(),
+  route text not null,
+  ip_hash text,
+  would_401 boolean not null,
+  enforced boolean not null default false
+);
+create index if not exists idx_auth_events_ts on auth_events (ts desc);
+create index if not exists idx_auth_events_would on auth_events (would_401, ts desc);

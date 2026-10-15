@@ -12,8 +12,10 @@ import okhttp3.Response;
 
 public class ApiClient {
 
-    // TODO: 改成你的 Vercel 生产域名
     public static final String BASE_URL = "https://yuanying-rust.vercel.app";
+
+    // ES-004: bearer token injected at build time (empty until configured).
+    private static final String API_TOKEN = BuildConfig.API_TOKEN;
 
     private static final MediaType JSON =
         MediaType.get("application/json; charset=utf-8");
@@ -24,15 +26,17 @@ public class ApiClient {
         .writeTimeout(30, TimeUnit.SECONDS)
         .build();
 
+    private Request.Builder auth(Request.Builder b) {
+        if (API_TOKEN != null && !API_TOKEN.isEmpty()) {
+            b.header("Authorization", "Bearer " + API_TOKEN);
+        }
+        return b;
+    }
+
     public boolean post(String url, JSONObject payload) {
         try {
             RequestBody body = RequestBody.create(payload.toString(), JSON);
-
-            Request req = new Request.Builder()
-                .url(url)
-                .post(body)
-                .build();
-
+            Request req = auth(new Request.Builder().url(url).post(body)).build();
             try (Response res = client.newCall(req).execute()) {
                 return res.isSuccessful();
             }
@@ -43,7 +47,7 @@ public class ApiClient {
 
     public String get(String url) {
         try {
-            Request req = new Request.Builder().url(url).get().build();
+            Request req = auth(new Request.Builder().url(url).get()).build();
             try (Response res = client.newCall(req).execute()) {
                 if (!res.isSuccessful() || res.body() == null) return null;
                 return res.body().string();
@@ -56,7 +60,7 @@ public class ApiClient {
     public String postForBody(String url, JSONObject payload) {
         try {
             RequestBody body = RequestBody.create(payload.toString(), JSON);
-            Request req = new Request.Builder().url(url).post(body).build();
+            Request req = auth(new Request.Builder().url(url).post(body)).build();
             try (Response res = client.newCall(req).execute()) {
                 if (!res.isSuccessful() || res.body() == null) return null;
                 return res.body().string();
@@ -69,7 +73,7 @@ public class ApiClient {
     public String put(String url, JSONObject payload) {
         try {
             RequestBody body = RequestBody.create(payload.toString(), JSON);
-            Request req = new Request.Builder().url(url).put(body).build();
+            Request req = auth(new Request.Builder().url(url).put(body)).build();
             try (Response res = client.newCall(req).execute()) {
                 if (!res.isSuccessful() || res.body() == null) return null;
                 return res.body().string();
