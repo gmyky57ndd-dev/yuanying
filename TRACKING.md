@@ -247,10 +247,10 @@
 - **Refs**: `docs/specs/ES-004-api-authentication.md` (approved 2026-10-15)
 - **Description**: Global API access control. PWA = owner password → **httpOnly session cookie (30 days, refreshed on use)**; collector = bearer token; `/api/cron/*` keeps `CRON_SECRET`.
 - **Sub-tasks**:
-  - [ ] **Logging phase** (§3.1): compute would-be-401, write `auth_events` `{ts, route, ip_hash, would_401, enforced}` (**not** console); 7-day grace.
-  - [ ] **Enforce phase**: reject `401` after the 7-day grace.
-  - [ ] PWA session cookie + collector bearer implemented.
-- **Notes**: Priority #2 — start the logging/grace period early. ES-001 v1.1 write endpoints depend on this.
+  - [x] **Logging phase** (§3.1) — live 2026-10-15; `auth_events` populated (`would_401` recorded, `enforced=false`).
+  - [ ] **Enforce phase** — set `AUTH_ENFORCE=true` after the grace (target ~2026-10-22), once legitimate clients show `would_401=false`.
+  - [x] PWA session cookie (30d, refreshed on use) + collector bearer (baked build-time).
+- **Notes**: Priority #2. Grace started **2026-10-15** → enforce on/after **2026-10-22**. `OWNER_PASSWORD`/`API_TOKEN`/`SESSION_SECRET`/`IP_SALT` set in Vercel + `.env.local` (values not recorded here). ES-001 v1.1 write endpoints depend on this.
 
 ### [P1-13] Daily notes
 
@@ -311,6 +311,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - **B-19 implemented** (device timezone + quiet window) → In Review; collector **v1.0.11** (code 12).
 - Backlog: **[P2-01]** Note deletion UI (ES-002, deferred).
 - **Priority order:** B-19 → ES-004 logging → ES-002 → ES-003 → ES-004 enforce.
+- **ES-004 logging phase implemented** (behind `AUTH_ENFORCE=false`): middleware + `auth_events` + PWA session cookie + collector bearer. Grace started 2026-10-15. Collector **v1.0.12** (code 13).
 
 ### 2026-10-14 (session 3 — PM handoff)
 - Adopted PM Feedback 2026-10-14. Created + fixed **B-17** (button/summary inconsistency) and **B-18** (元婴 states inference as fact) → In Review.
