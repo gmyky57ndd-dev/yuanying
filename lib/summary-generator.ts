@@ -64,6 +64,7 @@ export async function generateSummary(opts?: {
       value: pickLatestStepsValue(signals),
       goal: config.steps_goal,
     },
+    apps_used: pickAppsUsed(signals),
     reminders: {
       water: countReminders(reminders, 'water'),
       standup: countReminders(reminders, 'standup'),
@@ -190,6 +191,16 @@ function countReminders(rows: any[], name: string) {
     shown: matching.filter(r => r.shown_at).length,
     acted: matching.filter(r => r.acted_at).length,
   };
+}
+
+function pickAppsUsed(signals: any[]): number {
+  const pkgs = new Set<string>();
+  for (const s of signals) {
+    if (s.name !== 'app_usage') continue;
+    const p = s.value?.package;
+    if (p) pkgs.add(p);
+  }
+  return pkgs.size;
 }
 
 function pickNotes(signals: any[]) {

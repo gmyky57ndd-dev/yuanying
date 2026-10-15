@@ -3,6 +3,7 @@ export interface SummaryData {
   sleep: { at: string | null; duration_min: number | null };
   water: { count: number; target: number };
   steps: { value: number; goal: number };
+  apps_used: number;
   reminders: {
     water: { shown: number; acted: number };
     standup: { shown: number; acted: number };

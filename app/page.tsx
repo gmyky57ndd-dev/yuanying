@@ -14,6 +14,23 @@ type Signal = {
   context: Record<string, any>;
 };
 
+type Summary = {
+  wake: { at: string | null };
+  sleep: { at: string | null };
+  water: { count: number; target: number };
+  steps: { value: number; goal: number };
+  apps_used: number;
+  reminders: Record<string, { shown: number; acted: number }>;
+};
+
+function hm(iso: string | null): string {
+  if (!iso) return '未记录';
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 const SIGNALS = ['wake', 'sleep', 'water'] as const;
 
 // B-19: timezone offset helper for the PWA exception writer.
@@ -59,6 +76,8 @@ export default function Home() {
   const [noteListening, setNoteListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const noteRecRef = useRef<any>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [panelOpen, setPanelOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -77,7 +96,7 @@ export default function Home() {
     loadSteps();
     loadNotes();
     // Generate today's summary on first open (idempotent server-side).
-    fetchWithTimeout(`${API_BASE}/api/summary/today`, {}).catch(() => {});
+    loadSummary();
   }, []);
 
   useEffect(() => {
@@ -151,6 +170,19 @@ export default function Home() {
     } catch {}
   }
 
+  async function loadSummary() {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/summary/today`, {});
+      const d = await r.json();
+      if (d && d.data) setSummary(d.data);
+    } catch {}
+  }
+
+  function prefill(question: string) {
+    // Owner can edit or cancel; sending stays explicit (no auto model call).
+    setInput(question);
+  }
+
   async function saveNote() {
     const text = noteText.trim();
     if (!text) return;
@@ -167,6 +199,7 @@ export default function Home() {
       setNoteText('');
       setNoteOpen(false);
       loadNotes();
+      loadSummary();
     } catch {
       alert('保存失败');
     }
@@ -219,6 +252,7 @@ export default function Home() {
     } finally {
       setSending(false);
       loadSignals();
+      loadSummary();
     }
   }
 
@@ -254,6 +288,7 @@ export default function Home() {
 
       // 3. 用服务器数据校准（幂等去重后）
       await loadSignals();
+      loadSummary();
     } catch (err) {
       console.error('signal network error:', err);
       alert('网络错误，信号未记录');
@@ -396,6 +431,84 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Today (ES-003 tracking visibility) */}
+      {summary && (
+        <div className="px-4 pb-2 shrink-0 text-[11px]">
+          <button
+            onClick={() => setPanelOpen(o => !o)}
+            className="w-full flex items-center justify-between text-stone-400"
+          >
+            <span>今天 {panelOpen ? '▾' : '▸'}</span>
+            <span className="text-stone-500">
+              自动{' '}
+              {(summary.steps.value > 0 ? 1 : 0) +
+                (summary.apps_used > 0 ? 1 : 0)}{' '}
+              · 手动{' '}
+              {(summary.wake.at ? 1 : 0) +
+                (summary.sleep.at ? 1 : 0) +
+                summary.water.count}{' '}
+              · 提醒{' '}
+              {(summary.reminders.water?.shown ?? 0) +
+                (summary.reminders.standup?.shown ?? 0) +
+                (summary.reminders.vitamin?.shown ?? 0)}
+            </span>
+          </button>
+          {panelOpen && (
+            <div className="mt-2 space-y-2 text-stone-400">
+              <div>
+                <div className="text-stone-600">自动记录</div>
+                <button
+                  className="block text-left"
+                  onClick={() => prefill('今天用了哪些应用？')}
+                >
+                  应用使用 {summary.apps_used} 个
+                </button>
+                <button
+                  className="block text-left"
+                  onClick={() => prefill('今天走了多少步？')}
+                >
+                  步数 {summary.steps.value} / {summary.steps.goal}
+                </button>
+              </div>
+              <div>
+                <div className="text-stone-600">手动记录</div>
+                <button
+                  className="block text-left"
+                  onClick={() => prefill('我今天几点起床的？')}
+                >
+                  起床 {hm(summary.wake.at)}
+                </button>
+                <button
+                  className="block text-left"
+                  onClick={() => prefill('我昨晚几点睡的？')}
+                >
+                  入睡 {hm(summary.sleep.at)}
+                </button>
+                <button
+                  className="block text-left"
+                  onClick={() => prefill('我今天喝水够了吗？')}
+                >
+                  喝水 {summary.water.count} / {summary.water.target}
+                </button>
+              </div>
+              <div>
+                <div className="text-stone-600">提醒</div>
+                {(['water', 'standup', 'vitamin'] as const).map(k => (
+                  <button
+                    key={k}
+                    className="block text-left"
+                    onClick={() => prefill(`今天的 ${k} 提醒怎么样？`)}
+                  >
+                    {k} {summary.reminders[k]?.acted ?? 0} /{' '}
+                    {summary.reminders[k]?.shown ?? 0}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Error */}
       {error && (
