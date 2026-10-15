@@ -109,11 +109,13 @@ export async function getTodaySummaryCached(): Promise<{
     .eq('timezone', tz)
     .maybeSingle();
 
-  // B-17: the cached summary must not go stale after new signals/reminders.
+  // B-17 / schema drift: the cached summary must not be stale.
   if (existing) {
     const latest = await latestDataAt(range.start, range.end);
     const writtenAt = new Date(existing.updated_at).getTime();
-    if (latest <= writtenAt) {
+    const shapeOk =
+      typeof (existing.data as { apps_used?: unknown })?.apps_used === 'number';
+    if (latest <= writtenAt && shapeOk) {
       return {
         date,
         timezone: tz,
