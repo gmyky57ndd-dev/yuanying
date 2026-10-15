@@ -36,6 +36,10 @@
 
 ---
 
+## Scheduled reminders
+
+- **2026-10-22** — **[P0-05] ES-004 enforce phase**: set `AUTH_ENFORCE=true` on Vercel (after the 7-day grace) — only once legitimate clients show `would_401=false` in `auth_events`. Runbook: `docs/runbooks/ES-004-enforce.md`.
+
 ## In Progress
 
 ### [P1-01] Reminder scheduler
@@ -222,19 +226,19 @@
 
 ### [P1-15] Review & optimize self-upgrade
 
-- **Status**: To Do
-- **Owner**: —
+- **Status**: In Progress
+- **Owner**: @agent
 - **Opened**: 2026-10-14
 - **Phase**: P1
-- **Refs**: AGENTS §4.4; this session
+- **Refs**: AGENTS §4.4/§4.7; `docs/runbooks/self-upgrade.md`
 - **Description**: Dedicated session to review and optimize the two self-upgrade planes end-to-end and make them robust:
   - **PWA**: GitHub Actions → `vercel deploy --prod` (currently works; token is a reused CLI OAuth token — move to a dedicated no-expiration token; add failure alerting).
   - **Collector**: Play auto-update vs. in-app `AppUpdateManager`; ensure the release pipeline (`v*` tag → signed AAB → Play track) is automated.
 - **Acceptance**:
-  - [ ] Deploy loop verified from a clean state; failures surface
-  - [ ] Dedicated `VERCEL_TOKEN` (no expiration) with rotation note
-  - [ ] Play upload automated (service account) OR documented manual fallback
-  - [ ] A short runbook in `docs/`
+  - [x] Deploy loop verified from a clean state; failures surface
+  - [ ] Dedicated `VERCEL_TOKEN` (no expiration) with rotation note — owner action
+  - [x] Play upload automated (service account) OR documented manual fallback — workflow gated on `PLAY_SERVICE_ACCOUNT_JSON`; manual documented
+  - [x] A short runbook in `docs/` — `docs/runbooks/self-upgrade.md`
 - **Notes**: **Dedicated session** — do not fold into other work. **Scheduled 2026-10-15** (owner: run the manual process one more day). **Interim (owner, 2026-10-14):** use web auto-deployment (`deploy.yml`) for the PWA and **manual AAB upload to Google Play** for the collector until this session. **Observation 2026-10-15:** the Vercel Git integration is auto-deploying on push again (independent of CI); the CI `VERCEL_TOKEN` (reused CLI OAuth) rotated and was refreshed — a dedicated no-expiration token is still required.
 
 ---
@@ -324,6 +328,8 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - **ES-004 logging phase implemented** (behind `AUTH_ENFORCE=false`): middleware + `auth_events` + PWA session cookie + collector bearer. Grace started 2026-10-15. Collector **v1.0.12** (code 13).
 - **ES-002 implemented** (daily notes): `note` migration, `/api/note`, summary notes + prompt labeling, PWA 记一笔 editor → P1-13 In Review.
 - **ES-003 implemented** (tracking visibility): collapsible 今天 panel (counts only) → P1-14 In Review. Added `apps_used` to summary.
+- **Self-upgrade (P1-15)**: runbook `docs/runbooks/self-upgrade.md`; Play auto-upload added to `android-release.yml` (gated on `PLAY_SERVICE_ACCOUNT_JSON`); dedicated `VERCEL_TOKEN` pending owner.
+- **ES-004 enforce runbook** `docs/runbooks/ES-004-enforce.md`; reminder set for **2026-10-22** (Scheduled reminders).
 
 ### 2026-10-14 (session 3 — PM handoff)
 - Adopted PM Feedback 2026-10-14. Created + fixed **B-17** (button/summary inconsistency) and **B-18** (元婴 states inference as fact) → In Review.
