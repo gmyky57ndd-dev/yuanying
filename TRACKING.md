@@ -190,6 +190,20 @@
 
 ## To Do
 
+### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
+
+- **Status**: To Do · **Phase**: P0 · **Opened**: 2026-10-15
+- **Refs**: AGENTS §2.1 (quiet by default), §6 (timezone); related to B-16
+- **Description**: Date boundaries and reminder windows are computed in a hardcoded `Asia/Shanghai` (collector `ReminderScheduler` TZ constant, `lib/timezone.ts` default, `config.timezone` default). On a phone whose location/timezone is not Beijing, the reminder windows map to the wrong local time and notifications fire during the user's sleeping hours.
+- **Observed**: a reminder notification fired during sleeping time.
+- **Fix**: derive the timezone from the phone (device timezone / location) and apply it to **all** activities — reminder windows, day boundaries, and summary scoping. Update `config.timezone` from the device; the collector uses the device timezone.
+- **Acceptance**:
+  - [ ] Reminders fire at the correct **local** windows
+  - [ ] No notifications during the user's sleep window
+  - [ ] Day boundaries + summary scope to the phone's timezone
+  - [ ] `config.timezone` reflects the device timezone
+- **Notes**: Not a duplicate of B-16 — B-16 scoped daily counts to a *configured* tz; this requires that tz to be the phone's actual location/timezone.
+
 ### [P1-15] Review & optimize self-upgrade
 
 - **Status**: To Do
@@ -275,6 +289,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - Created **P1-12** (Configurable habits), **P1-13** (Daily notes), **P1-14** (Tracking visibility) — **Blocked**: the `ES-001/002/003` spec files are **not present** in the repo.
 - Renumbered the self-upgrade item **P1-12 → P1-15** to free P1-12 for Configurable habits (PM doc §6).
 - Reported the missing spec files and requested them (AGENTS §9).
+- **B-19** logged (Bug P0): date/reminder windows hardcode `Asia/Shanghai` instead of the phone timezone → notification fired during sleeping time. Fix: derive tz from phone location/timezone for all activities.
 
 ### 2026-10-14 (session 2)
 - Adopted Dev Response 1014: reminders → Android collector (P1-09); cron (P1-02) → **Won't Do**; P1-01/P1-03 → In Progress.
