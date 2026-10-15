@@ -70,6 +70,7 @@ export async function generateSummary(opts?: {
       vitamin: countReminders(reminders, 'vitamin'),
     },
     top_apps: pickTopApps(signals, TOP_APPS_LIMIT),
+    notes: pickNotes(signals),
     signals_total: signals.length,
     generated_at: new Date().toISOString(),
   };
@@ -191,8 +192,23 @@ function countReminders(rows: any[], name: string) {
   };
 }
 
-function pickTopApps(signals: any[], limit: number) {
-  const totals: Record<string, { name: string; minutes: number }> = {};
+function pickNotes(signals: any[]) {
+  const noteRows = signals.filter(s => s.name === 'note');
+  return {
+    count: noteRows.length,
+    items: noteRows.slice(-10).map(s => ({
+      at: s.created_at,
+      text: truncateText(String(s.value?.text ?? ''), 200),
+    })),
+  };
+}
+
+function truncateText(s: string, max: number): string {
+  const chars = Array.from(s);
+  return chars.length <= max ? s : chars.slice(0, max).join('');
+}
+
+function pickTopApps(signals: any[], limit: number) {  const totals: Record<string, { name: string; minutes: number }> = {};
   for (const s of signals) {
     if (s.name !== 'app_usage') continue;
     const v = s.value ?? {};

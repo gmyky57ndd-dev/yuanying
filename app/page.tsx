@@ -53,6 +53,12 @@ export default function Home() {
   const [steps, setSteps] = useState<{ value: number; goal: number } | null>(
     null
   );
+  const [notes, setNotes] = useState<Array<{ id: number; text: string }>>([]);
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [noteListening, setNoteListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const noteRecRef = useRef<any>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -69,8 +75,18 @@ export default function Home() {
       .catch(() => {});
     loadSignals();
     loadSteps();
+    loadNotes();
     // Generate today's summary on first open (idempotent server-side).
     fetchWithTimeout(`${API_BASE}/api/summary/today`, {}).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setVoiceSupported(
+      !!(
+        (window as any).SpeechRecognition ||
+        (window as any).webkitSpeechRecognition
+      )
+    );
   }, []);
 
   useEffect(() => {
@@ -125,6 +141,55 @@ export default function Home() {
       const d = await r.json();
       setSteps({ value: d.steps ?? 0, goal: d.goal ?? 5000 });
     } catch {}
+  }
+
+  async function loadNotes() {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/note`, {});
+      const d = await r.json();
+      setNotes(d.notes ?? []);
+    } catch {}
+  }
+
+  async function saveNote() {
+    const text = noteText.trim();
+    if (!text) return;
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/note`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!r.ok) {
+        alert('保存失败');
+        return;
+      }
+      setNoteText('');
+      setNoteOpen(false);
+      loadNotes();
+    } catch {
+      alert('保存失败');
+    }
+  }
+
+  function startNoteVoice() {
+    const SR =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const rec = new SR();
+    rec.lang = 'zh-CN';
+    rec.interimResults = false;
+    rec.continuous = false;
+    rec.onresult = (e: any) => {
+      const t = e.results[0][0].transcript;
+      setNoteText(prev => (prev ? prev + ' ' : '') + t);
+    };
+    rec.onend = () => setNoteListening(false);
+    rec.onerror = () => setNoteListening(false);
+    noteRecRef.current = rec;
+    rec.start();
+    setNoteListening(true);
   }
 
   async function send(text?: string) {
@@ -269,6 +334,68 @@ export default function Home() {
           步数 {steps.value} / {steps.goal}
         </div>
       )}
+
+      {/* Notes */}
+      <div className="px-4 pb-2 shrink-0">
+        <div className="flex items-center justify-between text-[11px] text-stone-500">
+          <button
+            onClick={() => setNoteOpen(o => !o)}
+            className="text-stone-400"
+          >
+            记一笔
+          </button>
+          <span>笔记 {notes.length}</span>
+        </div>
+        {noteOpen && (
+          <div className="mt-2 space-y-2">
+            <textarea
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              rows={3}
+              placeholder="记点什么…"
+              className="w-full bg-stone-900 border border-stone-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-stone-600"
+            />
+            <div className="flex gap-2 justify-end items-center">
+              {voiceSupported && (
+                <button
+                  onClick={startNoteVoice}
+                  aria-label="note-voice"
+                  className={`w-9 h-9 rounded-full text-sm ${
+                    noteListening
+                      ? 'bg-red-900 text-red-200'
+                      : 'bg-stone-800 text-stone-300'
+                  }`}
+                >
+                  ◉
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setNoteOpen(false);
+                  setNoteText('');
+                }}
+                className="text-xs text-stone-500 px-2"
+              >
+                取消
+              </button>
+              <button
+                onClick={saveNote}
+                disabled={!noteText.trim()}
+                className="bg-stone-700 disabled:opacity-40 rounded-full px-4 py-1.5 text-xs"
+              >
+                保存
+              </button>
+            </div>
+            {notes.length > 0 && (
+              <ul className="text-[11px] text-stone-500 space-y-1">
+                {notes.map(n => (
+                  <li key={n.id}>· {n.text}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Error */}
       {error && (

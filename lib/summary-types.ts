@@ -9,6 +9,7 @@ export interface SummaryData {
     vitamin: { shown: number; acted: number };
   };
   top_apps: Array<{ name: string; minutes: number }>;
+  notes: { count: number; items: Array<{ at: string; text: string }> };
   signals_total: number;
   generated_at: string;
 }
