@@ -209,17 +209,16 @@
 
 ### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
 
-- **Status**: To Do · **Phase**: P0 · **Opened**: 2026-10-15
-- **Refs**: AGENTS §2.1 (quiet by default), §6 (timezone); related to B-16
+- **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-15 · **Refs** AGENTS §2.1/§6; commit `bc4aa12`
 - **Description**: Date boundaries and reminder windows are computed in a hardcoded `Asia/Shanghai` (collector `ReminderScheduler` TZ constant, `lib/timezone.ts` default, `config.timezone` default). On a phone whose location/timezone is not Beijing, the reminder windows map to the wrong local time and notifications fire during the user's sleeping hours.
 - **Observed**: a reminder notification fired during sleeping time.
-- **Fix**: derive the timezone from the phone (device timezone / location) and apply it to **all** activities — reminder windows, day boundaries, and summary scoping. Update `config.timezone` from the device; the collector uses the device timezone.
+- **Fix (implemented)**: collector uses the **device timezone** (`TimeZone.getDefault()`) and is the **primary writer** of `config.timezone` (each hourly run); the PWA writes only on a **>1h mismatch** (exception). Added **quiet window 22:00–07:00** (`config.quiet_window`) — reminders suppressed, no backfill (ES-001 §3 / owner D5).
 - **Acceptance**:
-  - [ ] Reminders fire at the correct **local** windows
-  - [ ] No notifications during the user's sleep window
-  - [ ] Day boundaries + summary scope to the phone's timezone
-  - [ ] `config.timezone` reflects the device timezone
-- **Notes**: Not a duplicate of B-16 — B-16 scoped daily counts to a *configured* tz; this requires that tz to be the phone's actual location/timezone.
+  - [x] Reminders evaluated in the device timezone
+  - [x] No notifications during the quiet window (no backfill)
+  - [x] `config.timezone` reflects the device timezone (collector primary)
+  - [ ] Owner device verification (collector v1.0.11)
+- **Notes**: Not a duplicate of B-16 (B-16 scoped daily counts to a *configured* tz; this makes that tz the device's). Collector **v1.0.11** (code 12) pending Play upload + device check.
 
 ### [P1-15] Review & optimize self-upgrade
 
@@ -244,23 +243,27 @@
 
 ### [P0-05] API authentication (ES-004)
 
-- **Status**: Blocked · **Phase**: P0 · **Opened**: 2026-10-15
-- **Refs**: `docs/specs/ES-004-api-authentication.md` (owner Q3)
-- **Blocker**: ES-004 is Draft — pending owner approval (4 Approval Questions §5: PWA credential model, cron/API_TOKEN unification, rollout, tracking ID).
-- **Description**: Global API access control (recommended shared-secret bearer token). Must land before any new public write endpoint; ES-001 v1.1 write endpoints depend on it.
+- **Status**: In Progress · **Phase**: P0 · **Opened**: 2026-10-15
+- **Refs**: `docs/specs/ES-004-api-authentication.md` (approved 2026-10-15)
+- **Description**: Global API access control. PWA = owner password → **httpOnly session cookie (30 days, refreshed on use)**; collector = bearer token; `/api/cron/*` keeps `CRON_SECRET`.
+- **Sub-tasks**:
+  - [ ] **Logging phase** (§3.1): compute would-be-401, write `auth_events` `{ts, route, ip_hash, would_401, enforced}` (**not** console); 7-day grace.
+  - [ ] **Enforce phase**: reject `401` after the 7-day grace.
+  - [ ] PWA session cookie + collector bearer implemented.
+- **Notes**: Priority #2 — start the logging/grace period early. ES-001 v1.1 write endpoints depend on this.
 
 ### [P1-13] Daily notes
 
-- **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
-- **Refs**: `docs/specs/ES-002-daily-notes.md` (PM doc §2.3, decisions D6/D7)
-- **Blocker**: ES-002 spec present at `docs/specs/ES-002-daily-notes.md`, status **Draft — pending owner approval** (4 Approval Questions §6: voice in v1?, notes in prompt by default?, deletion/retention, scheduling).
+- **Status**: To Do · **Phase**: P1 · **Opened**: 2026-10-14
+- **Refs**: `docs/specs/ES-002-daily-notes.md` (approved 2026-10-15)
+- **Blocker**: discharged (ES-002 approved); scheduled per priority (after P0-05 logging phase).
 - **Description**: "记一笔" text note (voice transcribed at input; text only); notes stored as signals and integrated into the summary.
 
 ### [P1-14] Tracking visibility
 
-- **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
-- **Refs**: `docs/specs/ES-003-tracking-visibility.md` (PM doc §2.1, decision D2)
-- **Blocker**: ES-003 spec present at `docs/specs/ES-003-tracking-visibility.md`, status **Draft — pending owner approval** (5 Approval Questions §6: placement/collapsed, app-usage count vs names, prefilled questions, B-17 ID, P1-14 assignment); also depends on **B-17** landing first.
+- **Status**: To Do · **Phase**: P1 · **Opened**: 2026-10-14
+- **Refs**: `docs/specs/ES-003-tracking-visibility.md` (approved 2026-10-15)
+- **Blocker**: discharged (ES-003 approved). Depends on **B-17** (button/summary) — now fixed/In Review.
 - **Description**: Close the gap between "what is tracked" and "what has a reminder" on the home/tracking panel. Not the full UX redesign (deferred to Phase v2).
 
 ---
@@ -282,7 +285,7 @@
 
 Unscheduled. Do not start without owner/tech-lead scheduling.
 
-- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning
+- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[P2-01]** Note deletion UI (ES-002; deferred, not v1)
 
 ---
 
@@ -300,6 +303,14 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-15 (session 4 — ES-001 landed; B-19; ES approvals)
+- ES-001 v1 landed → P1-12 In Review (migration+seed, `GET /api/habits`, config-driven collector reminders, read-only settings). Collector v1.0.10.
+- ES-002/ES-003/ES-004 **approved** with owner amendments; specs updated (ES-002 A1/A2; ES-003 B1/B2; ES-004 C1/C3; ES-001 §3 D5).
+- **P0-05 (ES-004) → In Progress** — logging phase first (7-day grace; `auth_events` table), then enforce.
+- **B-19 implemented** (device timezone + quiet window) → In Review; collector **v1.0.11** (code 12).
+- Backlog: **[P2-01]** Note deletion UI (ES-002, deferred).
+- **Priority order:** B-19 → ES-004 logging → ES-002 → ES-003 → ES-004 enforce.
 
 ### 2026-10-14 (session 3 — PM handoff)
 - Adopted PM Feedback 2026-10-14. Created + fixed **B-17** (button/summary inconsistency) and **B-18** (元婴 states inference as fact) → In Review.
