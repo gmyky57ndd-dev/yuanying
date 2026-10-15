@@ -186,6 +186,23 @@
   - [x] chat "看今天的简报" works
 - **Notes**: Verified in production (generate → cached `today`; chat returns the formatted brief). Supersedes the deleted `/api/summary`.
 
+### [P1-12] Configurable habits
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/specs/ES-001-habits-framework.md` (approved 2026-10-15); commit `0675e78`
+- **Description**: Configurable habits (minimal). v1 = **passive** new habits only; read-only administration; reminder rules support fixed times + per-day intervals (§3.1 tick semantics); the collector reads server config.
+- **Acceptance**:
+  - [x] Forward migration + idempotent seed (water/standup/vitamin)
+  - [x] `GET /api/habits` read-only; no new public write endpoints (ES-004 gate)
+  - [x] Collector evaluates fixed/interval rules with §3.1 semantics (tick, no backfill, dedup)
+  - [x] Authored templates + optional `text_override`/`voice_override`
+  - [x] Settings read-only 管理习惯 list
+  - [ ] Owner device verification (collector v1.0.10)
+- **Notes**: Web deployed; collector **v1.0.10** (code 11) pending Play upload + device check. v1.1 (manual habits + dynamic buttons) gated on ES-004.
+
 ---
 
 ## To Do
@@ -225,12 +242,12 @@
 
 ## Blocked
 
-### [P1-12] Configurable habits
+### [P0-05] API authentication (ES-004)
 
-- **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
-- **Refs**: `docs/specs/ES-001-habits-framework.md` (PM doc §2.2, decisions D3/D4/D5)
-- **Blocker**: ES-001 spec is present at `docs/specs/ES-001-habits-framework.md` but its status is **Draft — pending owner approval**, with 5 open Approval Questions (§8: habit types, due-window/missed-window/dedup semantics, endpoint access control, editable notification text, tracking ID). Blocked until the owner answers.
-- **Description**: Configurable habits (minimal) so adding/editing a tracking item needs no deploy; reminder rules support fixed times + per-day intervals; collector reads server config.
+- **Status**: Blocked · **Phase**: P0 · **Opened**: 2026-10-15
+- **Refs**: `docs/specs/ES-004-api-authentication.md` (owner Q3)
+- **Blocker**: ES-004 is Draft — pending owner approval (4 Approval Questions §5: PWA credential model, cron/API_TOKEN unification, rollout, tracking ID).
+- **Description**: Global API access control (recommended shared-secret bearer token). Must land before any new public write endpoint; ES-001 v1.1 write endpoints depend on it.
 
 ### [P1-13] Daily notes
 
@@ -290,6 +307,10 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - Renumbered the self-upgrade item **P1-12 → P1-15** to free P1-12 for Configurable habits (PM doc §6).
 - Reported the missing spec files and requested them (AGENTS §9).
 - **B-19** logged (Bug P0): date/reminder windows hardcode `Asia/Shanghai` instead of the phone timezone → notification fired during sleeping time. Fix: derive tz from phone location/timezone for all activities.
+- **ES-001 approved** (owner answered all 5 questions) — spec updated (§2 v1 passive-only, §3 overrides, new §3.1 tick semantics, §6 read-only, §8 resolved). P1-12 → **In Progress**.
+- Created **ES-004 (API authentication)** spec + **P0-05** (Blocked pending approval). ES-001 v1 must not add public write endpoints until ES-004 lands.
+- P1-13/P1-14 remain Blocked (ES-002/ES-003 still Draft, pending owner answers).
+- **ES-001 v1 implemented** (configurable habits: migration+seed, `GET /api/habits`, config-driven collector reminders, read-only settings view) → P1-12 In Review. Collector build **v1.0.10** (code 11).
 
 ### 2026-10-14 (session 2)
 - Adopted Dev Response 1014: reminders → Android collector (P1-09); cron (P1-02) → **Won't Do**; P1-01/P1-03 → In Progress.
