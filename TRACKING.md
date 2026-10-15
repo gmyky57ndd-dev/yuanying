@@ -66,6 +66,31 @@
 
 ## In Review
 
+### [P2-01] Opinions file structure + schema
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §5; commit `46acf06`
+- **Notes**: `core/opinions/{held,confirmed,rejected,archive}.md` created with the entry format (id, Confidence, First observed, Last engaged, Topic, Evidence).
+
+### [P2-02] Detector 1 — avoidance via adjacent tasks
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §4; `scripts/opinions.mjs` (`npm run opinions:detect`)
+- **Notes**: Runs as an **agent batch** (core/opinions files are read-only on the serverless runtime — writes are committed). Requires 5+ consecutive note-days **and** adjacent activity (false-positive guard); max 3 held (oldest → archive); topic heuristic; off-limits filter. Nightly scheduling is the agent/cron invoking the script.
+
+### [P2-03] Confirmation protocol + file transitions
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §7; `npm run opinions:respond <id> 对|不对|有可能 [reason]`
+- **Notes**: 对 → `confirmed.md`; 不对 → `rejected.md` (+reason, never re-proposed); 有可能 → confidence +0.1; silence → −0.05/week, 60 days → `archive.md`.
+
+### [P2-04] Prompt integration — confirmed + held opinions
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §8; `lib/yuanying.ts`
+- **Notes**: `confirmed.md` always; `held.md` only when the conversation topic matches; `rejected.md`/`archive.md` never. Prompt line + "we" voice + priority order (ground rules > opinions; confirm-before-action > all).
+
+### [P2-05] Off-limits filter from ground rules
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §10; `lib/opinions.ts` + detector filter
+- **Notes**: Reads `## No opinions about` from `core/ground-rules.md`; **hard filter** (not a threshold). Owner populates over time; empty filter acceptable for v1 (non-blocking).
+
 ### [P1-16] Voice pass — 元婴 speaks, not reports
 
 - **Status**: In Review
@@ -331,7 +356,7 @@
 
 Unscheduled. Do not start without owner/tech-lead scheduling.
 
-- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-21]** Steps signal diagnostic (value 0 vs summation bug) — **confirmed aggregation bug, fixed** (max-snapshot) · **[P2-01]** Note deletion UI (ES-002; deferred, not v1)
+- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-21]** Steps signal diagnostic (value 0 vs summation bug) — **confirmed aggregation bug, fixed** (max-snapshot) · **[B-22]** Note deletion UI (ES-002; deferred, not v1)
 
 ---
 
@@ -349,6 +374,11 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-15 (session 6 — ES-006 learning loop)
+- Executed P2-01..P2-05: opinions files, detector 1, confirmation transitions, prompt integration, off-limits filter (all **In Review**).
+- Detector + transitions run as an **agent-batch script** (`scripts/opinions.mjs`); `core/opinions/*.md` are read-only on the runtime (writes committed).
+- Backlog note-deletion renumbered **P2-01 → B-22** (ID freed for ES-006 §13).
 
 ### 2026-10-15 (session 5 — ES-005 option A)
 - Executed ES-005 Part C: steps diagnostic (aggregation bug fixed), `summaries.type` migration, reminder cadence (quiet window / 2h standup / cap 6 / miss-60min), weekly digest, voice pass, ground-rules prompt integration.
