@@ -229,21 +229,21 @@
 
 - **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
 - **Refs**: `docs/specs/ES-001-habits-framework.md` (PM doc §2.2, decisions D3/D4/D5)
-- **Blocker**: ES-001 spec file is **not present** in the repo (`docs/specs/` missing). Design/implementation awaits the spec.
+- **Blocker**: ES-001 spec is present at `docs/specs/ES-001-habits-framework.md` but its status is **Draft — pending owner approval**, with 5 open Approval Questions (§8: habit types, due-window/missed-window/dedup semantics, endpoint access control, editable notification text, tracking ID). Blocked until the owner answers.
 - **Description**: Configurable habits (minimal) so adding/editing a tracking item needs no deploy; reminder rules support fixed times + per-day intervals; collector reads server config.
 
 ### [P1-13] Daily notes
 
 - **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
 - **Refs**: `docs/specs/ES-002-daily-notes.md` (PM doc §2.3, decisions D6/D7)
-- **Blocker**: ES-002 spec file is **not present** in the repo.
+- **Blocker**: ES-002 spec present at `docs/specs/ES-002-daily-notes.md`, status **Draft — pending owner approval** (4 Approval Questions §6: voice in v1?, notes in prompt by default?, deletion/retention, scheduling).
 - **Description**: "记一笔" text note (voice transcribed at input; text only); notes stored as signals and integrated into the summary.
 
 ### [P1-14] Tracking visibility
 
 - **Status**: Blocked · **Phase**: P1 · **Opened**: 2026-10-14
 - **Refs**: `docs/specs/ES-003-tracking-visibility.md` (PM doc §2.1, decision D2)
-- **Blocker**: ES-003 spec **not present**; also depends on **B-17** (button/summary consistency) landing first.
+- **Blocker**: ES-003 spec present at `docs/specs/ES-003-tracking-visibility.md`, status **Draft — pending owner approval** (5 Approval Questions §6: placement/collapsed, app-usage count vs names, prefilled questions, B-17 ID, P1-14 assignment); also depends on **B-17** landing first.
 - **Description**: Close the gap between "what is tracked" and "what has a reminder" on the home/tracking panel. Not the full UX redesign (deferred to Phase v2).
 
 ---
@@ -265,7 +265,7 @@
 
 Unscheduled. Do not start without owner/tech-lead scheduling.
 
-- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-17]** `summaries` retention/pruning
+- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning
 
 ---
 
