@@ -18,26 +18,53 @@ interface BuildOptions {
 
 let coreCache: string | null = null;
 let coreCacheMtime = 0;
+let warnedGroundRules = false;
 
 function loadCore(): string {
   const coreDir = path.join(process.cwd(), 'core');
-  const files = ['identity.md', 'values.md', 'voice.md'];
+  const required = ['identity.md', 'values.md', 'voice.md'];
+  const groundRulesPath = path.join(coreDir, 'ground-rules.md');
 
-  const stat = fs.statSync(path.join(coreDir, files[0]));
+  const newest = (() => {
+    let m = fs.statSync(path.join(coreDir, required[0])).mtimeMs;
+    try {
+      m = Math.max(m, fs.statSync(groundRulesPath).mtimeMs);
+    } catch {
+      /* missing; ignored */
+    }
+    return m;
+  })();
 
-  if (coreCache && stat.mtimeMs === coreCacheMtime) {
+  if (coreCache && newest === coreCacheMtime) {
     return coreCache;
   }
 
-  coreCache = files
-    .map(f => {
-      const fp = path.join(coreDir, f);
-      const content = fs.readFileSync(fp, 'utf-8');
-      return `## ${f}\n\n${content}`;
-    })
-    .join('\n\n---\n\n');
+  const parts = required.map(f => {
+    const content = fs.readFileSync(path.join(coreDir, f), 'utf-8');
+    return `## ${f}\n\n${content}`;
+  });
 
-  coreCacheMtime = stat.mtimeMs;
+  // §E.5: ground rules are optional. present (content) → load; empty → skip;
+  // missing → warn once, skip. Never crash.
+  try {
+    if (fs.existsSync(groundRulesPath)) {
+      const content = fs.readFileSync(groundRulesPath, 'utf-8').trim();
+      if (content.length > 0) {
+        parts.push(`## ground-rules.md\n\n${content}`);
+      }
+    } else if (!warnedGroundRules) {
+      console.warn('core/ground-rules.md missing; skipping section');
+      warnedGroundRules = true;
+    }
+  } catch (e) {
+    if (!warnedGroundRules) {
+      console.warn('failed to load core/ground-rules.md', e);
+      warnedGroundRules = true;
+    }
+  }
+
+  coreCache = parts.join('\n\n---\n\n');
+  coreCacheMtime = newest;
 
   return coreCache;
 }
@@ -129,6 +156,18 @@ export function buildSystemPrompt(opts: BuildOptions = {}): string {
 ---
 
 # Runtime
+
+## Priority order (strict)
+
+1. Confirm before action — never act on inference.
+2. Ground rules — owner intent. Follow over your heuristics.
+3. Voice — the register in which you speak.
+4. Generic heuristics — fallback only.
+
+Ground rules cannot override priority 1.
+
+When reporting data, speak as a person noticing, not a system reporting.
+Begin with a sentence. Numbers serve the sentence.
 
 You are running as a phone PWA prototype.
 Keep responses short — this is a phone screen.
