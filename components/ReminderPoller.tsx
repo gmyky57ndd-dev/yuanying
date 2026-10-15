@@ -10,6 +10,26 @@ interface DueReminder {
   scheduled_at: string;
 }
 
+function inQuietWindow(cfg: any): boolean {
+  const qw = cfg?.quiet_window;
+  if (!qw?.start || !qw?.end) return false;
+  const tz =
+    typeof cfg.timezone === 'string' ? cfg.timezone : 'Asia/Shanghai';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+  const [h, m] = parts.split(':').map(Number);
+  const now = h * 60 + m;
+  const [sh, sm] = String(qw.start).split(':').map(Number);
+  const [eh, em] = String(qw.end).split(':').map(Number);
+  const start = sh * 60 + sm;
+  const end = eh * 60 + em;
+  return start <= end ? now >= start && now < end : now >= start || now < end;
+}
+
 export function ReminderPoller() {
   const lastCheck = useRef(0);
   const spoken = useRef<Set<number>>(new Set());
@@ -20,6 +40,10 @@ export function ReminderPoller() {
       lastCheck.current = Date.now();
 
       try {
+        const cfgRes = await fetch(`${API_BASE}/api/config`);
+        const cfg = await cfgRes.json();
+        if (inQuietWindow(cfg)) return; // B-19: suppress during quiet window
+
         const res = await fetch(`${API_BASE}/api/reminder/due`);
         const data: { reminders: DueReminder[] } = await res.json();
 
@@ -64,8 +88,7 @@ async function playReminder(r: DueReminder): Promise<void> {
   }
 }
 
-function speak(text: string, lang = 'zh-CN'): Promise<void> {
-  return new Promise(resolve => {
+function speak(text: string, lang = 'zh-CN'): Promise<void> {  return new Promise(resolve => {
     if (!('speechSynthesis' in window)) {
       resolve();
       return;

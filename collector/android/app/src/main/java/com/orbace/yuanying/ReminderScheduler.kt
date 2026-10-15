@@ -45,14 +45,36 @@ object ReminderScheduler {
         try {
             val config = ConfigClient().getConfig()
             val enabled = config.optJSONObject("reminders_enabled")
-            val tz = config.optString("timezone", DEFAULT_TZ)
 
-            val cal = Calendar.getInstance(TimeZone.getTimeZone(tz))
+            // B-19: use the phone's timezone; the collector is the primary writer
+            // of config.timezone. (PWA writes only on >1h mismatch.)
+            val deviceTz = TimeZone.getDefault().id
+            try {
+                ApiClient().put(
+                    ApiClient.BASE_URL + "/api/config",
+                    JSONObject().put("timezone", deviceTz)
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "timezone write failed", e)
+            }
+
+            val cal = Calendar.getInstance(TimeZone.getTimeZone(deviceTz))
             val nowMin = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
             val nowMs = System.currentTimeMillis()
             val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                .apply { timeZone = TimeZone.getTimeZone(tz) }
+                .apply { timeZone = TimeZone.getTimeZone(deviceTz) }
                 .format(Date())
+
+            // B-19: quiet window — suppress, no backfill.
+            val qw = config.optJSONObject("quiet_window")
+            if (qw != null) {
+                val start = parseHHMM(qw.optString("start", "22:00"))
+                val end = parseHHMM(qw.optString("end", "07:00"))
+                if (inQuietWindow(nowMin, start, end)) {
+                    Log.i(TAG, "quiet window; skipping reminders")
+                    return
+                }
+            }
 
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             if (prefs.getString("date", null) != dateKey) {
@@ -201,6 +223,12 @@ object ReminderScheduler {
         } catch (e: Exception) {
             0
         }
+    }
+
+    /** Quiet window may wrap past midnight (e.g. 22:00–07:00). */
+    private fun inQuietWindow(nowMin: Int, start: Int, end: Int): Boolean {
+        return if (start <= end) nowMin in start until end
+        else (nowMin >= start || nowMin < end)
     }
 
     // Parse "YYYY-MM-DDThh:mm:ss..." as UTC without java.time (minSdk 24).

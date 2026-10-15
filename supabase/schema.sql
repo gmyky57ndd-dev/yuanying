@@ -222,3 +222,8 @@ insert into habits (name, display_name, type, reminder, capture_config, target, 
    '{"mode":"fixed","times":["08:30"],"days":"daily","text_override":null,"voice_override":null}'::jsonb,
    '{"method":"manual"}'::jsonb, null, true)
 on conflict (name) do nothing;
+
+-- B-19: quiet window (reminders suppressed 22:00–07:00)
+insert into config (key, value) values
+  ('quiet_window', '{"start":"22:00","end":"07:00"}'::jsonb)
+on conflict (key) do nothing;

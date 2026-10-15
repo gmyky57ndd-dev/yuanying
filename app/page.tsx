@@ -16,6 +16,33 @@ type Signal = {
 
 const SIGNALS = ['wake', 'sleep', 'water'] as const;
 
+// B-19: timezone offset helper for the PWA exception writer.
+function tzOffsetMinutes(tz: string, at: Date = new Date()): number {
+  const dtf = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const p = dtf.formatToParts(at);
+  const get = (t: string) => p.find(x => x.type === t)?.value ?? '0';
+  let h = parseInt(get('hour'), 10);
+  if (h === 24) h = 0;
+  const asUtc = Date.UTC(
+    +get('year'),
+    +get('month') - 1,
+    +get('day'),
+    h,
+    +get('minute'),
+    +get('second')
+  );
+  return Math.round((asUtc - at.getTime()) / 60000);
+}
+
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -57,6 +84,31 @@ export default function Home() {
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
+  }, []);
+
+  // B-19: exception timezone writer — the collector is the primary writer;
+  // the PWA updates config.timezone only on a >1h mismatch with the device.
+  useEffect(() => {
+    (async () => {
+      try {
+        const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (!deviceTz) return;
+        const r = await fetchWithTimeout(`${API_BASE}/api/config`, {});
+        const cfg = await r.json();
+        const cfgTz =
+          typeof cfg.timezone === 'string' ? cfg.timezone : 'Asia/Shanghai';
+        if (
+          deviceTz !== cfgTz &&
+          Math.abs(tzOffsetMinutes(deviceTz) - tzOffsetMinutes(cfgTz)) > 60
+        ) {
+          await fetchWithTimeout(`${API_BASE}/api/config`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timezone: deviceTz }),
+          });
+        }
+      } catch {}
+    })();
   }, []);
 
   async function loadSignals() {

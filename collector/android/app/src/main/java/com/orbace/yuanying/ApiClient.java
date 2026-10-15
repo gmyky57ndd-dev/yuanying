@@ -65,4 +65,17 @@ public class ApiClient {
             return null;
         }
     }
+
+    public String put(String url, JSONObject payload) {
+        try {
+            RequestBody body = RequestBody.create(payload.toString(), JSON);
+            Request req = new Request.Builder().url(url).put(body).build();
+            try (Response res = client.newCall(req).execute()) {
+                if (!res.isSuccessful() || res.body() == null) return null;
+                return res.body().string();
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
 }
