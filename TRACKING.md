@@ -266,10 +266,15 @@
 
 ### [P1-14] Tracking visibility
 
-- **Status**: To Do · **Phase**: P1 · **Opened**: 2026-10-14
-- **Refs**: `docs/specs/ES-003-tracking-visibility.md` (approved 2026-10-15)
-- **Blocker**: discharged (ES-003 approved). Depends on **B-17** (button/summary) — now fixed/In Review.
-- **Description**: Close the gap between "what is tracked" and "what has a reminder" on the home/tracking panel. Not the full UX redesign (deferred to Phase v2).
+- **Status**: In Review · **Phase**: P1 · **Opened**: 2026-10-14 · **Refs** `docs/specs/ES-003-tracking-visibility.md` (approved 2026-10-15); commit `4036521`
+- **Description**: Home “今天” transparency panel (collapsible): 自动 / 手动 / 提醒, counts only.
+- **Acceptance**:
+  - [x] Collapsed one-line summary `今天 ▸ 自动 n · 手动 n · 提醒 n` (B1)
+  - [x] Rows count only (no app names) (B2)
+  - [x] Tap a row → prefilled editable chat; send stays explicit (no auto model call)
+  - [x] Reads `/api/summary/today`; refreshes after log/note/chat
+  - [ ] Owner device verification
+- **Notes**: Added `apps_used` to the summary; cached-summary now regenerates on schema drift. Depends on B-17 (fixed).
 
 ---
 
@@ -318,6 +323,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - **Priority order:** B-19 → ES-004 logging → ES-002 → ES-003 → ES-004 enforce.
 - **ES-004 logging phase implemented** (behind `AUTH_ENFORCE=false`): middleware + `auth_events` + PWA session cookie + collector bearer. Grace started 2026-10-15. Collector **v1.0.12** (code 13).
 - **ES-002 implemented** (daily notes): `note` migration, `/api/note`, summary notes + prompt labeling, PWA 记一笔 editor → P1-13 In Review.
+- **ES-003 implemented** (tracking visibility): collapsible 今天 panel (counts only) → P1-14 In Review. Added `apps_used` to summary.
 
 ### 2026-10-14 (session 3 — PM handoff)
 - Adopted PM Feedback 2026-10-14. Created + fixed **B-17** (button/summary inconsistency) and **B-18** (元婴 states inference as fact) → In Review.
