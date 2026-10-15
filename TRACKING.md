@@ -66,6 +66,38 @@
 
 ## In Review
 
+### [P1-16] Voice pass — 元婴 speaks, not reports
+
+- **Status**: In Review
+- **Category**: Bug (voice violated core/voice.md)
+- **Refs**: ES-005 §E.1; commit `c7c4af7`
+- **Notes**: `core/voice.md` "When reporting data" section + system-prompt rule. Acceptance: chat to "看今天简报" starts with a sentence; no Signals/Totals/Reminders bullets; numbers inside sentences.
+
+### [P1-17] Reminder cadence — quiet window, 2h standup, cap 6/day
+
+- **Status**: In Review
+- **Category**: Bug (9/day violated quiet-by-default)
+- **Refs**: ES-005 §E.2; commit `de6bab5`; collector v1.0.15
+- **Notes**: TS scheduler quiet window + daily cap 6 + 60-min miss sweep; collector daily cap 6 (quiet window already); standup habit interval 60→120; `reminders.missed_at` added.
+
+### [P1-18] Weekly digest endpoint
+
+- **Status**: In Review
+- **Category**: Feature
+- **Refs**: ES-005 §E.4; commit `209ab4e`
+- **Notes**: `GET /api/digest/week` + `lib/digest-generator.ts`; prose (not fields); stored in `summaries` with `type='week'`.
+
+### [P1-19] Ground rules file + prompt integration
+
+- **Status**: In Review
+- **Category**: Feature
+- **Refs**: ES-005 §E.5; commit `c7c4af7`
+- **Notes**: `core/ground-rules.md` seeded (owner edits over time, non-blocking). Loader handles present/empty/missing (warn once). Priority-order block in prompt.
+
+### ES-005 §E.3 — Steps diagnostic (recorded)
+
+- **Result**: **aggregation bug** (not a total HealthConnect failure). Today's `steps` snapshots: `723` then `0`; the summary used "last" → showed 0. Fix: max-of-day snapshot (`lib/summary-generator.ts`). Acceptance: today's steps reflect the day's max snapshot; steps line and summary agree.
+
 ### [P0-01] Remove `sit` button and signal
 
 - **Status**: In Review · **Phase** P0 · **Refs** spec v2 §5; commit `6b8ffac`
@@ -299,7 +331,7 @@
 
 Unscheduled. Do not start without owner/tech-lead scheduling.
 
-- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[P2-01]** Note deletion UI (ES-002; deferred, not v1)
+- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-21]** Steps signal diagnostic (value 0 vs summation bug) — **confirmed aggregation bug, fixed** (max-snapshot) · **[P2-01]** Note deletion UI (ES-002; deferred, not v1)
 
 ---
 
@@ -317,6 +349,12 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-15 (session 5 — ES-005 option A)
+- Executed ES-005 Part C: steps diagnostic (aggregation bug fixed), `summaries.type` migration, reminder cadence (quiet window / 2h standup / cap 6 / miss-60min), weekly digest, voice pass, ground-rules prompt integration.
+- New: **P1-16** (voice), **P1-17** (cadence), **P1-18** (digest), **P1-19** (ground rules) → In Review. **B-21** (steps) confirmed+fixed.
+- Collector **v1.0.15**.
+- **Self-upgrade complete**: web auto-deploy + collector tag → signed AAB → GitHub Release → Play internal (verified).
 
 ### 2026-10-15 (session 4 — ES-001 landed; B-19; ES approvals)
 - ES-001 v1 landed → P1-12 In Review (migration+seed, `GET /api/habits`, config-driven collector reminders, read-only settings). Collector v1.0.10.
