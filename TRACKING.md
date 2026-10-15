@@ -375,6 +375,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 ## Changelog
 
+### 2026-10-15 (session 8 — owner identity revision)
+- Owner revised `core/identity.md` (user→owner; signals/notes reframing). Loaded into the prompt; web deploy via push.
+
 ### 2026-10-15 (session 7 — collector version record)
 - Collector UI now shows a **version + updated-timestamp record** (`v1.0.16 (17) · 更新 <last update>`). Collector **v1.0.16** (code 17).
 - Release trigger confirmed **manual**: owner says "push" → web push-deploy + collector tag→Play.
