@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "db:apply": "node --env-file=.env.local scripts/db.mjs supabase/schema.sql",
-    "db:reset": "node --env-file=.env.local scripts/db.mjs --reset"
+    "db:reset": "node --env-file=.env.local scripts/db.mjs --reset",
+    "opinions:detect": "node --env-file=.env.local scripts/opinions.mjs detect",
+    "opinions:respond": "node --env-file=.env.local scripts/opinions.mjs respond"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

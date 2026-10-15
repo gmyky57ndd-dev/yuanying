@@ -1,11 +1,13 @@
 import fs from 'fs';
 import path from 'path';
 import { SummaryData } from './summary-types';
+import { readConfirmed, relevantHeld, Opinion } from './opinions';
 
 interface BuildOptions {
   signals?: Array<{ name: string; created_at: string }>;
   now?: string;
   summary?: SummaryData;
+  message?: string;
   steps?: number | null;
   stepsGoal?: number;
   waterCount?: number;
@@ -144,11 +146,35 @@ format the above into a short readable reply. Do not add interpretation.
 ${notesBlock}`;
 }
 
+function buildOpinions(message?: string): string {
+  const confirmed = readConfirmed();
+  const held = relevantHeld(message ?? '');
+  if (confirmed.length === 0 && held.length === 0) return '';
+
+  const lines: string[] = [
+    'You hold opinions about the owner, stated as "we."',
+    'Speak from confirmed opinions when relevant.',
+    'Do not assert held opinions as fact — offer them as questions.',
+    'Ground rules (priority 2) override opinions.',
+    'Opinions never override priority 1 (confirm before action).',
+  ];
+  const render = (ops: Opinion[]) =>
+    ops.map(o => `- ${o.title} (confidence ${o.confidence.toFixed(2)})`).join('\n');
+  if (confirmed.length) {
+    lines.push('\n### Confirmed (speak from these)\n' + render(confirmed));
+  }
+  if (held.length) {
+    lines.push('\n### Held (offer as questions, not fact)\n' + render(held));
+  }
+  return `\n\n# Opinions\n\n${lines.join('\n')}`;
+}
+
 export function buildSystemPrompt(opts: BuildOptions = {}): string {
   const core = loadCore();
   const signalCtx = buildSignalContext(opts.signals ?? []);
   const dailyCtx = buildDailyContext(opts);
   const summaryLine = opts.summary ? buildSummaryLine(opts.summary) : '';
+  const opinionsCtx = buildOpinions(opts.message);
   const now = opts.now ?? new Date().toISOString();
 
   return `${core}
@@ -193,6 +219,6 @@ inference as a question or proposal, never as fact. Say
 ${now}
 
 Timezone: Asia/Shanghai
-${signalCtx}${dailyCtx}${summaryLine}
+${signalCtx}${dailyCtx}${summaryLine}${opinionsCtx}
 `;
 }

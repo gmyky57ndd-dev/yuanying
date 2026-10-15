@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
       waterCount: todaysSignals.filter(s => s.name === 'water').length,
       recentReminders: remindersRes.data ?? [],
       summary: summaryData,
+      message,
     });
 
     // 4. Assemble messages
