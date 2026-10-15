@@ -79,8 +79,8 @@ export async function generateSummary(opts?: {
   const { error } = await supabase
     .from('summaries')
     .upsert(
-      { date: range.date, timezone: tz, data },
-      { onConflict: 'date,timezone' }
+      { date: range.date, timezone: tz, type: 'day', data },
+      { onConflict: 'date,timezone,type' }
     );
 
   if (error) {
@@ -107,6 +107,7 @@ export async function getTodaySummaryCached(): Promise<{
     .select('*')
     .eq('date', date)
     .eq('timezone', tz)
+    .eq('type', 'day')
     .maybeSingle();
 
   // B-17 / schema drift: the cached summary must not be stale.
@@ -183,8 +184,11 @@ function pickSleep(signals: any[]) {
 function pickLatestStepsValue(signals: any[]): number {
   const steps = signals.filter(s => s.name === 'steps');
   if (steps.length === 0) return 0;
-  const latest = steps[steps.length - 1];
-  return typeof latest.value === 'number' ? latest.value : 0;
+  // Steps are cumulative-within-day; take max snapshot, not last.
+  return steps.reduce((max, s) => {
+    const v = typeof s.value === 'number' ? s.value : 0;
+    return Math.max(max, v);
+  }, 0);
 }
 
 function countReminders(rows: any[], name: string) {
