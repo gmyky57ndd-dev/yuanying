@@ -254,10 +254,15 @@
 
 ### [P1-13] Daily notes
 
-- **Status**: To Do · **Phase**: P1 · **Opened**: 2026-10-14
-- **Refs**: `docs/specs/ES-002-daily-notes.md` (approved 2026-10-15)
-- **Blocker**: discharged (ES-002 approved); scheduled per priority (after P0-05 logging phase).
+- **Status**: In Review · **Phase**: P1 · **Opened**: 2026-10-14 · **Refs** `docs/specs/ES-002-daily-notes.md` (approved 2026-10-15); commit `4527ecc`
 - **Description**: "记一笔" text note (voice transcribed at input; text only); notes stored as signals and integrated into the summary.
+- **Acceptance**:
+  - [x] `note` accepted (migration) + server validation (empty / >2000 rejected)
+  - [x] Content never logged
+  - [x] PWA 记一笔 editor + count + today's list; mic hidden if unsupported (A1)
+  - [x] Summary `notes {count, ≤10 excerpts ≤200}`; prompt labeling block (A2)
+  - [ ] Owner device verification
+- **Notes**: Verified in production (valid / empty / long; summary includes the note). Deletion UI deferred to **P2-01**.
 
 ### [P1-14] Tracking visibility
 
@@ -312,6 +317,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - Backlog: **[P2-01]** Note deletion UI (ES-002, deferred).
 - **Priority order:** B-19 → ES-004 logging → ES-002 → ES-003 → ES-004 enforce.
 - **ES-004 logging phase implemented** (behind `AUTH_ENFORCE=false`): middleware + `auth_events` + PWA session cookie + collector bearer. Grace started 2026-10-15. Collector **v1.0.12** (code 13).
+- **ES-002 implemented** (daily notes): `note` migration, `/api/note`, summary notes + prompt labeling, PWA 记一笔 editor → P1-13 In Review.
 
 ### 2026-10-14 (session 3 — PM handoff)
 - Adopted PM Feedback 2026-10-14. Created + fixed **B-17** (button/summary inconsistency) and **B-18** (元婴 states inference as fact) → In Review.
