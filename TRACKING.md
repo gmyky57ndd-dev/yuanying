@@ -332,6 +332,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - **ES-004 enforce runbook** `docs/runbooks/ES-004-enforce.md`; reminder set for **2026-10-22** (Scheduled reminders).
 - **Play auto-upload wired**: `PLAY_SERVICE_ACCOUNT_JSON` secret set; v1.0.13 release published. **Blocked** on owner Cloud step — enable the *Google Play Android Developer API* in project `yuanying-511715` (761958009862) + grant the service account Release permission in Play Console. Then re-run the release.
 - **Play auto-upload verified** (owner enabled the API + granted the service account): release v1.0.14 → AAB uploaded to Play **internal** track (draft). Full self-upgrade loop now automated: web (Git integration) + collector (tag → signed AAB → GitHub Release → Play).
+- **Docs committed** (external edits by owner/Gemini, recorded here): `AGENTS.md` **v1.4 (draft)** (left as-is per instruction), `AGENTS-v1.3.md` archive, and `docs/specs/ES-001/002/003`. Note: `ES-004`, the runbooks, and the PM feedback still live at the project root `docs/` (outside this repo).
 
 ### 2026-10-14 (session 3 — PM handoff)
 - Adopted PM Feedback 2026-10-14. Created + fixed **B-17** (button/summary inconsistency) and **B-18** (元婴 states inference as fact) → In Review.
