@@ -33,6 +33,7 @@ object ReminderScheduler {
     private const val CHANNEL_ID = "yuanying_reminders"
     private const val PREFS = "yuanying_reminders"
     private const val DEFAULT_TZ = "Asia/Shanghai"
+    private const val DAILY_CAP = 6
 
     // Authored templates (seed habits only); overrides may replace these.
     private val AUTHORED: Map<String, Pair<String, String>> = mapOf(
@@ -79,6 +80,12 @@ object ReminderScheduler {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             if (prefs.getString("date", null) != dateKey) {
                 prefs.edit().clear().putString("date", dateKey).apply()
+            }
+
+            // ES-005 §E.2: daily cap across all habits.
+            if (prefs.getInt("fired", 0) >= DAILY_CAP) {
+                Log.i(TAG, "daily cap reached; skipping")
+                return
             }
 
             val habits = fetchHabits()
@@ -191,6 +198,7 @@ object ReminderScheduler {
         }
 
         prefs.edit().putLong("lf:$name", nowMs).apply()
+        prefs.edit().putInt("fired", prefs.getInt("fired", 0) + 1).apply()
         notify(context, id, message)
         speak(context, voice)
         Log.i(TAG, "fired $name ($displayName) id=$id")

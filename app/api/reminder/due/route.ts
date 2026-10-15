@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { sweepMissed } from '@/lib/reminder-scheduler';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const nowIso = new Date().toISOString();
+
+  // ES-005 §E.2: sweep misses (shown, not acted/dismissed, >60min).
+  await sweepMissed();
 
   const { data, error } = await supabase
     .from('reminders')

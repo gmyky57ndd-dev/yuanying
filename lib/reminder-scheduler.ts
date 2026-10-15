@@ -3,6 +3,8 @@ import { ReminderConfig, ReminderName, UserContext } from './reminder-types';
 
 const WATER_TARGET = 6;
 const STANDUP_IDLE_MINUTES = 50;
+const DAILY_CAP = 6; // ES-005 §E.2
+const MISS_AFTER_MINUTES = 60;
 const TZ = 'Asia/Shanghai';
 
 // Serverless runs in UTC; all scheduling logic is anchored to Beijing time.
@@ -80,6 +82,32 @@ function isInScheduleWindow(name: ReminderName, now: Date): boolean {
   }
 }
 
+function parseHM(s: string): number {
+  const [h, m] = s.split(':').map(n => parseInt(n, 10));
+  return h * 60 + (m || 0);
+}
+
+function inQuietWindow(now: number, start: number, end: number): boolean {
+  return start <= end ? now >= start && now < end : now >= start || now < end;
+}
+
+/** Mark reminders missed when shown, not acted/dismissed, >60min (ES-005 §E.2). */
+export async function sweepMissed(): Promise<number> {
+  const cutoff = new Date(
+    Date.now() - MISS_AFTER_MINUTES * 60 * 1000
+  ).toISOString();
+  const { data } = await supabase
+    .from('reminders')
+    .update({ missed_at: new Date().toISOString() })
+    .is('acted_at', null)
+    .is('dismissed_at', null)
+    .is('missed_at', null)
+    .not('shown_at', 'is', null)
+    .lt('shown_at', cutoff)
+    .select('id');
+  return data?.length ?? 0;
+}
+
 async function hasRecentReminder(
   name: ReminderName,
   withinMinutes: number
@@ -126,7 +154,31 @@ export async function fireDueReminders(
   const ctx = await loadUserContext();
   const fired: ReminderName[] = [];
 
+  // ES-005 §E.2: sweep misses first (shown, not acted, >60min).
+  await sweepMissed();
+
   const enabled = ctx.config.reminders_enabled ?? {};
+
+  // ES-005 §E.2: quiet window (config.timezone) — no fire, no backfill.
+  const qw = ctx.config.quiet_window as
+    | { start?: string; end?: string }
+    | undefined;
+  if (qw?.start && qw?.end) {
+    const { h, m } = beijingHourMinute(ctx.now);
+    if (inQuietWindow(h * 60 + m, parseHM(qw.start), parseHM(qw.end))) {
+      return { fired };
+    }
+  }
+
+  // ES-005 §E.2: daily cap across all habits.
+  const startOfDay = startOfBeijingDay(ctx.now);
+  const { count } = await supabase
+    .from('reminders')
+    .select('id', { count: 'exact', head: true })
+    .gte('scheduled_at', startOfDay.toISOString());
+  if ((count ?? 0) >= DAILY_CAP) {
+    return { fired };
+  }
 
   for (const config of REMINDERS) {
     if (filterName && config.name !== filterName) continue;
@@ -136,7 +188,9 @@ export async function fireDueReminders(
     const should = await config.shouldFire(ctx);
     if (!should) continue;
 
-    const alreadyShown = await hasRecentReminder(config.name, 30);
+    // ES-005 §E.2: standup at most every 120 min (was 60); others dedup 30.
+    const dedupMin = config.name === 'standup' ? 120 : 30;
+    const alreadyShown = await hasRecentReminder(config.name, dedupMin);
     if (alreadyShown) continue;
 
     const { message, voice_text } = config.buildMessage(ctx);
