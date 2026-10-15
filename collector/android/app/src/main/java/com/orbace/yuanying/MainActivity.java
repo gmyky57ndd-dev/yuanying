@@ -4,6 +4,7 @@ import android.app.AppOpsManager;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
@@ -23,6 +24,9 @@ import androidx.work.WorkManager;
 
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +45,7 @@ public class MainActivity extends AppCompatActivity {
 
         statusText = findViewById(R.id.status_text);
         stepsStatus = findViewById(R.id.steps_status);
+        TextView versionText = findViewById(R.id.version_text);
         Button grantBtn = findViewById(R.id.grant_button);
         Button testBtn = findViewById(R.id.test_button);
         Button openPwaBtn = findViewById(R.id.open_pwa_button);
@@ -84,6 +89,18 @@ public class MainActivity extends AppCompatActivity {
                 != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(
                 new String[] { Manifest.permission.POST_NOTIFICATIONS }, 1001);
+        }
+
+        // Version + updated-timestamp record.
+        try {
+            PackageInfo pi = getPackageManager().getPackageInfo(getPackageName(), 0);
+            String updated = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+                .format(new Date(pi.lastUpdateTime));
+            versionText.setText(
+                "v" + BuildConfig.VERSION_NAME + " (" + BuildConfig.VERSION_CODE + ") · 更新 "
+                    + updated);
+        } catch (Exception e) {
+            versionText.setText("v" + BuildConfig.VERSION_NAME);
         }
     }
 

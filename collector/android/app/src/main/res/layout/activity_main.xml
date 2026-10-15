@@ -83,4 +83,13 @@
         android:layout_height="wrap_content"
         android:text="授予步数权限" />
 
+    <TextView
+        android:id="@+id/version_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#57534e"
+        android:textSize="12sp"
+        android:layout_marginTop="24dp" />
+
 </LinearLayout>

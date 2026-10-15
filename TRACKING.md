@@ -375,6 +375,10 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 ## Changelog
 
+### 2026-10-15 (session 7 — collector version record)
+- Collector UI now shows a **version + updated-timestamp record** (`v1.0.16 (17) · 更新 <last update>`). Collector **v1.0.16** (code 17).
+- Release trigger confirmed **manual**: owner says "push" → web push-deploy + collector tag→Play.
+
 ### 2026-10-15 (session 6 — ES-006 learning loop)
 - Executed P2-01..P2-05: opinions files, detector 1, confirmation transitions, prompt integration, off-limits filter (all **In Review**).
 - Detector + transitions run as an **agent-batch script** (`scripts/opinions.mjs`); `core/opinions/*.md` are read-only on the runtime (writes committed).
