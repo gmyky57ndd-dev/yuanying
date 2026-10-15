@@ -20,23 +20,22 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * P1-09: reminder generation + delivery in the collector.
+ * P1-09 + ES-001: reminder generation + delivery in the collector.
  *
- * The hourly WorkManager job calls [checkAndFire]. It decides which reminders
- * are due (Beijing windows), persists them server-side (so the daily summary
- * can count them), then shows a notification + speaks the Chinese line.
- * No cron, no external scheduler, and no PWA-open requirement.
+ * ES-001 v1 makes this **config-driven**: it fetches active habits from
+ * /api/habits and evaluates their validated reminder rules (fixed / interval)
+ * with the due-window semantics in ES-001 §3.1. Authored templates are used
+ * unless the habit's reminder carries text_override / voice_override.
  */
 object ReminderScheduler {
 
     private const val TAG = "ReminderScheduler"
     private const val CHANNEL_ID = "yuanying_reminders"
     private const val PREFS = "yuanying_reminders"
-    private const val TZ = "Asia/Shanghai"
-    private const val WATER_TARGET = 6
-    private const val IDLE_MINUTES = 50
+    private const val DEFAULT_TZ = "Asia/Shanghai"
 
-    private val TEXT: Map<String, Pair<String, String>> = mapOf(
+    // Authored templates (seed habits only); overrides may replace these.
+    private val AUTHORED: Map<String, Pair<String, String>> = mapOf(
         "water" to ("水。" to "该喝水了。"),
         "standup" to ("站。" to "站起来走走。"),
         "vitamin" to ("维生素。" to "吃维生素了吗？"),
@@ -46,11 +45,13 @@ object ReminderScheduler {
         try {
             val config = ConfigClient().getConfig()
             val enabled = config.optJSONObject("reminders_enabled")
+            val tz = config.optString("timezone", DEFAULT_TZ)
 
-            val cal = Calendar.getInstance(TimeZone.getTimeZone(TZ))
+            val cal = Calendar.getInstance(TimeZone.getTimeZone(tz))
             val nowMin = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+            val nowMs = System.currentTimeMillis()
             val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                .apply { timeZone = TimeZone.getTimeZone(TZ) }
+                .apply { timeZone = TimeZone.getTimeZone(tz) }
                 .format(Date())
 
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -58,38 +59,128 @@ object ReminderScheduler {
                 prefs.edit().clear().putString("date", dateKey).apply()
             }
 
+            val habits = fetchHabits()
             val signals = fetchTodaySignals()
-            val waterCount = signals.count { it.optString("name") == "water" }
-            val vitaminActed = signals.any {
-                it.optString("name") == "reminder_acted" &&
-                    it.optJSONObject("context")?.optString("reminder_name") == "vitamin"
-            }
-            val idle = isIdle(signals)
 
-            // Windows are [start, start+60min) so an hourly tick lands in each.
-            val windows = mutableListOf<Pair<String, Int>>()
-            windows.add("water:10:30" to 10 * 60 + 30)
-            windows.add("water:15:30" to 15 * 60 + 30)
-            windows.add("water:20:00" to 20 * 60)
-            windows.add("vitamin:08:30" to 8 * 60 + 30)
-            for (h in 9..17) windows.add("standup:$h" to h * 60)
-
-            for ((key, start) in windows) {
-                if (nowMin < start || nowMin >= start + 60) continue
-                val name = key.substringBefore(':')
+            for (habit in habits) {
+                val name = habit.optString("name")
+                if (name.isEmpty()) continue
                 if (enabled?.optBoolean(name, true) == false) continue
-                if (prefs.getBoolean(key, false)) continue
+                val reminder = habit.optJSONObject("reminder") ?: continue
 
-                when (name) {
-                    "water" -> if (waterCount >= WATER_TARGET) continue
-                    "vitamin" -> if (vitaminActed) continue
-                    "standup" -> if (!idle) continue
+                if (isDue(reminder, name, nowMin, nowMs, signals, prefs, dateKey)) {
+                    fire(context, habit, reminder, prefs, name, nowMs)
                 }
-
-                fire(context, name, prefs, key)
             }
         } catch (e: Exception) {
             Log.e(TAG, "checkAndFire failed", e)
+        }
+    }
+
+    /** ES-001 §3.1 due-window semantics (no backfill; dedup = interval/2). */
+    private fun isDue(
+        reminder: JSONObject,
+        name: String,
+        nowMin: Int,
+        nowMs: Long,
+        signals: List<JSONObject>,
+        prefs: SharedPreferences,
+        dateKey: String
+    ): Boolean {
+        if (!conditionOk(reminder.optJSONObject("condition"), name, signals)) return false
+
+        val mode = reminder.optString("mode", "fixed")
+        if (mode == "interval") {
+            val interval = reminder.optInt("interval_min", 60)
+            val window = reminder.optJSONObject("window")
+            if (window != null) {
+                val start = parseHHMM(window.optString("start", "00:00"))
+                val end = parseHHMM(window.optString("end", "23:59"))
+                if (nowMin < start || nowMin >= end) return false
+            }
+            val lastFired = prefs.getLong("lf:$name", 0L)
+            if (lastFired == 0L) return true
+            val since = nowMs - lastFired
+            if (since < (interval / 2) * 60_000L) return false // dedup
+            return since >= interval * 60_000L
+        }
+
+        // fixed: fire within [time, time+60m) once per day, per time bucket
+        val times = reminder.optJSONArray("times") ?: return false
+        for (i in 0 until times.length()) {
+            val t = parseHHMM(times.optString(i))
+            if (nowMin >= t && nowMin < t + 60) {
+                val key = "fx:$name:$dateKey:$t"
+                if (prefs.getBoolean(key, false)) return false
+                prefs.edit().putBoolean(key, true).apply()
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun conditionOk(condition: JSONObject?, name: String, signals: List<JSONObject>): Boolean {
+        if (condition == null) return true
+        when (condition.optString("kind", "always")) {
+            "count_below_target" -> {
+                val target = condition.optInt("value", 6)
+                val count = signals.count { it.optString("name") == name }
+                return count < target
+            }
+            "idle" -> {
+                val minutes = condition.optInt("minutes", 50)
+                val cutoff = System.currentTimeMillis() - minutes * 60_000L
+                for (s in signals) {
+                    val n = s.optString("name")
+                    if (n != "steps" && n != "app_usage") continue
+                    val t = parseIso(s.optString("created_at")) ?: continue
+                    if (t >= cutoff) return false
+                }
+                return true
+            }
+            else -> return true // "always"
+        }
+    }
+
+    private fun fire(
+        context: Context,
+        habit: JSONObject,
+        reminder: JSONObject,
+        prefs: SharedPreferences,
+        name: String,
+        nowMs: Long
+    ) {
+        val displayName = habit.optString("display_name", name)
+        val authored = AUTHORED[name]
+        val message = reminder.optStringOrNull("text_override") ?: authored?.first ?: displayName
+        val voice = reminder.optStringOrNull("voice_override") ?: authored?.second ?: displayName
+
+        val payload = JSONObject().apply {
+            put("name", name)
+            put("message", message)
+            put("voice_text", voice)
+            put("shown", true)
+        }
+        val id = try {
+            val resp = ApiClient().postForBody(ApiClient.BASE_URL + "/api/reminder/create", payload)
+            if (resp != null) JSONObject(resp).optInt("id", 0) else 0
+        } catch (e: Exception) {
+            0
+        }
+
+        prefs.edit().putLong("lf:$name", nowMs).apply()
+        notify(context, id, message)
+        speak(context, voice)
+        Log.i(TAG, "fired $name ($displayName) id=$id")
+    }
+
+    private fun fetchHabits(): List<JSONObject> {
+        val body = ApiClient().get(ApiClient.BASE_URL + "/api/habits") ?: return emptyList()
+        return try {
+            val arr = JSONObject(body).optJSONArray("habits") ?: return emptyList()
+            (0 until arr.length()).map { arr.getJSONObject(it) }
+        } catch (e: Exception) {
+            emptyList()
         }
     }
 
@@ -103,15 +194,13 @@ object ReminderScheduler {
         }
     }
 
-    private fun isIdle(signals: List<JSONObject>): Boolean {
-        val cutoff = System.currentTimeMillis() - IDLE_MINUTES * 60_000L
-        for (s in signals) {
-            val n = s.optString("name")
-            if (n != "steps" && n != "app_usage") continue
-            val t = parseIso(s.optString("created_at")) ?: continue
-            if (t >= cutoff) return false
+    private fun parseHHMM(s: String): Int {
+        return try {
+            val parts = s.split(":")
+            parts[0].trim().toInt() * 60 + parts[1].trim().toInt()
+        } catch (e: Exception) {
+            0
         }
-        return true
     }
 
     // Parse "YYYY-MM-DDThh:mm:ss..." as UTC without java.time (minSdk 24).
@@ -125,28 +214,10 @@ object ReminderScheduler {
         null
     }
 
-    private fun fire(context: Context, name: String, prefs: SharedPreferences, key: String) {
-        val (message, voice) = TEXT[name] ?: return
-
-        val payload = JSONObject().apply {
-            put("name", name)
-            put("message", message)
-            put("voice_text", voice)
-            put("shown", true)
-        }
-        val id = try {
-            val resp = ApiClient().postForBody(
-                ApiClient.BASE_URL + "/api/reminder/create", payload
-            )
-            if (resp != null) JSONObject(resp).optInt("id", 0) else 0
-        } catch (e: Exception) {
-            0
-        }
-
-        prefs.edit().putBoolean(key, true).apply()
-        notify(context, id, message)
-        speak(context, voice)
-        Log.i(TAG, "fired $name (id=$id)")
+    private fun JSONObject.optStringOrNull(key: String): String? {
+        if (!has(key) || isNull(key)) return null
+        val v = optString(key, "")
+        return if (v.isEmpty()) null else v
     }
 
     private fun notify(context: Context, id: Int, message: String) {

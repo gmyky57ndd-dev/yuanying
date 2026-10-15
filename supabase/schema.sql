@@ -203,3 +203,22 @@ create trigger trg_summaries_updated_at
   before update on summaries
   for each row
   execute function update_summaries_updated_at();
+
+-- =============================================
+-- habits (ES-001): display_name / updated_at / reminder + idempotent seed
+-- =============================================
+alter table habits add column if not exists display_name text;
+alter table habits add column if not exists updated_at timestamptz not null default now();
+alter table habits add column if not exists reminder jsonb;
+
+insert into habits (name, display_name, type, reminder, capture_config, target, active) values
+  ('water', '水', 'count',
+   '{"mode":"fixed","times":["10:30","15:30","20:00"],"days":"daily","text_override":null,"voice_override":null}'::jsonb,
+   '{"method":"manual"}'::jsonb, '{"kind":"count_below","value":6}'::jsonb, true),
+  ('standup', '起身', 'boolean',
+   '{"mode":"interval","interval_min":60,"window":{"start":"09:00","end":"18:00"},"days":"daily","condition":{"kind":"idle","minutes":50},"text_override":null,"voice_override":null}'::jsonb,
+   '{"method":"manual"}'::jsonb, null, true),
+  ('vitamin', '维生素', 'boolean',
+   '{"mode":"fixed","times":["08:30"],"days":"daily","text_override":null,"voice_override":null}'::jsonb,
+   '{"method":"manual"}'::jsonb, null, true)
+on conflict (name) do nothing;

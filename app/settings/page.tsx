@@ -3,6 +3,12 @@ import { useState, useEffect } from 'react';
 import { fetchWithTimeout, API_BASE } from '@/lib/api';
 
 type Reminders = { water: boolean; standup: boolean; vitamin: boolean };
+type Habit = {
+  name: string;
+  display_name: string | null;
+  type: string;
+  reminder: { mode?: string; times?: string[]; interval_min?: number } | null;
+};
 
 export default function Settings() {
   const [enabled, setEnabled] = useState(true);
@@ -11,6 +17,7 @@ export default function Settings() {
     standup: true,
     vitamin: true,
   });
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,6 +34,10 @@ export default function Settings() {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    fetchWithTimeout(`${API_BASE}/api/habits`, {})
+      .then(r => r.json())
+      .then(d => setHabits(d.habits ?? []))
+      .catch(() => {});
   }, []);
 
   async function toggleActivity() {
@@ -106,6 +117,26 @@ export default function Settings() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-3">管理习惯（只读）</h2>
+        <ul className="text-xs text-stone-400 space-y-2">
+          {habits.map(h => (
+            <li key={h.name} className="flex justify-between gap-3">
+              <span>{h.display_name || h.name}</span>
+              <span className="text-stone-500">
+                {h.reminder?.mode === 'interval'
+                  ? `每 ${h.reminder.interval_min} 分钟`
+                  : h.reminder?.times?.join(' / ') ?? '—'}
+              </span>
+            </li>
+          ))}
+          {habits.length === 0 && <li className="text-stone-600">暂无</li>}
+        </ul>
+        <p className="text-[11px] text-stone-600 mt-2">
+          新增/编辑习惯将在 v1.1 提供。
+        </p>
       </div>
 
       <div className="mt-6 border-t border-stone-800 pt-4">
