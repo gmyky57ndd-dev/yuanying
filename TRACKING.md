@@ -96,7 +96,7 @@
 - **Status**: In Review
 - **Category**: Bug (voice violated core/voice.md)
 - **Refs**: ES-005 §E.1; commit `c7c4af7`
-- **Notes**: `core/voice.md` "When reporting data" section + system-prompt rule. Acceptance: chat to "看今天简报" starts with a sentence; no Signals/Totals/Reminders bullets; numbers inside sentences.
+- **Notes**: `core/voice.md` "When reporting data" section + system-prompt rule. Acceptance: chat to "看今天简报" starts with a sentence; no Signals/Totals/Reminders bullets; numbers inside sentences. **Spot-check 2026-10-15:** reply led with a label ("今天：") — rule is in the prompt but the model still drifts; owner to confirm, may need prompt tightening (no separate task yet).
 
 ### [P1-17] Reminder cadence — quiet window, 2h standup, cap 6/day
 
