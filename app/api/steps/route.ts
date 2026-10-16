@@ -8,8 +8,15 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { window_start, window_end, steps, platform, sources, aggregation } =
-      body ?? {};
+    const {
+      window_start,
+      window_end,
+      steps,
+      platform,
+      sources,
+      aggregation,
+      timezone,
+    } = body ?? {};
 
     if (typeof steps !== 'number' || steps < 0 || steps > 200000) {
       return NextResponse.json({ error: 'invalid steps' }, { status: 400 });
@@ -29,6 +36,7 @@ export async function POST(req: NextRequest) {
         window_start,
         window_end,
         platform: platform ?? 'android',
+        timezone: timezone ?? null,
         aggregation: aggregation ?? null,
         sources: Array.isArray(sources) ? sources : null,
         sources_count: Array.isArray(sources) ? sources.length : null,

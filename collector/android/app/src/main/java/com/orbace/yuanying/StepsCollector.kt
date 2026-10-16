@@ -11,7 +11,8 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
-import java.time.temporal.ChronoUnit
+import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Reads today's step count from HealthConnect. Runs the suspend API via
@@ -45,8 +46,13 @@ class StepsCollector(private val ctx: Context) {
 
     fun collectToday(): JSONObject {
         val c = client ?: throw IllegalStateException("HealthConnect unavailable")
+        // P1-23 fix: anchor the window to LOCAL midnight in the device timezone.
+        // `Instant.now().truncatedTo(DAYS)` truncates in UTC, so on a non-UTC
+        // device the window started hours before the local day (e.g. 20:00 the
+        // previous evening in America/New_York), pulling in yesterday's steps.
+        val zone = ZoneId.systemDefault()
         val now = Instant.now()
-        val startOfDay = now.truncatedTo(ChronoUnit.DAYS)
+        val startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant()
 
         return runBlocking {
             val request = ReadRecordsRequest(
@@ -56,10 +62,9 @@ class StepsCollector(private val ctx: Context) {
             val response = c.readRecords(request)
             val total = response.records.sumOf { it.count }
 
-            // P1-23 diagnostic (no behavior change): log the window, the
-            // HealthConnect data origins present, per-origin counts, and the
-            // aggregation mode, so we can tell whether one source (e.g. phone
-            // vs watch) is the outlier. Value sent is unchanged.
+            // P1-23 diagnostic: log the window, the HealthConnect data origins
+            // present, per-origin counts, and the aggregation mode, so we can
+            // tell whether one source (e.g. phone vs watch) is the outlier.
             val byOrigin = response.records
                 .groupBy { it.metadata.dataOrigin.packageName }
                 .map { (pkg, recs) ->
@@ -70,11 +75,16 @@ class StepsCollector(private val ctx: Context) {
                     }
                 }
             val sources = JSONArray().apply { byOrigin.forEach { put(it) } }
-            Log.i(TAG, "collected steps: $total from ${byOrigin.size} origins: $byOrigin")
+            Log.i(
+                TAG,
+                "collected steps: $total from ${byOrigin.size} origins " +
+                    "(window $startOfDay..$now, tz $zone): $byOrigin"
+            )
 
             JSONObject().apply {
                 put("window_start", startOfDay.toString())
                 put("window_end", now.toString())
+                put("timezone", zone.id)
                 put("steps", total)
                 put("platform", "android")
                 put("aggregation", "sum_all_origins")

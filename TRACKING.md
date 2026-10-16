@@ -294,8 +294,8 @@
   - **Aggregation mode**: `sum_all_origins` — `readRecords(StepsRecord)` with **no DataOriginFilter**, summing `record.count` across every origin present (phone + watch + Fit can all contribute).
   - **Sources / per-source count**: **not previously captured**. DB rows are all `source='passive'` (14 rows / 5 days; values `0`…`2809`). HealthConnect per-origin counts were unavailable.
 - **Instrumentation added (diagnostic only; no value change)**: collector `StepsCollector` now sends `sources` (`{package, steps, count}` per HealthConnect data origin), `sources_count`, and `aggregation`; `POST /api/steps` persists them in `context`. `value` is unchanged.
-- **Fix**: **NONE yet** — per instruction, no fix until the diagnostic is logged. Pending the next collector run to capture per-origin counts.
-- **Deploy**: collector **v1.0.20 (code 21)** (instrumented) + web `/api/steps`.
+- **Fix (2026-10-16)**: `StepsCollector` now anchors the window to **local midnight** in the device timezone (`LocalDate.now(zone).atStartOfDay(zone)`), not `Instant.now().truncatedTo(DAYS)` (UTC). This stops ~4h of the previous local evening leaking into the day. **Aggregation is unchanged** (owner: the problem is *not* summation across sources). Collector **v1.0.21 (code 22)**.
+- **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
 - **Verified (2026-10-16)**: Play internal `completed` (versionCode 21); GitHub Release `v1.0.20`; web `/api/steps` live. Per-origin counts pending the next collector run.
 
 ### [P1-24] Action model — unify counters
@@ -503,6 +503,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-16 (session 13 — P1-23 steps window fix)
+- **P1-23 corrected**: `StepsCollector.startOfDay` used `Instant.now().truncatedTo(DAYS)` (**UTC**), so the window `[UTC 00:00, now)` started ~4h before the local day on `America/New_York` (inflating today: `2700`). Fixed to **local midnight** in the device timezone. Aggregation **unchanged** (owner: not a summation bug). Collector **v1.0.21 (code 22)**.
 
 ### 2026-10-16 (session 12 — P1-23 reopened (P0), steps diagnostic)
 - **P1-23 reopened as P0.** Corrected hypothesis (owner): **not** summation across sources — Fit and Watch are independent and ≈ truth; **HealthConnect-via-元婴 is the outlier**.
