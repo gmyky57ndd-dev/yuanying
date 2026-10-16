@@ -307,19 +307,30 @@
 
 ---
 
+### [P1-27] History tab — day list + detail
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.2 · **Opened**: 2026-10-16
+- **Impl**: new page `/history` (day list newest-first; tap → day detail) backed by `GET /api/history/days`, `GET /api/history/day?date=`, `GET /api/history/search?q=`. Detail shows signals with timestamps, notes, reminders fired + responses, that day's conversation, and the stored prose summary. Search by date (jumps to the day) and by note keyword. Cloud-first (per request, nothing cached on the phone). Home links to 历史.
+- **Remaining**: owner device check.
+
+### [P1-28] Note capture — free text, no metadata
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.3
+- **Impl**: note capture already complies — free-text field + optional mic, no dropdowns/tags/required fields; `POST /api/note` stores `{text}` only. Notes are now surfaced and searchable in History (§2.2). 元婴-side structure remains in ES-006 Detector 1 (not a user action).
+- **Remaining**: owner device check.
+
+---
+
 ## To Do
 
 ### [P1-26] Home redesign — activities + chat only
 - Status: To Do · Category: Feature · Refs: ES-008 §2.1 · Owner: @dev
-
-### [P1-27] History tab — day list + detail
-- Status: To Do · Category: Feature · Refs: ES-008 §2.2 · Owner: @dev
-
-### [P1-28] Note capture — free text, no metadata
-- Status: To Do · Category: Feature · Refs: ES-008 §2.3 · Owner: @dev
+- **Gated**: waits on owner confirming the ES-007 §1 18:00 "今天/昨天" flip.
+- Scope: today-only activities (tappable) + chat; no historical data; no charts.
 
 ### [P1-29] Move settings off home
 - Status: To Do · Category: Feature · Refs: ES-008 §2.1 · Owner: @dev
+- **Gated**: follows P1-26 (home redesign owns the layout).
 
 ### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
 
@@ -442,6 +453,13 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-16 (session 10 — ES-008 C-phase UI: History + Notes)
+- **ES-007 closed.** **ES-008 started.** Order: §2.2 History → §2.3 notes → §2.1 Home.
+- **P1-27** History tab (**In Review**): `/history` page + `api/history/{days,day,search}`; day list → detail (signals, notes, reminders, chat, prose summary); search by date + note keyword; cloud-first.
+- **P1-28** Notes (**In Review**): free-text + optional mic confirmed; no dropdowns/tags/required fields; notes surfaced/searchable in History.
+- **P1-26** Home redesign & **P1-29** settings-off-home: **To Do**, gated on owner confirming the ES-007 §1 18:00 flip.
+- AGENTS §5.2.9 / §8 (no new capture surfaces) honored — notes ride on the existing 记一笔 button; History is a tab, not a new product.
 
 ### 2026-10-16 (session 9 — Work Order: ES-007 P1-21…P1-25)
 - **P1-21** summary window (**In Review**): `getDisplayDay()` + `getDisplaySummary()`; summary/chat/panel reflect the last completed day (18:00 rule).

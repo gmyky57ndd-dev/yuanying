@@ -348,12 +348,14 @@ export default function Home() {
         <div className="text-[10px] text-stone-500 mt-1 tracking-widest">
           元婴
         </div>
-        <a
-          href="/settings"
-          className="absolute right-4 top-5 text-xs text-stone-600"
-        >
-          设置
-        </a>
+        <div className="absolute right-4 top-5 flex gap-3 text-xs">
+          <a href="/history" className="text-stone-600">
+            历史
+          </a>
+          <a href="/settings" className="text-stone-600">
+            设置
+          </a>
+        </div>
       </div>
 
       {/* Signals */}
