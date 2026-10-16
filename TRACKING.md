@@ -280,6 +280,7 @@
 - **Problem**: home summary + 今天 panel showed the current *incomplete* day (before 18:00 it leaked partial data).
 - **Spec**: before 18:00 local → **yesterday** (label 昨天); 18:00–24:00 → **today** (label 今天); after 00:00 → **yesterday**.
 - **Impl**: `getDisplayDay(tz)` in `lib/timezone.ts`; `getDisplaySummary()` in `lib/summary-generator.ts` returns `{...summary, label}`; `/api/summary/today` + `/api/chat` use it; panel header renders the label.
+- **Verified (2026-10-16, prod)**: `GET /api/summary/today` → `date=2026-10-15, label=昨天` (tz `America/New_York`, before 18:00).
 - **Remaining**: owner confirms the label flips at 18:00 on device.
 
 ### [P1-23] Steps diagnostic + fix
@@ -288,18 +289,21 @@
 - **Diagnostic (logged per §3, 2026-10-16)**: today's snapshots were `723` then `0`; last-5-day rows all `source=passive` with 0-value rows appearing after real values.
 - **Root cause**: a late empty HealthConnect sync wrote `value=0`, and the "latest snapshot" read let it overwrite the real value.
 - **Fix**: both `lib/summary-generator.ts` (`pickDailySteps`) and `GET /api/steps` now take the **max snapshot** of the day.
+- **Verified (2026-10-16, prod)**: `/api/summary/today` → `steps.value=2809` (max of 723/2809/0), not the trailing 0.
 - **Source mismatch (escalated, no code change)**: HealthConnect (0/723) far below the Fit app (~6k) → same-source check reported to owner.
 
 ### [P1-24] Action model — unify counters
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
 - **Impl**: `SummaryData` gains `standup {count,target}` and `vitamin {done,at}`; summary + "今天" panel show 喝水 x/6, 起身 x/8, 维生素 ✓ HH:MM; `/api/reminder/act` writes `context.habit` and, for water, a single `water` action (reminder action = manual action). Prompt line updated.
+- **Verified (2026-10-16, prod)**: `/api/summary/today` returns `standup:{count,target}` and `vitamin:{done,at}`.
 
 ### [P1-25] Reminder notification action buttons
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
 - **Impl**: collector notification now has a habit action (water 喝了 / standup 起身了 / vitamin 吃了) + 忽略; `ReminderActionReceiver` maps acted→`acted`, ignore→`dismissed`; acted opens the app, ignore stays quiet.
-- **Remaining**: device verification (collector build pending; no local JDK). PWA fallback = open modal.
+- **Verified (2026-10-16)**: Android Collector CI build green (run `38929058636`, debug-APK artifact). Collector bumped to **v1.0.17 (code 18)**, not yet released (owner triggers via "push").
+- **Remaining**: device verification (no local JDK); PWA fallback = open modal.
 
 ---
 
