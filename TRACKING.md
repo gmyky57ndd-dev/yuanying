@@ -386,6 +386,7 @@
 - **Reproduction (logged first)**: all 5 stored notes are **Latin-only** (0 CJK/JP/KR). Owner note #349: *"The switch language does not work."* → the on-device keyboard/IME cannot switch to Chinese while composing in the PWA. Exact browser + steps still needed from the owner (ES-012 §1 checklist); no device here.
 - **Ranked causes** (ES-012 §1): inputMode/autoComplete · missing CJK glyphs · controlled-input composition · PWA standalone IME.
 - **Fix applied (defensive, addresses #1/#3)**: note textarea + chat input set `lang="zh-CN"`, `inputMode="text"`, `autoComplete/autoCorrect/autoCapitalize="off"`, `spellCheck={false}`, `onCompositionEnd` sync.
+- **Verified (2026-10-16)**: build/typecheck green; note + chat inputs updated. Owner device verification pending on the failing browser.
 - **Remaining**: owner verifies on the failing browser; if still broken, test browser (non-standalone) vs installed PWA to isolate cause #4.
 
 ### [P1-36] 元婴 self-diagnostic response
@@ -394,24 +395,28 @@
 - **Voice**: `core/voice.md` gains "When something is wrong" (query own data → state what you see → what you cannot see → propose **one** direction; never a menu / never "你确认一下").
 - **Provenance**: steps signal logs `source`, `window_start`, `window_end`, `aggregation`, `raw_value` (ES-011 §3); the chat prompt now receives steps provenance so 元婴 can state it.
 - **Governance**: `AGENTS.md` §5.1 bullet 7 (signal provenance) + **v1.6**.
+- **Verified (2026-10-16)**: `core/voice.md` + `AGENTS.md` v1.6 committed; collector **v1.0.22 (code 23)** Play internal `completed` (provenance fields). Owner to confirm a discrepancy reply follows §4.
 - **Remaining**: owner confirms a discrepancy reply follows §4 (no menu).
 
 ### [P1-38] Note tags — auto-derived, visible, editable
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §2
 - **Impl**: `lib/tags.ts` extractor (open vocabulary — words from the note + existing tags; no model call). Tags stored in note `value.tags` on save; shown under the note (home 今天 stream + History detail); editable (remove ×, add ＋); History search matches text **or** tag (`/api/history/search`); `PATCH /api/note/[id]`.
+- **Verified (2026-10-16)**: prod `/api/note` extracts + stores tags; History search matches text **or** tag. Device check pending.
 - **Remaining**: owner device check; tag autocomplete is a simple prompt for now.
 
 ### [P1-39] Feedback loop — notes → PM inbox
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §3
 - **Impl**: `value.feedback` flag; heuristic proposal on likely-feedback notes ("这像反馈，标记?"); **Feedback Inbox** page `/feedback` (small link on home, not a new tab); [promote] sets `value.promoted`, [dismiss] clears the flag (`PATCH /api/note/[id]`); `npm run inbox` drafts `docs/pm/inbox/YYYY-MM-DD.md`. One-way owner → dev; **never** writes TRACKING.
+- **Verified (2026-10-16)**: `/feedback` (200) + `/api/feedback` (`{items:[]}`) live; `npm run inbox` runs (no promoted notes yet). Device check pending.
 - **Remaining**: owner device check; weekly promote review.
 
 ### [P1-35] AI session capture — manual + folder (v1)
 
 - **Status**: In Progress · **Category**: Feature · **Refs**: ES-010
 - **Impl**: PWA `share_target` (`/import`, GET title/text/url prefill) + `POST /api/sessions` (stores a `session` signal with auto-tags); desktop folder import via `npm run import` normalizes `~/yuanying/imports/conversations/*.md` into `core/memory/conversations/YYYY-MM-DD-<slug>.md` (standard record format, ES-010 §5).
+- **Verified (2026-10-16)**: `/import` (200) + `/api/sessions` (`{sessions:[]}`) live; `npm run import` normalizes the folder into `core/memory/conversations/`. Device check of the share sheet pending.
 - **Remaining**: surface the standard export prompt in-app (ES-010 §4); wire topic-tag retrieval into the chat session (ES-010 §7); owner device check of the share sheet.
 
 ---
