@@ -296,6 +296,7 @@
 - **Instrumentation added (diagnostic only; no value change)**: collector `StepsCollector` now sends `sources` (`{package, steps, count}` per HealthConnect data origin), `sources_count`, and `aggregation`; `POST /api/steps` persists them in `context`. `value` is unchanged.
 - **Fix**: **NONE yet** — per instruction, no fix until the diagnostic is logged. Pending the next collector run to capture per-origin counts.
 - **Deploy**: collector **v1.0.20 (code 21)** (instrumented) + web `/api/steps`.
+- **Verified (2026-10-16)**: Play internal `completed` (versionCode 21); GitHub Release `v1.0.20`; web `/api/steps` live. Per-origin counts pending the next collector run.
 
 ### [P1-24] Action model — unify counters
 
