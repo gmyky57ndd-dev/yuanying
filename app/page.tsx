@@ -285,6 +285,17 @@ export default function Home() {
   }
 
   const waterCount = todaySignals.filter(s => s.name === 'water').length;
+  const habitName = (s: Signal) => s.context?.habit ?? s.context?.reminder_name;
+  const standupCount =
+    todaySignals.filter(s => s.name === 'standup').length +
+    todaySignals.filter(
+      s => s.name === 'reminder_acted' && habitName(s) === 'standup'
+    ).length;
+  const vitaminDone = todaySignals.some(
+    s =>
+      s.name === 'vitamin' ||
+      (s.name === 'reminder_acted' && habitName(s) === 'vitamin')
+  );
   const stream: StreamEntry[] = buildActivityStream(todaySignals);
 
   function toggle(id: string) {
@@ -381,6 +392,30 @@ export default function Home() {
           步数 {steps.value} / {steps.goal}
         </div>
       )}
+
+      {/* Habit tracking: 起身 + 维生素 (owner request) */}
+      <div className="flex gap-2 justify-center px-4 pb-3 shrink-0 text-[11px]">
+        <button
+          onClick={() => logSignal('standup')}
+          className={`rounded-full px-3 py-1 border ${
+            standupCount > 0
+              ? 'bg-stone-800 border-stone-700 text-stone-200'
+              : 'border-stone-800 text-stone-400'
+          }`}
+        >
+          起身 {standupCount} / 8
+        </button>
+        <button
+          onClick={() => logSignal('vitamin')}
+          className={`rounded-full px-3 py-1 border ${
+            vitaminDone
+              ? 'bg-emerald-900 border-emerald-800 text-emerald-200'
+              : 'border-stone-800 text-stone-400'
+          }`}
+        >
+          维生素 {vitaminDone ? '✓' : '--'}
+        </button>
+      </div>
 
       {/* Notes — capture rides on the existing 记一笔 button (no new surface) */}
       <div className="px-4 pb-2 shrink-0">

@@ -3,7 +3,7 @@ import { ReminderConfig, ReminderName, UserContext } from './reminder-types';
 
 const WATER_TARGET = 6;
 const STANDUP_IDLE_MINUTES = 50;
-const DAILY_CAP = 6; // ES-005 §E.2
+const DAILY_CAP = 14; // ES-005 §E.2, raised 2026-10-16 for hourly standup + water + vitamin
 const MISS_AFTER_MINUTES = 60;
 const TZ = 'Asia/Shanghai';
 

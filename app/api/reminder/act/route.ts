@@ -5,10 +5,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ACTIONS = ['acted', 'dismissed', 'snoozed'];
+const HABITS = ['water', 'standup', 'vitamin'];
+const COUNT_HABITS = ['water', 'standup'];
 
 export async function POST(req: NextRequest) {
   try {
-    const { reminder_id, action } = await req.json();
+    const { reminder_id, action, name } = await req.json();
 
     if (!reminder_id || !ACTIONS.includes(action)) {
       return NextResponse.json({ error: 'invalid payload' }, { status: 400 });
@@ -19,6 +21,14 @@ export async function POST(req: NextRequest) {
       .select('name')
       .eq('id', reminder_id)
       .maybeSingle();
+
+    // Prefer the habit name the client sends (robust if the reminder row is
+    // missing); otherwise fall back to the stored reminder name.
+    const habit: string | null = HABITS.includes(name)
+      ? name
+      : HABITS.includes(rem?.name)
+        ? rem!.name
+        : null;
 
     const patch: Record<string, unknown> = {};
     if (action === 'acted') patch.acted_at = new Date().toISOString();
@@ -34,25 +44,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (action === 'acted' && rem) {
+    // ES-007 §4 + habits bugfix: an acted reminder IS the habit action —
+    // 喝水/起身 +1, 维生素 done. Recorded once here (single source of truth).
+    if (action === 'acted' && habit) {
       await supabase.from('signals').insert({
         name: 'reminder_acted',
         type: 'event',
         value: true,
-        source: 'manual',
-        context: { habit: rem.name, reminder_name: rem.name, reminder_id },
+        source: 'reminder',
+        context: { habit, reminder_name: habit, reminder_id },
       });
-
-      // ES-007 §4: a water reminder action is one water action.
-      if (rem.name === 'water') {
-        await supabase.from('signals').insert({
-          name: 'water',
-          type: 'count',
-          value: 1,
-          source: 'reminder',
-          context: { habit: 'water', reminder_id },
-        });
-      }
+      await supabase.from('signals').insert({
+        name: habit,
+        type: COUNT_HABITS.includes(habit) ? 'count' : 'event',
+        value: COUNT_HABITS.includes(habit) ? 1 : true,
+        source: 'reminder',
+        context: { habit, reminder_id },
+      });
     }
 
     return NextResponse.json({ ok: true });

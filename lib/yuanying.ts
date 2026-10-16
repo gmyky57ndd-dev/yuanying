@@ -33,13 +33,16 @@ function loadCore(): string {
   const coreDir = path.join(process.cwd(), 'core');
   const required = ['identity.md', 'values.md', 'voice.md'];
   const groundRulesPath = path.join(coreDir, 'ground-rules.md');
+  const habitsPath = path.join(coreDir, 'habits.md');
 
   const newest = (() => {
     let m = fs.statSync(path.join(coreDir, required[0])).mtimeMs;
-    try {
-      m = Math.max(m, fs.statSync(groundRulesPath).mtimeMs);
-    } catch {
-      /* missing; ignored */
+    for (const p of [groundRulesPath, habitsPath]) {
+      try {
+        m = Math.max(m, fs.statSync(p).mtimeMs);
+      } catch {
+        /* missing; ignored */
+      }
     }
     return m;
   })();
@@ -70,6 +73,16 @@ function loadCore(): string {
       console.warn('failed to load core/ground-rules.md', e);
       warnedGroundRules = true;
     }
+  }
+
+  // ES-013: habits tracking manual — so 元婴 can explain how each habit works.
+  try {
+    if (fs.existsSync(habitsPath)) {
+      const content = fs.readFileSync(habitsPath, 'utf-8').trim();
+      if (content.length > 0) parts.push(`## habits.md\n\n${content}`);
+    }
+  } catch (e) {
+    console.warn('failed to load core/habits.md', e);
   }
 
   coreCache = parts.join('\n\n---\n\n');

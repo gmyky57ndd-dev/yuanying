@@ -421,6 +421,21 @@
 
 ---
 
+### [P1-40] Habits bugfix — standup cadence, vitamin time, action recording, tracking list
+
+- **Status**: In Review · **Category**: Bug · **Refs**: owner report 2026-10-16 · **Opened**: 2026-10-16
+- **Report**: (1) no hourly standup; (2) water reminder 喝了 didn't add water; (3) missed 08:30 vitamin; (4) no place to track 起身/维生素.
+- **Diagnosis**:
+  - standup rule was interval **120 min + idle-gated** → not hourly.
+  - `acted = 0` for **all** reminders over 3 days: the notification action never recorded the habit (no `water`/`standup`/`vitamin` action signal existed).
+  - vitamin fired via the **Vercel cron** at Beijing 08:30 (= 00:30 UTC = 20:30 EDT); `fireDueReminders` hardcodes `Asia/Shanghai`, so local 08:30 never fired.
+- **Fix**: standup → interval **60**, window 09:00–18:00, condition `always` (migration 011); `/api/reminder/act` records the **habit action** (water/standup +1, vitamin done) — collector sends the habit name; removed the **Vercel vitamin cron** (`vercel.json` `crons: []`); daily cap 6 → **14**; home **tracking list** adds tappable **起身 N/8** and **维生素 ✓/--** (schema `v4_signal_name`).
+- **Doc**: `core/habits.md` (loaded into the prompt) + `docs/habits-tracking.md` so 元婴 can explain each habit.
+- **Deploy**: collector **v1.0.23 (code 24)** + web.
+- **Remaining**: owner device check (hourly standup, 08:30 vitamin, 喝了 updates water).
+
+---
+
 ## To Do
 
 _(ES-008/ES-009 home + history work is in review; no open To Do items.)_
@@ -546,6 +561,11 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-16 (session 15 — habits bugfix)
+- Owner report: no hourly standup · 喝了 didn't add water · missed 08:30 vitamin · no 起身/维生素 tracking.
+- Root causes: standup 120min+idle; notification action never recorded a habit signal (acted=0); vitamin fired by a Beijing-anchored Vercel cron.
+- Fixes: standup hourly (60, 09–18, always) via migration 011; `/api/reminder/act` records the habit action; removed the vitamin cron; cap 6→14; home tracking list adds 起身/维生素; new `core/habits.md` + `docs/habits-tracking.md`. Collector **v1.0.23 (code 24)**. → **P1-40**.
 
 ### 2026-10-16 (session 14 — ES-010/011/012 from PM feedback)
 - Created specs: **ES-010** (AI session capture), **ES-011** (self-diagnostic response), **ES-012** (notes: language, tags, feedback loop) — in repo `docs/specs/` + PM `docs/specs/`.

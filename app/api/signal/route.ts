@@ -5,7 +5,8 @@ import { getDayRange, getTodayRange, getConfigTimezone } from '@/lib/timezone';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const VALID_NAMES = ['wake', 'sleep', 'water', 'brief_wake'] as const;
+const VALID_NAMES = ['wake', 'sleep', 'water', 'standup', 'vitamin', 'brief_wake'] as const;
+const COUNT_NAMES: readonly string[] = ['water', 'standup'];
 const IDEMPOTENT: readonly string[] = ['wake', 'sleep'];
 
 export async function POST(req: NextRequest) {
@@ -42,8 +43,8 @@ export async function POST(req: NextRequest) {
       .from('signals')
       .insert({
         name,
-        type: name === 'water' ? 'count' : 'event',
-        value: value ?? (name === 'water' ? 1 : true),
+        type: COUNT_NAMES.includes(name) ? 'count' : 'event',
+        value: value ?? (COUNT_NAMES.includes(name) ? 1 : true),
         note: note ?? null,
         source: 'manual',
         context: context ?? {},

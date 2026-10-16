@@ -16,6 +16,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val id = intent.getIntExtra("reminder_id", 0)
+        val habit = intent.getStringExtra("habit")
         val action = if (intent.action == ACTION_IGNORED) "dismissed" else "acted"
         if (id > 0) {
             try {
@@ -24,6 +25,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
                     JSONObject().apply {
                         put("reminder_id", id)
                         put("action", action)
+                        if (habit != null) put("name", habit)
                     }
                 )
             } catch (_: Exception) {

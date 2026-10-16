@@ -33,7 +33,7 @@ object ReminderScheduler {
     private const val CHANNEL_ID = "yuanying_reminders"
     private const val PREFS = "yuanying_reminders"
     private const val DEFAULT_TZ = "Asia/Shanghai"
-    private const val DAILY_CAP = 6
+    private const val DAILY_CAP = 14
 
     // Authored templates (seed habits only); overrides may replace these.
     private val AUTHORED: Map<String, Pair<String, String>> = mapOf(
@@ -275,6 +275,7 @@ object ReminderScheduler {
         val actedIntent = Intent(context, ReminderActionReceiver::class.java).apply {
             action = ReminderActionReceiver.ACTION_ACTED
             putExtra("reminder_id", id)
+            putExtra("habit", name)
         }
         val actedPi = PendingIntent.getBroadcast(
             context, id + 100000, actedIntent,
@@ -284,6 +285,7 @@ object ReminderScheduler {
         val ignoredIntent = Intent(context, ReminderActionReceiver::class.java).apply {
             action = ReminderActionReceiver.ACTION_IGNORED
             putExtra("reminder_id", id)
+            putExtra("habit", name)
         }
         val ignoredPi = PendingIntent.getBroadcast(
             context, id + 200000, ignoredIntent,
