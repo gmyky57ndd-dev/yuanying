@@ -70,21 +70,28 @@ jobs:
 
       - name: Determine release tag
         id: tag
-        run: echo "tag=${GITHUB_REF_NAME:-${{ inputs.version }}}" >> "$GITHUB_OUTPUT"
+        run: echo "tag=${{ github.ref_type == 'tag' && github.ref_name || inputs.version }}" >> "$GITHUB_OUTPUT"
 
       - name: Publish GitHub Release
         working-directory: .
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ steps.tag.outputs.tag }}" \
-            collector/android/app/build/outputs/bundle/release/app-release.aab \
-            collector/android/app/build/outputs/apk/release/app-release.apk \
-            --title "元婴采集器 ${{ steps.tag.outputs.tag }}" \
-            --notes "Signed release build." \
-            --latest
+          TAG="${{ steps.tag.outputs.tag }}"
+          AAB=collector/android/app/build/outputs/bundle/release/app-release.aab
+          APK=collector/android/app/build/outputs/apk/release/app-release.apk
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$AAB" "$APK" --clobber
+          else
+            gh release create "$TAG" "$AAB" "$APK" \
+              --title "元婴采集器 $TAG" \
+              --notes "Signed release build." \
+              --latest
+          fi
 
-      # Optional: upload to Play once PLAY_SERVICE_ACCOUNT_JSON is configured.
+      # Upload to Play once PLAY_SERVICE_ACCOUNT_JSON is configured.
+      # NOTE: status must be `completed` (not `draft`) or the internal track
+      # never rolls out and testers stay on the last completed version.
       - name: Upload to Google Play (internal)
         if: env.HAS_PLAY == 'true'
         uses: r0adkll/upload-google-play@v1
@@ -93,7 +100,7 @@ jobs:
           packageName: com.orbace.yuanying
           releaseFiles: collector/android/app/build/outputs/bundle/release/app-release.aab
           track: internal
-          status: draft
+          status: completed
 
       - name: Skipped Play upload (no PLAY_SERVICE_ACCOUNT_JSON)
         if: env.HAS_PLAY != 'true'
