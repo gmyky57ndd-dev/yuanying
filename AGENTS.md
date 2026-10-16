@@ -1,7 +1,7 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.4 (draft)  
-**Status:** Draft for review  
+**Version:** 1.5  
+**Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
 **Changelog:** §11
@@ -177,6 +177,12 @@ Before an Android collector release, identify how to stop or mitigate a bad vers
 6. Add dependencies without approval. Prefer existing platform and project capabilities; each new package adds maintenance and security cost. If a dependency is justified, explain why in the proposed change and obtain tech-lead approval before adding it.
 7. Force-push or rewrite shared history.
 8. Reclassify incomplete planned migrations as bugs merely because implementation is unfinished.
+9. Add a new capture surface without exhausting existing ones. Every
+   interface is a place the product can die — the more surfaces the
+   owner must visit, the more likely one gets abandoned. Before adding
+   any input UI, ask: can this ride on chat, a single button, or voice?
+   If yes, do that. New surfaces exist only when no existing surface
+   can carry the input.
 
 ### Stop and ask when
 
@@ -230,6 +236,12 @@ If code is complete but a required check or owner verification is pending, use *
 - **Misclassification:** inspect related tracking entries and classify the work itself, not merely whether an entry exists.
 - **Stopping at the first layer:** trace affected end-to-end paths through delivery and response.
 - **Timezone blindness:** verify product-day boundaries in the UI, API, and storage paths; do not equate server or browser local time with the configured product day. Tests for these paths must use explicit time and timezone assumptions (§6).
+- **Interface proliferation:** every new capture surface is a place the
+  owner can abandon the last one. The owner's attention is the scarce
+  resource, not the feature count. Before adding any input UI, exhaust
+  existing surfaces (chat, one button, voice). If a new surface is truly
+  necessary, it must justify why no existing surface can carry the input
+  — and the justification goes in the spec, not assumed.
 
 ---
 
@@ -263,6 +275,13 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.5 — 2026-10-16
+- Added §5.2 bullet 9 (no new capture surfaces without exhausting existing ones)
+- Added §8 Interface proliferation failure mode
+- Context: ES-008 C-phase UI. Note-taking must ride on existing surfaces,
+  not create parallel input paths. Friction is the primary cause of
+  abandonment in single-user tools.
 
 ### v1.4 — 2026-10-14 (draft)
 - Added the learning loop as a product constraint for pattern-driven behavior while avoiding assumptions about unimplemented files or tables.

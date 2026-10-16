@@ -91,6 +91,14 @@
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §10; `lib/opinions.ts` + detector filter
 - **Notes**: Reads `## No opinions about` from `core/ground-rules.md`; **hard filter** (not a threshold). Owner populates over time; empty filter acceptable for v1 (non-blocking).
 
+### [B-21] Steps signal diagnostic (value 0 vs summation bug) `[BUG]`
+
+- **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-16 · **Refs**: ES-007 §3; commit `44dbc35`
+- **Diagnostic** (logged per §3): today's snapshots were `723` then `0` — **some value > 0 but summary showed 0 → aggregation bug** (not a total HealthConnect failure).
+- **Fix**: summary uses the **max snapshot** of the day (`pickLatestStepsValue`/max). Applied (ES-005 §E.3).
+- **Source mismatch (escalated, no code change)**: HealthConnect values (0/723) are far below the Fit app (~6k) → likely source/counter-scope mismatch; **reported to owner** for the same-source check ("matches Fit within 10%").
+- **Moved** from Backlog to Bug per Work Order §5.2.
+
 ### [P1-16] Voice pass — 元婴 speaks, not reports
 
 - **Status**: In Review
@@ -268,6 +276,33 @@
 
 ## To Do
 
+### [P1-21] Summary window — 今天 = last completed day
+- Status: To Do · Category: Bug · Refs: ES-007 §1 · Owner: @dev
+
+### [P1-22] Wake detection — brief_wake vs wake
+- Status: To Do · Category: Bug · Refs: ES-007 §2 · Owner: @dev
+
+### [P1-23] Steps diagnostic + fix
+- Status: To Do · Category: Bug · Refs: ES-007 §3 · Owner: @dev
+
+### [P1-24] Action model — unify counters
+- Status: To Do · Category: Feature · Refs: ES-007 §4 · Owner: @dev
+
+### [P1-25] Reminder notification action buttons
+- Status: To Do · Category: Feature · Refs: ES-007 §4 · Owner: @dev
+
+### [P1-26] Home redesign — activities + chat only
+- Status: To Do · Category: Feature · Refs: ES-008 §2.1 · Owner: @dev
+
+### [P1-27] History tab — day list + detail
+- Status: To Do · Category: Feature · Refs: ES-008 §2.2 · Owner: @dev
+
+### [P1-28] Note capture — free text, no metadata
+- Status: To Do · Category: Feature · Refs: ES-008 §2.3 · Owner: @dev
+
+### [P1-29] Move settings off home
+- Status: To Do · Category: Feature · Refs: ES-008 §2.1 · Owner: @dev
+
 ### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
 
 - **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-15 · **Refs** AGENTS §2.1/§6; commit `bc4aa12`
@@ -356,7 +391,7 @@
 
 Unscheduled. Do not start without owner/tech-lead scheduling.
 
-- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-21]** Steps signal diagnostic (value 0 vs summation bug) — **confirmed aggregation bug, fixed** (max-snapshot) · **[B-22]** Note deletion UI (ES-002; deferred, not v1)
+- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-22]** Note deletion UI (ES-002; deferred, not v1)
 
 ---
 
