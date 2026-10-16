@@ -199,7 +199,7 @@ object ReminderScheduler {
 
         prefs.edit().putLong("lf:$name", nowMs).apply()
         prefs.edit().putInt("fired", prefs.getInt("fired", 0) + 1).apply()
-        notify(context, id, message)
+        notify(context, id, name, message)
         speak(context, voice)
         Log.i(TAG, "fired $name ($displayName) id=$id")
     }
@@ -256,7 +256,14 @@ object ReminderScheduler {
         return if (v.isEmpty()) null else v
     }
 
-    private fun notify(context: Context, id: Int, message: String) {
+    // P1-25: habit-specific action label on the notification.
+    private val ACTION_LABEL: Map<String, String> = mapOf(
+        "water" to "喝了",
+        "standup" to "起身了",
+        "vitamin" to "吃了",
+    )
+
+    private fun notify(context: Context, id: Int, name: String, message: String) {
         ensureChannel(context)
 
         val openIntent = Intent(context, MainActivity::class.java)
@@ -274,13 +281,25 @@ object ReminderScheduler {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val ignoredIntent = Intent(context, ReminderActionReceiver::class.java).apply {
+            action = ReminderActionReceiver.ACTION_IGNORED
+            putExtra("reminder_id", id)
+        }
+        val ignoredPi = PendingIntent.getBroadcast(
+            context, id + 200000, ignoredIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val actionLabel = ACTION_LABEL[name] ?: "已做"
+
         val notif = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle("元婴")
             .setContentText(message)
             .setAutoCancel(true)
             .setContentIntent(openPi)
-            .addAction(0, "已做", actedPi)
+            .addAction(0, actionLabel, actedPi)
+            .addAction(0, "忽略", ignoredPi)
             .build()
 
         try {

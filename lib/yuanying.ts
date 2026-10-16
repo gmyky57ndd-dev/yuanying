@@ -134,15 +134,13 @@ ${s.notes.items
 ## Today at a glance
 
 - Wake: ${s.wake.at ?? 'not logged'}
-- Water: ${s.water.count} / ${s.water.target}
+- 喝水: ${s.water.count} / ${s.water.target}
+- 起身: ${s.standup?.count ?? 0} / ${s.standup?.target ?? 8}
+- 维生素: ${s.vitamin?.done ? '✓' : '—'}
 - Steps: ${s.steps.value} / ${s.steps.goal}
-- Reminders:
-  - water: ${s.reminders.water.acted}/${s.reminders.water.shown} acted
-  - standup: ${s.reminders.standup.acted}/${s.reminders.standup.shown} acted
-  - vitamin: ${s.reminders.vitamin.acted}/${s.reminders.vitamin.shown} acted
 
 If the user asks for "看今天的简报" / "今日简报" / "today's summary" / "how was my day",
-format the above into a short readable reply. Do not add interpretation.
+format the above into a short readable reply, sentence-first. Do not add interpretation.
 ${notesBlock}`;
 }
 

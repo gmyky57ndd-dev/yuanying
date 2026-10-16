@@ -3,6 +3,8 @@ import {
   getDayRange,
   getTodayRange,
   getConfigTimezone,
+  getDateInTimezone,
+  getDisplayDay,
   DayRange,
 } from './timezone';
 import { SummaryData } from './summary-types';
@@ -53,6 +55,12 @@ export async function generateSummary(opts?: {
   const signals = signalsRes.data ?? [];
   const reminders = remindersRes.data ?? [];
 
+  // ES-007 §4: one action counter per habit.
+  const habitOf = (s: any) => s.context?.habit ?? s.context?.reminder_name;
+  const reminderActed = signals.filter((s: any) => s.name === 'reminder_acted');
+  const standupActions = reminderActed.filter((s: any) => habitOf(s) === 'standup').length;
+  const vitaminActed = reminderActed.find((s: any) => habitOf(s) === 'vitamin');
+
   const data: SummaryData = {
     wake: pickWake(signals),
     sleep: pickSleep(signals),
@@ -60,8 +68,10 @@ export async function generateSummary(opts?: {
       count: signals.filter((s: any) => s.name === 'water').length,
       target: WATER_TARGET_DEFAULT,
     },
+    standup: { count: standupActions, target: 8 },
+    vitamin: { done: !!vitaminActed, at: vitaminActed?.created_at ?? null },
     steps: {
-      value: pickLatestStepsValue(signals),
+      value: pickDailySteps(signals),
       goal: config.steps_goal,
     },
     apps_used: pickAppsUsed(signals),
@@ -90,18 +100,17 @@ export async function generateSummary(opts?: {
   return { date: range.date, timezone: tz, data };
 }
 
-/** Read today's summary; regenerate when stale, else reuse the cached row. */
-export async function getTodaySummaryCached(): Promise<{
+type CachedSummary = {
   date: string;
   timezone: string;
   data: SummaryData;
   cached: boolean;
   updated_at?: string;
-}> {
-  const tz = await getConfigTimezone();
-  const range = getTodayRange(tz);
-  const { date } = range;
+};
 
+/** Read a day's summary; regenerate when stale (data or schema drift), else reuse. */
+async function readOrGenerate(date: string, tz: string): Promise<CachedSummary> {
+  const range = getDayRange(date, tz);
   const { data: existing } = await supabase
     .from('summaries')
     .select('*')
@@ -110,7 +119,6 @@ export async function getTodaySummaryCached(): Promise<{
     .eq('type', 'day')
     .maybeSingle();
 
-  // B-17 / schema drift: the cached summary must not be stale.
   if (existing) {
     const latest = await latestDataAt(range.start, range.end);
     const writtenAt = new Date(existing.updated_at).getTime();
@@ -129,6 +137,22 @@ export async function getTodaySummaryCached(): Promise<{
 
   const result = await generateSummary({ date, timezone: tz });
   return { ...result, cached: false };
+}
+
+export async function getTodaySummaryCached(): Promise<CachedSummary> {
+  const tz = await getConfigTimezone();
+  const date = getDateInTimezone(tz);
+  return readOrGenerate(date, tz);
+}
+
+/**
+ * ES-007 §1: the displayed summary + label reflect the last completed day.
+ */
+export async function getDisplaySummary(): Promise<CachedSummary & { label: string }> {
+  const tz = await getConfigTimezone();
+  const { date, label } = getDisplayDay(tz);
+  const result = await readOrGenerate(date, tz);
+  return { ...result, label };
 }
 
 /** Newest data timestamp within the day range (signals + reminders). */
@@ -181,7 +205,7 @@ function pickSleep(signals: any[]) {
   return { at: s.created_at, duration_min: duration };
 }
 
-function pickLatestStepsValue(signals: any[]): number {
+function pickDailySteps(signals: any[]): number {
   const steps = signals.filter(s => s.name === 'steps');
   if (steps.length === 0) return 0;
   // Steps are cumulative-within-day; take max snapshot, not last.

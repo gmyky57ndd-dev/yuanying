@@ -47,10 +47,17 @@ export async function GET() {
     .eq('name', 'steps')
     .gte('created_at', start.toISOString())
     .lt('created_at', end.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(1);
+    .order('created_at', { ascending: false });
 
-  const latest = data?.[0];
+  // P1-23: steps are cumulative-within-day; take the max snapshot, not the
+  // last, so a late empty HealthConnect sync (value 0) does not erase a real
+  // value. Diagnostic 2026-10-16 confirmed 0-value rows overwriting real ones.
+  const rows = data ?? [];
+  const steps = rows.reduce(
+    (max, r) => Math.max(max, Number(r.value) || 0),
+    0
+  );
+  const latest = rows[0];
 
   const { data: goalConfig } = await supabase
     .from('config')
@@ -59,7 +66,7 @@ export async function GET() {
     .maybeSingle();
 
   return NextResponse.json({
-    steps: latest?.value ?? 0,
+    steps,
     goal: goalConfig?.value ?? 5000,
     updated_at: latest?.created_at ?? null,
   });

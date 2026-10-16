@@ -95,7 +95,7 @@
 
 - **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-16 · **Refs**: ES-007 §3; commit `44dbc35`
 - **Diagnostic** (logged per §3): today's snapshots were `723` then `0` — **some value > 0 but summary showed 0 → aggregation bug** (not a total HealthConnect failure).
-- **Fix**: summary uses the **max snapshot** of the day (`pickLatestStepsValue`/max). Applied (ES-005 §E.3).
+- **Fix**: summary uses the **max snapshot** of the day (`pickDailySteps`/max). Applied (ES-005 §E.3); see **P1-23**.
 - **Source mismatch (escalated, no code change)**: HealthConnect values (0/723) are far below the Fit app (~6k) → likely source/counter-scope mismatch; **reported to owner** for the same-source check ("matches Fit within 10%").
 - **Moved** from Backlog to Bug per Work Order §5.2.
 
@@ -274,22 +274,36 @@
 
 ---
 
-## To Do
-
 ### [P1-21] Summary window — 今天 = last completed day
-- Status: To Do · Category: Bug · Refs: ES-007 §1 · Owner: @dev
 
-### [P1-22] Wake detection — brief_wake vs wake
-- Status: To Do · Category: Bug · Refs: ES-007 §2 · Owner: @dev
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §1 · **Opened**: 2026-10-16
+- **Problem**: home summary + 今天 panel showed the current *incomplete* day (before 18:00 it leaked partial data).
+- **Spec**: before 18:00 local → **yesterday** (label 昨天); 18:00–24:00 → **today** (label 今天); after 00:00 → **yesterday**.
+- **Impl**: `getDisplayDay(tz)` in `lib/timezone.ts`; `getDisplaySummary()` in `lib/summary-generator.ts` returns `{...summary, label}`; `/api/summary/today` + `/api/chat` use it; panel header renders the label.
+- **Remaining**: owner confirms the label flips at 18:00 on device.
 
 ### [P1-23] Steps diagnostic + fix
-- Status: To Do · Category: Bug · Refs: ES-007 §3 · Owner: @dev
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §3; **P0** ([B-21])
+- **Diagnostic (logged per §3, 2026-10-16)**: today's snapshots were `723` then `0`; last-5-day rows all `source=passive` with 0-value rows appearing after real values.
+- **Root cause**: a late empty HealthConnect sync wrote `value=0`, and the "latest snapshot" read let it overwrite the real value.
+- **Fix**: both `lib/summary-generator.ts` (`pickDailySteps`) and `GET /api/steps` now take the **max snapshot** of the day.
+- **Source mismatch (escalated, no code change)**: HealthConnect (0/723) far below the Fit app (~6k) → same-source check reported to owner.
 
 ### [P1-24] Action model — unify counters
-- Status: To Do · Category: Feature · Refs: ES-007 §4 · Owner: @dev
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
+- **Impl**: `SummaryData` gains `standup {count,target}` and `vitamin {done,at}`; summary + "今天" panel show 喝水 x/6, 起身 x/8, 维生素 ✓ HH:MM; `/api/reminder/act` writes `context.habit` and, for water, a single `water` action (reminder action = manual action). Prompt line updated.
 
 ### [P1-25] Reminder notification action buttons
-- Status: To Do · Category: Feature · Refs: ES-007 §4 · Owner: @dev
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
+- **Impl**: collector notification now has a habit action (water 喝了 / standup 起身了 / vitamin 吃了) + 忽略; `ReminderActionReceiver` maps acted→`acted`, ignore→`dismissed`; acted opens the app, ignore stays quiet.
+- **Remaining**: device verification (collector build pending; no local JDK). PWA fallback = open modal.
+
+---
+
+## To Do
 
 ### [P1-26] Home redesign — activities + chat only
 - Status: To Do · Category: Feature · Refs: ES-008 §2.1 · Owner: @dev
@@ -336,6 +350,13 @@
 ---
 
 ## Blocked
+
+### [P1-22] Wake detection — brief_wake vs wake
+
+- **Status**: Blocked · **Category**: Bug · **Refs**: ES-007 §2 · **Opened**: 2026-10-16
+- **Done**: `brief_wake` added to the signal-name constraint (`v3_signal_name`, migration `010_brief_wake.sql`) and to `/api/signal` accepted names; summaries count only `wake` (brief_wake excluded).
+- **Blocker**: §2 requires inferring brief-wake vs wake from an unlock/brief-wake signal and prompting once per night. The app has **no unlock/brief-wake detection source** (no unlock-access permission; HealthConnect does not expose it). Needs an owner decision on the detection source.
+- **Unblocker**: approve a detection source (or drop the auto-prompt and keep brief_wake as a manual/collector-only signal).
 
 ### [P0-05] API authentication (ES-004)
 
@@ -409,6 +430,14 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-16 (session 9 — Work Order: ES-007 P1-21…P1-25)
+- **P1-21** summary window (**In Review**): `getDisplayDay()` + `getDisplaySummary()`; summary/chat/panel reflect the last completed day (18:00 rule).
+- **P1-22** wake detection (**Blocked**): `brief_wake` added to schema constraint `v3_signal_name` (migration `010_brief_wake.sql`) + `/api/signal`; auto brief-wake inference blocked (no unlock detection source).
+- **P1-23** steps (**In Review**): diagnostic logged (723→0 overwrite); `pickDailySteps` + `GET /api/steps` now take the day's max snapshot.
+- **P1-24** action model (**In Review**): `standup`/`vitamin` in summary; 喝水/起身/维生素 counters; reminder action = manual action.
+- **P1-25** reminder buttons (**In Review**): collector habit action + 忽略; `ReminderActionReceiver` acted/dismissed; device verify pending.
+- AGENTS.md → **v1.5**; docs created: `ES-007`, `ES-008`, `2026-10-16-feedback`.
 
 ### 2026-10-15 (session 8 — owner identity revision)
 - Owner revised `core/identity.md` (user→owner; signals/notes reframing). Loaded into the prompt; web deploy via push.

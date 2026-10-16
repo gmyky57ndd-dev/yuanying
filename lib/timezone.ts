@@ -65,6 +65,30 @@ export function getTodayRange(tz: string, at: Date = new Date()): DayRange {
 }
 
 /**
+ * ES-007 §1: the main summary reflects the most recently *completed* day.
+ * Before 18:00 local → yesterday; 18:00–24:00 → today; after 00:00 → yesterday.
+ */
+export function getDisplayDay(
+  tz: string,
+  at: Date = new Date()
+): { date: string; label: string } {
+  const hStr = new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz,
+    hour: '2-digit',
+    hour12: false,
+  }).format(at);
+  let h = parseInt(hStr, 10);
+  if (h === 24) h = 0;
+  const today = getDateInTimezone(tz, at);
+  if (h >= 18) return { date: today, label: '今天' };
+  const [y, m, d] = today.split('-').map(Number);
+  const yesterday = new Date(Date.UTC(y, m - 1, d) - 86400000)
+    .toISOString()
+    .slice(0, 10);
+  return { date: yesterday, label: '昨天' };
+}
+
+/**
  * Read the user's timezone from config with a safe default.
  * Do not cache across requests — config may change.
  */

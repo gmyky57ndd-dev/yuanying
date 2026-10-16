@@ -2,6 +2,8 @@ export interface SummaryData {
   wake: { at: string | null };
   sleep: { at: string | null; duration_min: number | null };
   water: { count: number; target: number };
+  standup: { count: number; target: number };
+  vitamin: { done: boolean; at: string | null };
   steps: { value: number; goal: number };
   apps_used: number;
   reminders: {

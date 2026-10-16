@@ -40,8 +40,19 @@ export async function POST(req: NextRequest) {
         type: 'event',
         value: true,
         source: 'manual',
-        context: { reminder_name: rem.name, reminder_id },
+        context: { habit: rem.name, reminder_name: rem.name, reminder_id },
       });
+
+      // ES-007 §4: a water reminder action is one water action.
+      if (rem.name === 'water') {
+        await supabase.from('signals').insert({
+          name: 'water',
+          type: 'count',
+          value: 1,
+          source: 'reminder',
+          context: { habit: 'water', reminder_id },
+        });
+      }
     }
 
     return NextResponse.json({ ok: true });

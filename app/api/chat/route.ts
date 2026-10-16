@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { buildSystemPrompt } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
 import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
-import { getTodaySummaryCached } from '@/lib/summary-generator';
+import { getDisplaySummary } from '@/lib/summary-generator';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -77,10 +77,10 @@ export async function POST(req: NextRequest) {
       created_at: string;
     }>;
 
-    // Today's summary ("看今天的简报").
+    // Display-day summary (ES-007 §1: last completed day).
     let summaryData = undefined;
     try {
-      summaryData = (await getTodaySummaryCached()).data;
+      summaryData = (await getDisplaySummary()).data;
     } catch (e) {
       console.error('summary load failed (non-fatal):', e);
     }

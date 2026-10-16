@@ -5,7 +5,7 @@ import { getDayRange, getTodayRange, getConfigTimezone } from '@/lib/timezone';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const VALID_NAMES = ['wake', 'sleep', 'water'] as const;
+const VALID_NAMES = ['wake', 'sleep', 'water', 'brief_wake'] as const;
 const IDEMPOTENT: readonly string[] = ['wake', 'sleep'];
 
 export async function POST(req: NextRequest) {
@@ -50,7 +50,6 @@ export async function POST(req: NextRequest) {
       })
       .select('id')
       .single();
-
     if (error) {
       console.error('signal insert error:', error);
       return NextResponse.json({ error: error.message }, { status: 500 });

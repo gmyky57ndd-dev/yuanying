@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
-import { getTodaySummaryCached } from '@/lib/summary-generator';
+import { getDisplaySummary } from '@/lib/summary-generator';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const result = await getTodaySummaryCached();
+    const result = await getDisplaySummary();
     return NextResponse.json(result);
   } catch (err: any) {
     console.error('summary today failed:', err);

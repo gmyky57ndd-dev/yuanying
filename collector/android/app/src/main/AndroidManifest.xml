@@ -38,7 +38,7 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- P1-09: reminder notification "已做" action -->
+        <!-- P1-09 / P1-25: reminder notification action buttons -->
         <receiver
             android:name=".ReminderActionReceiver"
             android:exported="false" />

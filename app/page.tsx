@@ -18,6 +18,8 @@ type Summary = {
   wake: { at: string | null };
   sleep: { at: string | null };
   water: { count: number; target: number };
+  standup: { count: number; target: number };
+  vitamin: { done: boolean; at: string | null };
   steps: { value: number; goal: number };
   apps_used: number;
   reminders: Record<string, { shown: number; acted: number }>;
@@ -78,6 +80,7 @@ export default function Home() {
   const noteRecRef = useRef<any>(null);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [summaryLabel, setSummaryLabel] = useState('今天');
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -174,7 +177,10 @@ export default function Home() {
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/summary/today`, {});
       const d = await r.json();
-      if (d && d.data) setSummary(d.data);
+      if (d && d.data) {
+        setSummary(d.data);
+        if (d.label) setSummaryLabel(d.label);
+      }
     } catch {}
   }
 
@@ -439,7 +445,7 @@ export default function Home() {
             onClick={() => setPanelOpen(o => !o)}
             className="w-full flex items-center justify-between text-stone-400"
           >
-            <span>今天 {panelOpen ? '▾' : '▸'}</span>
+            <span>{summaryLabel} {panelOpen ? '▾' : '▸'}</span>
             <span className="text-stone-500">
               自动{' '}
               {(summary.steps.value > 0 ? 1 : 0) +
@@ -490,6 +496,22 @@ export default function Home() {
                   onClick={() => prefill('我今天喝水够了吗？')}
                 >
                   喝水 {summary.water.count} / {summary.water.target}
+                </button>
+                <button
+                  className="block text-left"
+                  onClick={() => prefill('我今天起身了吗？')}
+                >
+                  起身 {summary.standup?.count ?? 0} /{' '}
+                  {summary.standup?.target ?? 8}
+                </button>
+                <button
+                  className="block text-left"
+                  onClick={() => prefill('我今天吃维生素了吗？')}
+                >
+                  维生素{' '}
+                  {summary.vitamin?.done
+                    ? `✓ ${hm(summary.vitamin.at)}`
+                    : '—'}
                 </button>
               </div>
               <div>
