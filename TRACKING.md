@@ -357,6 +357,7 @@
   - **Fix**: upload with `status: completed`; made the GitHub Release step idempotent; fixed tag resolution for `workflow_dispatch`. Collector **v1.0.18 (code 19)**.
   - **Verified (2026-10-16)**: release run `38941378463` green; Play `internal` now `status=completed name=1.0.18 versionCodes=19`.
   - **Remaining**: owner confirms the phone updates 1.0.9 → 1.0.18 via Play internal.
+- **Feature (2026-10-16)** — *in-app update link*: collector home adds an **更新到最新版** button that opens the Play internal-testing page (`https://play.google.com/apps/internaltest/4701496216557819136`), so the owner can pull the latest build when the store shows no update. Collector **v1.0.19 (code 20)**. **In Review** (device verify pending).
 
 ---
 

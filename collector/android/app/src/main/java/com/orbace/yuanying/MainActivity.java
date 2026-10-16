@@ -33,6 +33,10 @@ import java.util.concurrent.TimeUnit;
 public class MainActivity extends AppCompatActivity {
 
     private static final String PWA_URL = "https://yuanying-rust.vercel.app";
+    // Play internal-testing opt-in page: lets the owner pull the latest build
+    // to the phone when the store list has not shown an update yet.
+    private static final String INTERNAL_TEST_URL =
+        "https://play.google.com/apps/internaltest/4701496216557819136";
 
     private TextView statusText;
     private TextView stepsStatus;
@@ -50,6 +54,7 @@ public class MainActivity extends AppCompatActivity {
         Button testBtn = findViewById(R.id.test_button);
         Button openPwaBtn = findViewById(R.id.open_pwa_button);
         Button grantStepsBtn = findViewById(R.id.grant_steps_button);
+        Button updateBtn = findViewById(R.id.update_button);
 
         // HealthConnect is API 26+ only. Do not reference its classes on older
         // devices so the app keeps minSdk 24 (Play device-support requirement).
@@ -71,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
         grantBtn.setOnClickListener(v -> openUsageAccessSettings());
         testBtn.setOnClickListener(v -> runOnce());
         openPwaBtn.setOnClickListener(v -> openPwa());
+        updateBtn.setOnClickListener(v -> openInternalTest());
         grantStepsBtn.setOnClickListener(v -> {
             if (stepsPermissionLauncher != null) {
                 stepsPermissionLauncher.launch(HealthPermissionHelper.permissions());
@@ -107,6 +113,17 @@ public class MainActivity extends AppCompatActivity {
     private void openPwa() {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(PWA_URL));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Toast.makeText(this, "无法打开浏览器", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    /** Opens the Play internal-testing page to pull the latest build. */
+    private void openInternalTest() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(INTERNAL_TEST_URL));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
         } catch (Exception e) {
