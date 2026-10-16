@@ -350,6 +350,13 @@
   - [x] Play upload automated (service account) OR documented manual fallback — **verified**: v1.0.14 release uploaded to Play internal (draft); workflow gated on `PLAY_SERVICE_ACCOUNT_JSON`
   - [x] A short runbook in `docs/` — `docs/runbooks/self-upgrade.md`
 - **Notes**: **Dedicated session** — do not fold into other work. **Scheduled 2026-10-15** (owner: run the manual process one more day). **Interim (owner, 2026-10-14):** use web auto-deployment (`deploy.yml`) for the PWA and **manual AAB upload to Google Play** for the collector until this session. **Observation 2026-10-15:** the Vercel Git integration is auto-deploying on push again (independent of CI); the CI `VERCEL_TOKEN` (reused CLI OAuth) rotated and was refreshed — a dedicated no-expiration token is still required.
+- **Bug fix (2026-10-16)** — *Play internal never updated past 1.0.9*:
+  - **Report**: owner saw the Play Store internal list still on **1.0.9**.
+  - **Diagnosis** (Play Developer API, `internal` track): `status=draft versionCodes=18` (the latest draft) alongside `status=completed versionCodes=10` (1.0.9). Every upload since 1.0.9 was a **draft**, which is never rolled out → testers stayed on 1.0.9.
+  - **Root cause**: `android-release.yml` uploaded with `status: draft`.
+  - **Fix**: upload with `status: completed`; made the GitHub Release step idempotent; fixed tag resolution for `workflow_dispatch`. Collector **v1.0.18 (code 19)**.
+  - **Verified (2026-10-16)**: release run `38941378463` green; Play `internal` now `status=completed name=1.0.18 versionCodes=19`.
+  - **Remaining**: owner confirms the phone updates 1.0.9 → 1.0.18 via Play internal.
 
 ---
 
@@ -443,6 +450,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - **P1-25** reminder buttons (**In Review**): collector habit action + 忽略; `ReminderActionReceiver` acted/dismissed; device verify pending.
 - AGENTS.md → **v1.5**; docs created: `ES-007`, `ES-008`, `2026-10-16-feedback`.
 - **Released collector v1.0.17 (code 18)** on owner "push": signed AAB/APK + Play internal upload.
+- **Fixed Play internal never updating past 1.0.9**: uploads were `status: draft` (never rolled out) → switched to `status: completed`; released **v1.0.18 (code 19)**; Play `internal` now `completed`. See **P1-15**.
 
 ### 2026-10-15 (session 8 — owner identity revision)
 - Owner revised `core/identity.md` (user→owner; signals/notes reframing). Loaded into the prompt; web deploy via push.
