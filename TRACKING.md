@@ -97,6 +97,7 @@
 - **Diagnostic** (logged per §3): today's snapshots were `723` then `0` — **some value > 0 but summary showed 0 → aggregation bug** (not a total HealthConnect failure).
 - **Fix**: summary uses the **max snapshot** of the day (`pickDailySteps`/max). Applied (ES-005 §E.3); see **P1-23**.
 - **Source mismatch (escalated, no code change)**: HealthConnect values (0/723) are far below the Fit app (~6k) → likely source/counter-scope mismatch; **reported to owner** for the same-source check ("matches Fit within 10%").
+- **Re-diagnosed (2026-10-16, ES-009 §5)**: home shows `步骤 0` while yesterday shows `2809`. Query of today's rows: all **7** `steps` signals for the local day are `value=0` (16:56–18:24 UTC). So aggregation (max) is correct — the current day's **collection** is 0. Yesterday's rows: `723`, `0`, `2809` → max `2809`. Conclusion: **not** an aggregation bug; the collector's HealthConnect read returns 0 for the current day → **collection/source** issue, escalated.
 - **Moved** from Backlog to Bug per Work Order §5.2.
 
 ### [P1-16] Voice pass — 元婴 speaks, not reports
@@ -323,16 +324,53 @@
 
 ---
 
-## To Do
-
 ### [P1-26] Home redesign — activities + chat only
-- Status: To Do · Category: Feature · Refs: ES-008 §2.1 · Owner: @dev
-- **Gated**: waits on owner confirming the ES-007 §1 18:00 "今天/昨天" flip.
-- Scope: today-only activities (tappable) + chat; no historical data; no charts.
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.1 (revised by ES-009 §1)
+- **Impl**: home is today-only — avatar, signals, steps, 记一笔, a raw **今天** activity stream, and chat. The ES-007 今天/昨天 summary panel and the `自动 X · 手动 X · 提醒 X` line are removed (no summary/historical data on home). Delivered with **P1-30**.
+- **Remaining**: owner device check.
 
 ### [P1-29] Move settings off home
-- Status: To Do · Category: Feature · Refs: ES-008 §2.1 · Owner: @dev
-- **Gated**: follows P1-26 (home redesign owns the layout).
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.1 (revised by ES-009 §1)
+- **Impl**: settings are reachable only via a corner nav link; the inline home summary panel (the last summary surface on home) is gone. No settings controls render on home.
+- **Remaining**: owner device check.
+
+### [P1-30] Home = today only, remove 昨天 panel
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §1
+- **Impl**: removed the summary panel from home (今天/昨天 header + the `自动·手动·提醒` line + the reminder group). Added a raw today activity stream via new `lib/activity-stream.ts` (`buildActivityStream`) with an empty state ("今天还没有记录。"). Home no longer reads the display-day summary at all.
+- **Remaining**: owner device check; supersedes the ES-007 §1 pre-18:00 "昨天" label on home.
+
+### [P1-31] Chat scoped to today
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §1
+- **Impl**: `/api/history?today=1` filters messages to the current product day (`getTodayRange`); home loads that on mount, so the chat never scrolls before 00:00 local. Earlier days remain available in History.
+- **Remaining**: owner device check.
+
+### [P1-32] Notes expandable inline
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §3
+- **Impl**: note rows in the home **今天** stream and the History 活动 stream are tap-to-expand inline (full text wraps; tap again collapses). No separate note view. Fixes the "notes added but not viewable" triage item.
+- **Remaining**: owner device check.
+
+### [P1-33] History app_usage grouping
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2
+- **Impl**: History detail renders the shared activity stream — contiguous `app_usage` windows roll into **应用会话 (约 Xh, N 应用)** rows (tap to expand apps sorted by minutes); steps rows with value 0 / no change are hidden.
+- **Remaining**: owner device check.
+
+### [P1-34] Summary counter unification (ES-007 §4 completion)
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2; ES-007 §4
+- **Impl**: History 概要 top line now shows **habit counts** only — 起床 · 入睡 · 喝水 x/6 · 起身 x/8 · 维生素. The `提醒 0/N` counter is removed from the summary and moved to a collapsed **提醒记录 (audit)** subsection.
+- **Remaining**: owner device check.
+
+---
+
+## To Do
+
+_(ES-008/ES-009 home + history work is in review; no open To Do items.)_
 
 ### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
 
@@ -455,6 +493,16 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-16 (session 11 — ES-009 UAT triage: home scope + history detail)
+- **ES-009** treats ES-008 §2.1/§2.2 as revised. Executed **P1-30 → P1-34** (all **In Review**):
+  - **P1-30** home = today only: removed 昨天 panel + `自动·手动·提醒` line; added raw **今天** activity stream (`lib/activity-stream.ts`) + empty state.
+  - **P1-31** chat scoped to today: `/api/history?today=1`.
+  - **P1-32** notes expand inline (home stream + history).
+  - **P1-33** History groups `app_usage` into expandable **应用会话**; hides zero/unchanged steps rows.
+  - **P1-34** summary 概要 shows habit counts (起床/入睡/喝水/起身/维生素); 提醒 moved to a collapsed audit subsection.
+- **P1-26 / P1-29** → **In Review** (home today-only; settings off home / corner nav only).
+- **B-21** re-diagnosed: today's all-zero steps is a **collection** gap, not aggregation (max fix holds); escalated.
 
 ### 2026-10-16 (session 10 — ES-008 C-phase UI: History + Notes)
 - **ES-007 closed.** **ES-008 started.** Order: §2.2 History → §2.3 notes → §2.1 Home.

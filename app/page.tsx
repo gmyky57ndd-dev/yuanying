@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { SignalButton } from '@/components/SignalButton';
 import { postChat, fetchWithTimeout, API_BASE } from '@/lib/api';
+import {
+  buildActivityStream,
+  formatDuration,
+  StreamEntry,
+} from '@/lib/activity-stream';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type Signal = {
@@ -14,19 +19,7 @@ type Signal = {
   context: Record<string, any>;
 };
 
-type Summary = {
-  wake: { at: string | null };
-  sleep: { at: string | null };
-  water: { count: number; target: number };
-  standup: { count: number; target: number };
-  vitamin: { done: boolean; at: string | null };
-  steps: { value: number; goal: number };
-  apps_used: number;
-  reminders: Record<string, { shown: number; acted: number }>;
-};
-
-function hm(iso: string | null): string {
-  if (!iso) return '未记录';
+function hm(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
@@ -34,6 +27,14 @@ function hm(iso: string | null): string {
 }
 
 const SIGNALS = ['wake', 'sleep', 'water'] as const;
+
+const EVENT_LABEL: Record<string, string> = {
+  wake: '起床',
+  sleep: '入睡',
+  water: '喝水',
+  brief_wake: '短暂唤醒',
+  reminder_acted: '提醒响应',
+};
 
 // B-19: timezone offset helper for the PWA exception writer.
 function tzOffsetMinutes(tz: string, at: Date = new Date()): number {
@@ -77,10 +78,8 @@ export default function Home() {
   const [noteText, setNoteText] = useState('');
   const [noteListening, setNoteListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const noteRecRef = useRef<any>(null);
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [panelOpen, setPanelOpen] = useState(false);
-  const [summaryLabel, setSummaryLabel] = useState('今天');
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -91,15 +90,14 @@ export default function Home() {
   }
 
   useEffect(() => {
-    fetchWithTimeout(`${API_BASE}/api/history`, {})
+    // ES-009 §1: chat is scoped to today (never scrolls before 00:00 local).
+    fetchWithTimeout(`${API_BASE}/api/history?today=1`, {})
       .then(r => r.json())
       .then(d => setMessages(d.messages ?? []))
       .catch(() => {});
     loadSignals();
     loadSteps();
     loadNotes();
-    // Generate today's summary on first open (idempotent server-side).
-    loadSummary();
   }, []);
 
   useEffect(() => {
@@ -173,22 +171,6 @@ export default function Home() {
     } catch {}
   }
 
-  async function loadSummary() {
-    try {
-      const r = await fetchWithTimeout(`${API_BASE}/api/summary/today`, {});
-      const d = await r.json();
-      if (d && d.data) {
-        setSummary(d.data);
-        if (d.label) setSummaryLabel(d.label);
-      }
-    } catch {}
-  }
-
-  function prefill(question: string) {
-    // Owner can edit or cancel; sending stays explicit (no auto model call).
-    setInput(question);
-  }
-
   async function saveNote() {
     const text = noteText.trim();
     if (!text) return;
@@ -205,7 +187,7 @@ export default function Home() {
       setNoteText('');
       setNoteOpen(false);
       loadNotes();
-      loadSummary();
+      loadSignals();
     } catch {
       alert('保存失败');
     }
@@ -258,7 +240,6 @@ export default function Home() {
     } finally {
       setSending(false);
       loadSignals();
-      loadSummary();
     }
   }
 
@@ -287,14 +268,11 @@ export default function Home() {
         const err = await res.json().catch(() => ({}) as any);
         console.error('signal failed:', res.status, err);
         alert(`信号记录失败：${res.status}\n${err.error ?? '未知错误'}`);
-        // 回滚
         setTodaySignals(prev => prev.filter(s => s.id !== optimistic.id));
         return;
       }
 
-      // 3. 用服务器数据校准（幂等去重后）
       await loadSignals();
-      loadSummary();
     } catch (err) {
       console.error('signal network error:', err);
       alert('网络错误，信号未记录');
@@ -303,12 +281,15 @@ export default function Home() {
   }
 
   function isLogged(name: string) {
-    // todaySignals is already scoped server-side (see /api/signal GET).
-    // Do not re-filter on the client — the browser timezone may differ.
     return todaySignals.some(s => s.name === name);
   }
 
   const waterCount = todaySignals.filter(s => s.name === 'water').length;
+  const stream: StreamEntry[] = buildActivityStream(todaySignals);
+
+  function toggle(id: string) {
+    setExpanded(e => ({ ...e, [id]: !e[id] }));
+  }
 
   function startVoice() {
     const SpeechRecognition =
@@ -373,12 +354,12 @@ export default function Home() {
 
       {/* Steps */}
       {steps && (
-        <div className="text-center text-[11px] text-stone-500 pb-2">
+        <div className="text-center text-[11px] text-stone-500 pb-2 shrink-0">
           步数 {steps.value} / {steps.goal}
         </div>
       )}
 
-      {/* Notes */}
+      {/* Notes — capture rides on the existing 记一笔 button (no new surface) */}
       <div className="px-4 pb-2 shrink-0">
         <div className="flex items-center justify-between text-[11px] text-stone-500">
           <button
@@ -429,118 +410,103 @@ export default function Home() {
                 保存
               </button>
             </div>
-            {notes.length > 0 && (
-              <ul className="text-[11px] text-stone-500 space-y-1">
-                {notes.map(n => (
-                  <li key={n.id}>· {n.text}</li>
-                ))}
-              </ul>
-            )}
           </div>
         )}
       </div>
 
-      {/* Today (ES-003 tracking visibility) */}
-      {summary && (
-        <div className="px-4 pb-2 shrink-0 text-[11px]">
-          <button
-            onClick={() => setPanelOpen(o => !o)}
-            className="w-full flex items-center justify-between text-stone-400"
-          >
-            <span>{summaryLabel} {panelOpen ? '▾' : '▸'}</span>
-            <span className="text-stone-500">
-              自动{' '}
-              {(summary.steps.value > 0 ? 1 : 0) +
-                (summary.apps_used > 0 ? 1 : 0)}{' '}
-              · 手动{' '}
-              {(summary.wake.at ? 1 : 0) +
-                (summary.sleep.at ? 1 : 0) +
-                summary.water.count}{' '}
-              · 提醒{' '}
-              {(summary.reminders.water?.shown ?? 0) +
-                (summary.reminders.standup?.shown ?? 0) +
-                (summary.reminders.vitamin?.shown ?? 0)}
-            </span>
-          </button>
-          {panelOpen && (
-            <div className="mt-2 space-y-2 text-stone-400">
-              <div>
-                <div className="text-stone-600">自动记录</div>
-                <button
-                  className="block text-left"
-                  onClick={() => prefill('今天用了哪些应用？')}
-                >
-                  应用使用 {summary.apps_used} 个
-                </button>
-                <button
-                  className="block text-left"
-                  onClick={() => prefill('今天走了多少步？')}
-                >
-                  步数 {summary.steps.value} / {summary.steps.goal}
-                </button>
-              </div>
-              <div>
-                <div className="text-stone-600">手动记录</div>
-                <button
-                  className="block text-left"
-                  onClick={() => prefill('我今天几点起床的？')}
-                >
-                  起床 {hm(summary.wake.at)}
-                </button>
-                <button
-                  className="block text-left"
-                  onClick={() => prefill('我昨晚几点睡的？')}
-                >
-                  入睡 {hm(summary.sleep.at)}
-                </button>
-                <button
-                  className="block text-left"
-                  onClick={() => prefill('我今天喝水够了吗？')}
-                >
-                  喝水 {summary.water.count} / {summary.water.target}
-                </button>
-                <button
-                  className="block text-left"
-                  onClick={() => prefill('我今天起身了吗？')}
-                >
-                  起身 {summary.standup?.count ?? 0} /{' '}
-                  {summary.standup?.target ?? 8}
-                </button>
-                <button
-                  className="block text-left"
-                  onClick={() => prefill('我今天吃维生素了吗？')}
-                >
-                  维生素{' '}
-                  {summary.vitamin?.done
-                    ? `✓ ${hm(summary.vitamin.at)}`
-                    : '—'}
-                </button>
-              </div>
-              <div>
-                <div className="text-stone-600">提醒</div>
-                {(['water', 'standup', 'vitamin'] as const).map(k => (
-                  <button
-                    key={k}
-                    className="block text-left"
-                    onClick={() => prefill(`今天的 ${k} 提醒怎么样？`)}
-                  >
-                    {k} {summary.reminders[k]?.acted ?? 0} /{' '}
-                    {summary.reminders[k]?.shown ?? 0}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Today — raw activity stream (ES-009 §1) */}
+      <div className="px-4 pb-2 shrink-0 max-h-28 overflow-y-auto text-[12px]">
+        <div className="text-[11px] text-stone-600 mb-1">今天</div>
+        {stream.length === 0 ? (
+          <div className="text-stone-600">今天还没有记录。</div>
+        ) : (
+          <ul className="space-y-0.5 text-stone-300">
+            {stream.map(e => {
+              if (e.kind === 'note') {
+                const open = !!expanded[e.id];
+                return (
+                  <li key={e.id}>
+                    <button
+                      onClick={() => toggle(e.id)}
+                      className="w-full text-left flex gap-2"
+                    >
+                      <span className="text-stone-600 w-11 shrink-0">
+                        {hm(e.at)}
+                      </span>
+                      <span className="shrink-0">笔记</span>
+                      <span
+                        className={
+                          open
+                            ? 'text-stone-300 whitespace-pre-wrap break-words'
+                            : 'text-stone-500 truncate'
+                        }
+                      >
+                        {open ? e.text : `“${e.text}”`}
+                      </span>
+                    </button>
+                  </li>
+                );
+              }
+              if (e.kind === 'apps') {
+                const open = !!expanded[e.id];
+                return (
+                  <li key={e.id}>
+                    <button
+                      onClick={() => toggle(e.id)}
+                      className="w-full text-left flex gap-2"
+                    >
+                      <span className="text-stone-600 w-11 shrink-0">
+                        {hm(e.start)}
+                      </span>
+                      <span>
+                        应用会话 (约 {formatDuration(e.minutes)},{' '}
+                        {e.apps.length} 应用)
+                        {open ? ' ▾' : ' ▸'}
+                      </span>
+                    </button>
+                    {open && (
+                      <ul className="ml-[52px] mt-0.5 text-stone-500 space-y-0.5">
+                        {e.apps.map(a => (
+                          <li key={a.package} className="flex gap-2">
+                            <span className="flex-1 truncate">{a.name}</span>
+                            <span>{a.minutes}m</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              }
+              if (e.kind === 'steps') {
+                return (
+                  <li key={e.id} className="flex gap-2">
+                    <span className="text-stone-600 w-11 shrink-0">
+                      {hm(e.at)}
+                    </span>
+                    <span>步数 {e.value}</span>
+                  </li>
+                );
+              }
+              return (
+                <li key={e.id} className="flex gap-2">
+                  <span className="text-stone-600 w-11 shrink-0">{hm(e.at)}</span>
+                  <span>{EVENT_LABEL[e.name] ?? e.name}</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
 
       {/* Error */}
       {error && (
-        <div className="text-center text-xs text-red-400 pb-2">{error}</div>
+        <div className="text-center text-xs text-red-400 pb-2 shrink-0">
+          {error}
+        </div>
       )}
 
-      {/* Chat */}
-      <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-2">
+      {/* Chat (today only) */}
+      <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-2 border-t border-stone-900 pt-2">
         {messages.length === 0 && (
           <div className="text-center text-stone-600 text-xs pt-8">
             说点什么。

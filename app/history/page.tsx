@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { fetchWithTimeout, API_BASE } from '@/lib/api';
+import {
+  buildActivityStream,
+  formatDuration,
+  StreamEntry,
+} from '@/lib/activity-stream';
 
 type DayAgg = {
   date: string;
@@ -40,16 +45,12 @@ type DayDetail = {
 
 type NoteHit = { id: number; text: string; at: string; date: string };
 
-const SIGNAL_LABEL: Record<string, string> = {
+const EVENT_LABEL: Record<string, string> = {
   wake: '起床',
   sleep: '入睡',
   water: '喝水',
-  steps: '步数',
-  note: '笔记',
-  app_usage: '应用',
   brief_wake: '短暂唤醒',
   reminder_acted: '提醒响应',
-  reminder_shown: '提醒',
 };
 
 function hm(iso: string | null): string {
@@ -60,18 +61,14 @@ function hm(iso: string | null): string {
   });
 }
 
-function signalText(s: Signal): string {
-  if (s.name === 'note') return s.value?.text ?? '';
-  if (s.name === 'steps') return `${s.value}`;
-  return '';
-}
-
 export default function HistoryPage() {
   const [days, setDays] = useState<DayAgg[]>([]);
   const [detail, setDetail] = useState<DayDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<NoteHit[] | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [auditOpen, setAuditOpen] = useState(false);
 
   const loadDays = useCallback(async () => {
     setLoading(true);
@@ -89,6 +86,8 @@ export default function HistoryPage() {
 
   async function openDay(date: string) {
     setHits(null);
+    setExpanded({});
+    setAuditOpen(false);
     try {
       const r = await fetchWithTimeout(
         `${API_BASE}/api/history/day?date=${date}`,
@@ -119,9 +118,14 @@ export default function HistoryPage() {
     } catch {}
   }
 
+  function toggle(id: string) {
+    setExpanded(e => ({ ...e, [id]: !e[id] }));
+  }
+
   // ----- Detail view -------------------------------------------------------
   if (detail) {
     const s = detail.summary;
+    const stream: StreamEntry[] = buildActivityStream(detail.signals);
     return (
       <div className="min-h-[100dvh] bg-stone-950 text-stone-100 px-4 py-5">
         <div className="flex items-center justify-between mb-3">
@@ -135,78 +139,129 @@ export default function HistoryPage() {
         </div>
 
         {s && (
-          <section className="mb-4 text-[13px] text-stone-300 leading-relaxed">
+          <section className="mb-4 text-[13px] text-stone-300">
             <div className="text-[11px] text-stone-600 mb-1">概要</div>
             起床 {hm(s.wake?.at)} · 入睡 {hm(s.sleep?.at)} · 喝水{' '}
-            {s.water?.count ?? 0}/{s.water?.target ?? 6} · 步数{' '}
-            {s.steps?.value ?? 0}/{s.steps?.goal ?? 5000} · 应用{' '}
-            {s.apps_used ?? 0} 个
+            {s.water?.count ?? 0}/{s.water?.target ?? 6} · 起身{' '}
+            {s.standup?.count ?? 0}/{s.standup?.target ?? 8} · 维生素{' '}
+            {s.vitamin?.done ? '✓' : '--'}
           </section>
         )}
 
-        {detail.signals.length > 0 && (
-          <section className="mb-4">
-            <div className="text-[11px] text-stone-600 mb-1">活动</div>
+        <section className="mb-4">
+          <div className="text-[11px] text-stone-600 mb-1">活动</div>
+          {stream.length === 0 ? (
+            <div className="text-[13px] text-stone-600">没有记录。</div>
+          ) : (
             <ul className="text-[13px] text-stone-300 space-y-0.5">
-              {detail.signals.map(sig => (
-                <li key={sig.id} className="flex gap-2">
-                  <span className="text-stone-600 w-12 shrink-0">
-                    {hm(sig.created_at)}
-                  </span>
-                  <span className="shrink-0">
-                    {SIGNAL_LABEL[sig.name] ?? sig.name}
-                  </span>
-                  {signalText(sig) && (
-                    <span className="text-stone-400 break-words">
-                      {signalText(sig)}
+              {stream.map(e => {
+                if (e.kind === 'note') {
+                  const open = !!expanded[e.id];
+                  return (
+                    <li key={e.id}>
+                      <button
+                        onClick={() => toggle(e.id)}
+                        className="w-full text-left flex gap-2"
+                      >
+                        <span className="text-stone-600 w-12 shrink-0">
+                          {hm(e.at)}
+                        </span>
+                        <span className="shrink-0">笔记</span>
+                        <span
+                          className={
+                            open
+                              ? 'text-stone-300 whitespace-pre-wrap break-words'
+                              : 'text-stone-400 truncate'
+                          }
+                        >
+                          {open ? e.text : `“${e.text}”`}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                }
+                if (e.kind === 'apps') {
+                  const open = !!expanded[e.id];
+                  return (
+                    <li key={e.id}>
+                      <button
+                        onClick={() => toggle(e.id)}
+                        className="w-full text-left flex gap-2"
+                      >
+                        <span className="text-stone-600 w-24 shrink-0">
+                          {hm(e.start)}–{hm(e.end)}
+                        </span>
+                        <span>
+                          应用会话 (约 {formatDuration(e.minutes)},{' '}
+                          {e.apps.length} 应用)
+                          {open ? ' ▾' : ' ▸'}
+                        </span>
+                      </button>
+                      {open && (
+                        <ul className="ml-24 mt-0.5 text-stone-500 space-y-0.5">
+                          {e.apps.map(a => (
+                            <li key={a.package} className="flex gap-2">
+                              <span className="flex-1 truncate">{a.name}</span>
+                              <span>{a.minutes}m</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                }
+                if (e.kind === 'steps') {
+                  return (
+                    <li key={e.id} className="flex gap-2">
+                      <span className="text-stone-600 w-12 shrink-0">
+                        {hm(e.at)}
+                      </span>
+                      <span>步数 {e.value}</span>
+                    </li>
+                  );
+                }
+                return (
+                  <li key={e.id} className="flex gap-2">
+                    <span className="text-stone-600 w-12 shrink-0">
+                      {hm(e.at)}
                     </span>
-                  )}
-                </li>
-              ))}
+                    <span>{EVENT_LABEL[e.name] ?? e.name}</span>
+                  </li>
+                );
+              })}
             </ul>
-          </section>
-        )}
-
-        {detail.notes.length > 0 && (
-          <section className="mb-4">
-            <div className="text-[11px] text-stone-600 mb-1">笔记</div>
-            <ul className="text-[13px] text-stone-300 space-y-1">
-              {detail.notes.map(n => (
-                <li key={n.id} className="flex gap-2">
-                  <span className="text-stone-600 w-12 shrink-0">
-                    {hm(n.at)}
-                  </span>
-                  <span className="whitespace-pre-wrap break-words">
-                    {n.text}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+          )}
+        </section>
 
         {detail.reminders.length > 0 && (
           <section className="mb-4">
-            <div className="text-[11px] text-stone-600 mb-1">提醒</div>
-            <ul className="text-[13px] text-stone-300 space-y-0.5">
-              {detail.reminders.map(r => (
-                <li key={r.id} className="flex gap-2">
-                  <span className="text-stone-600 w-12 shrink-0">
-                    {hm(r.scheduled_at)}
-                  </span>
-                  <span>{r.name}</span>
-                  <span className="text-stone-500">
-                    {r.acted_at
-                      ? `已做 ${hm(r.acted_at)}`
-                      : r.dismissed_at
-                        ? '忽略'
-                        : r.shown_at
-                          ? '已提醒'
-                          : '未提醒'}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            <button
+              onClick={() => setAuditOpen(o => !o)}
+              className="text-[11px] text-stone-600"
+            >
+              提醒记录 (audit) {auditOpen ? '▾' : '▸'}
+            </button>
+            {auditOpen && (
+              <ul className="mt-1 text-[13px] text-stone-400 space-y-0.5">
+                {detail.reminders.map(r => (
+                  <li key={r.id} className="flex gap-2">
+                    <span className="text-stone-600 w-12 shrink-0">
+                      {hm(r.scheduled_at)}
+                    </span>
+                    <span>{r.name}</span>
+                    <span className="text-stone-500">
+                      {r.acted_at
+                        ? `已做 ${hm(r.acted_at)}`
+                        : r.dismissed_at
+                          ? '忽略'
+                          : r.shown_at
+                            ? '已提醒'
+                            : '未提醒'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         )}
 
