@@ -284,14 +284,18 @@
 - **Verified (2026-10-16, prod)**: `GET /api/summary/today` → `date=2026-10-15, label=昨天` (tz `America/New_York`, before 18:00).
 - **Remaining**: owner confirms the label flips at 18:00 on device.
 
-### [P1-23] Steps diagnostic + fix
+### [P1-23] Steps — window/source diagnostic `[REOPENED · P0]`
 
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §3; **P0** ([B-21])
-- **Diagnostic (logged per §3, 2026-10-16)**: today's snapshots were `723` then `0`; last-5-day rows all `source=passive` with 0-value rows appearing after real values.
-- **Root cause**: a late empty HealthConnect sync wrote `value=0`, and the "latest snapshot" read let it overwrite the real value.
-- **Fix**: both `lib/summary-generator.ts` (`pickDailySteps`) and `GET /api/steps` now take the **max snapshot** of the day.
-- **Verified (2026-10-16, prod)**: `/api/summary/today` → `steps.value=2809` (max of 723/2809/0), not the trailing 0.
-- **Source mismatch (escalated, no code change)**: HealthConnect (0/723) far below the Fit app (~6k) → same-source check reported to owner.
+- **Status**: In Progress · **Priority**: P0 · **Category**: Bug · **Refs**: ES-007 §3; [B-21] · **Reopened**: 2026-10-16
+- **Correction (owner, 2026-10-16)**: the mismatch is **not** summation across sources. Fit and Watch are **independent** and both ≈ truth; **HealthConnect-via-元婴 is the outlier**.
+- **Earlier partial fix (kept)**: `pickDailySteps` / `GET /api/steps` use the day's **max snapshot** (still correct for the `723→0→2809` pattern) — but it does **not** explain why HC-via-元婴 disagrees with Fit/Watch.
+- **Diagnostic (required; logged 2026-10-16)** — window / sources / per-source count / aggregation mode:
+  - **Window**: `context.window_start = 2026-10-16T00:00:00Z` → **UTC midnight**, not the device's local midnight. `StepsCollector` uses `Instant.now().truncatedTo(ChronoUnit.DAYS)` (UTC). On `America/New_York` the window `[UTC 00:00, now)` starts ~20:00 the prior local evening → includes ~4h of yesterday's steps.
+  - **Aggregation mode**: `sum_all_origins` — `readRecords(StepsRecord)` with **no DataOriginFilter**, summing `record.count` across every origin present (phone + watch + Fit can all contribute).
+  - **Sources / per-source count**: **not previously captured**. DB rows are all `source='passive'` (14 rows / 5 days; values `0`…`2809`). HealthConnect per-origin counts were unavailable.
+- **Instrumentation added (diagnostic only; no value change)**: collector `StepsCollector` now sends `sources` (`{package, steps, count}` per HealthConnect data origin), `sources_count`, and `aggregation`; `POST /api/steps` persists them in `context`. `value` is unchanged.
+- **Fix**: **NONE yet** — per instruction, no fix until the diagnostic is logged. Pending the next collector run to capture per-origin counts.
+- **Deploy**: collector **v1.0.20 (code 21)** (instrumented) + web `/api/steps`.
 
 ### [P1-24] Action model — unify counters
 
@@ -498,6 +502,11 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-16 (session 12 — P1-23 reopened (P0), steps diagnostic)
+- **P1-23 reopened as P0.** Corrected hypothesis (owner): **not** summation across sources — Fit and Watch are independent and ≈ truth; **HealthConnect-via-元婴 is the outlier**.
+- **Diagnostic logged** (window / sources / per-source count / aggregation mode): window = `[UTC 00:00, now)` (UTC, not local midnight → includes ~4h of prior local evening); aggregation = `sum_all_origins` (no `DataOriginFilter`); per-source counts previously **not captured** (DB all `source='passive'`).
+- **Instrumentation only (no fix)**: collector sends `sources`/`sources_count`/`aggregation`; `POST /api/steps` persists them. Collector **v1.0.20 (code 21)**. **No aggregation fix applied** pending captured per-origin data.
 
 ### 2026-10-16 (session 11 — ES-009 UAT triage: home scope + history detail)
 - **ES-009** treats ES-008 §2.1/§2.2 as revised. Executed **P1-30 → P1-34** (all **In Review**):

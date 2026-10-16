@@ -8,6 +8,7 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
 import java.time.temporal.ChronoUnit
@@ -54,13 +55,31 @@ class StepsCollector(private val ctx: Context) {
             )
             val response = c.readRecords(request)
             val total = response.records.sumOf { it.count }
-            Log.i(TAG, "collected steps: $total")
+
+            // P1-23 diagnostic (no behavior change): log the window, the
+            // HealthConnect data origins present, per-origin counts, and the
+            // aggregation mode, so we can tell whether one source (e.g. phone
+            // vs watch) is the outlier. Value sent is unchanged.
+            val byOrigin = response.records
+                .groupBy { it.metadata.dataOrigin.packageName }
+                .map { (pkg, recs) ->
+                    JSONObject().apply {
+                        put("package", pkg)
+                        put("steps", recs.sumOf { it.count })
+                        put("count", recs.size)
+                    }
+                }
+            val sources = JSONArray().apply { byOrigin.forEach { put(it) } }
+            Log.i(TAG, "collected steps: $total from ${byOrigin.size} origins: $byOrigin")
 
             JSONObject().apply {
                 put("window_start", startOfDay.toString())
                 put("window_end", now.toString())
                 put("steps", total)
                 put("platform", "android")
+                put("aggregation", "sum_all_origins")
+                put("sources", sources)
+                put("sources_count", byOrigin.size)
             }
         }
     }

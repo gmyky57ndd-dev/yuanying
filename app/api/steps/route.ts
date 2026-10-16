@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { window_start, window_end, steps, platform } = body ?? {};
+    const { window_start, window_end, steps, platform, sources, aggregation } =
+      body ?? {};
 
     if (typeof steps !== 'number' || steps < 0 || steps > 200000) {
       return NextResponse.json({ error: 'invalid steps' }, { status: 400 });
@@ -17,12 +18,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'invalid window' }, { status: 400 });
     }
 
+    // P1-23 diagnostic: persist the window, per-source counts and the
+    // aggregation mode alongside the total. `value` is unchanged.
     const { error } = await supabase.from('signals').insert({
       name: 'steps',
       type: 'count',
       value: steps,
       source: 'passive',
-      context: { window_start, window_end, platform: platform ?? 'android' },
+      context: {
+        window_start,
+        window_end,
+        platform: platform ?? 'android',
+        aggregation: aggregation ?? null,
+        sources: Array.isArray(sources) ? sources : null,
+        sources_count: Array.isArray(sources) ? sources.length : null,
+      },
     });
 
     if (error) {
