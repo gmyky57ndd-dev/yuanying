@@ -208,8 +208,14 @@ function pickSleep(signals: any[]) {
 function pickDailySteps(signals: any[]): number {
   const steps = signals.filter(s => s.name === 'steps');
   if (steps.length === 0) return 0;
-  // Steps are cumulative-within-day; take max snapshot, not last.
-  return steps.reduce((max, s) => {
+  // P1-23: prefer rows from the corrected local-midnight window (collector
+  // v1.0.21+ tags context.timezone). Legacy UTC-window rows are preserved for
+  // audit but excluded from the day's value once a corrected row exists.
+  const corrected = steps.filter((s: any) => s.context?.timezone);
+  const pool = corrected.length > 0 ? corrected : steps;
+  // Steps are cumulative-within-day; take max snapshot, not last (guards a
+  // late empty sync writing 0).
+  return pool.reduce((max, s) => {
     const v = typeof s.value === 'number' ? s.value : 0;
     return Math.max(max, v);
   }, 0);

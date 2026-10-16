@@ -61,7 +61,7 @@ export async function GET() {
 
   const { data } = await supabase
     .from('signals')
-    .select('value, created_at')
+    .select('value, context, created_at')
     .eq('name', 'steps')
     .gte('created_at', start.toISOString())
     .lt('created_at', end.toISOString())
@@ -69,13 +69,17 @@ export async function GET() {
 
   // P1-23: steps are cumulative-within-day; take the max snapshot, not the
   // last, so a late empty HealthConnect sync (value 0) does not erase a real
-  // value. Diagnostic 2026-10-16 confirmed 0-value rows overwriting real ones.
+  // value. Prefer rows from the corrected local-midnight window (collector
+  // v1.0.21+ tags context.timezone); legacy UTC-window rows are kept for audit
+  // but excluded once a corrected row exists (clean-data cutoff).
   const rows = data ?? [];
-  const steps = rows.reduce(
-    (max, r) => Math.max(max, Number(r.value) || 0),
+  const corrected = rows.filter((r: any) => r.context?.timezone);
+  const pool = corrected.length > 0 ? corrected : rows;
+  const steps = pool.reduce(
+    (max: number, r: any) => Math.max(max, Number(r.value) || 0),
     0
   );
-  const latest = rows[0];
+  const latest = pool[0];
 
   const { data: goalConfig } = await supabase
     .from('config')
