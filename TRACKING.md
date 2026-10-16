@@ -302,8 +302,8 @@
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
 - **Impl**: collector notification now has a habit action (water 喝了 / standup 起身了 / vitamin 吃了) + 忽略; `ReminderActionReceiver` maps acted→`acted`, ignore→`dismissed`; acted opens the app, ignore stays quiet.
-- **Verified (2026-10-16)**: Android Collector CI build green (run `38929058636`, debug-APK artifact). Collector bumped to **v1.0.17 (code 18)**, not yet released (owner triggers via "push").
-- **Remaining**: device verification (no local JDK); PWA fallback = open modal.
+- **Verified (2026-10-16)**: Android Collector CI build green (run `38929058636`, debug-APK artifact). Collector **v1.0.17 (code 18)** released (tag `v1.0.17`) — signed AAB/APK GitHub Release + **Play internal upload succeeded**.
+- **Remaining**: device verification (install internal build, confirm habit action + 忽略); PWA fallback = open modal.
 
 ---
 
@@ -442,6 +442,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - **P1-24** action model (**In Review**): `standup`/`vitamin` in summary; 喝水/起身/维生素 counters; reminder action = manual action.
 - **P1-25** reminder buttons (**In Review**): collector habit action + 忽略; `ReminderActionReceiver` acted/dismissed; device verify pending.
 - AGENTS.md → **v1.5**; docs created: `ES-007`, `ES-008`, `2026-10-16-feedback`.
+- **Released collector v1.0.17 (code 18)** on owner "push": signed AAB/APK + Play internal upload.
 
 ### 2026-10-15 (session 8 — owner identity revision)
 - Owner revised `core/identity.md` (user→owner; signals/notes reframing). Loaded into the prompt; web deploy via push.
