@@ -346,24 +346,29 @@
 
 - **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §1
 - **Impl**: `/api/history?today=1` filters messages to the current product day (`getTodayRange`); home loads that on mount, so the chat never scrolls before 00:00 local. Earlier days remain available in History.
+- **Verified (2026-10-16, prod)**: home `/` → 200; home no longer fetches/renders the display-day summary panel or the `自动·手动·提醒` line.
+- **Verified (2026-10-16, prod)**: `/api/history?today=1` → `{messages:[]}` (today empty); `/api/history` → 22 (earlier days intact for History).
 - **Remaining**: owner device check.
 
 ### [P1-32] Notes expandable inline
 
 - **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §3
 - **Impl**: note rows in the home **今天** stream and the History 活动 stream are tap-to-expand inline (full text wraps; tap again collapses). No separate note view. Fixes the "notes added but not viewable" triage item.
+- **Verified (2026-10-16)**: build/typecheck green; expand/collapse via UI state (device check pending).
 - **Remaining**: owner device check.
 
 ### [P1-33] History app_usage grouping
 
 - **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2
 - **Impl**: History detail renders the shared activity stream — contiguous `app_usage` windows roll into **应用会话 (约 Xh, N 应用)** rows (tap to expand apps sorted by minutes); steps rows with value 0 / no change are hidden.
+- **Verified (2026-10-16)**: build/typecheck green; grouping via `buildActivityStream` (device check pending).
 - **Remaining**: owner device check.
 
 ### [P1-34] Summary counter unification (ES-007 §4 completion)
 
 - **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2; ES-007 §4
 - **Impl**: History 概要 top line now shows **habit counts** only — 起床 · 入睡 · 喝水 x/6 · 起身 x/8 · 维生素. The `提醒 0/N` counter is removed from the summary and moved to a collapsed **提醒记录 (audit)** subsection.
+- **Verified (2026-10-16)**: build/typecheck green; 概要 built from stored summary habit counts (device check pending).
 - **Remaining**: owner device check.
 
 ---
