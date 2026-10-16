@@ -18,7 +18,16 @@ export type StreamApp = { package: string; name: string; minutes: number };
 
 export type StreamEntry =
   | { kind: 'event'; id: string; at: string; name: string }
-  | { kind: 'note'; id: string; at: string; text: string }
+  | {
+      kind: 'note';
+      id: string;
+      ref: number;
+      at: string;
+      text: string;
+      tags: string[];
+      feedback: boolean;
+      feedbackSuggested: boolean;
+    }
   | { kind: 'steps'; id: string; at: string; value: number }
   | {
       kind: 'apps';
@@ -58,8 +67,12 @@ export function buildActivityStream(signals: RawSignal[]): StreamEntry[] {
       entries.push({
         kind: 'note',
         id: `n${s.id}`,
+        ref: s.id,
         at: s.created_at,
         text: String(s.value?.text ?? ''),
+        tags: Array.isArray(s.value?.tags) ? s.value.tags : [],
+        feedback: s.value?.feedback === true,
+        feedbackSuggested: s.value?.feedbackSuggested === true,
       });
     }
   }

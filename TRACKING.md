@@ -296,6 +296,7 @@
 - **Instrumentation added (diagnostic only; no value change)**: collector `StepsCollector` now sends `sources` (`{package, steps, count}` per HealthConnect data origin), `sources_count`, and `aggregation`; `POST /api/steps` persists them in `context`. `value` is unchanged.
 - **Fix (2026-10-16)**: `StepsCollector` now anchors the window to **local midnight** in the device timezone (`LocalDate.now(zone).atStartOfDay(zone)`), not `Instant.now().truncatedTo(DAYS)` (UTC). This stops ~4h of the previous local evening leaking into the day. **Aggregation is unchanged** (owner: the problem is *not* summation across sources). Collector **v1.0.21 (code 22)**.
 - **Display cutoff (2026-10-16)**: the day value is the **max** snapshot, so an already-stored inflated reading would persist. `pickDailySteps` + `GET /api/steps` now **prefer rows tagged `context.timezone`** (collector v1.0.21+ = corrected local window); legacy UTC-window rows are preserved for audit but excluded once a corrected row exists (clean-data cutoff, AGENTS §3).
+- **ES-011 §3 provenance (2026-10-16)**: steps `context` now also carries `source` (`merged`), `aggregation` (`sum`), and `raw_value`, alongside `window_start`/`window_end`/`timezone`/`sources`. Collector **v1.0.22 (code 23)**.
 - **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
 - **Verified (2026-10-16)**: Play internal `completed` (versionCode 22); GitHub Release `v1.0.21`; web `/api/steps` live. Production still shows the pre-fix value (`2700`) until the phone runs v1.0.21 and posts a corrected row — then the cutoff switches the day value to the local-day reading.
 
@@ -376,6 +377,42 @@
 - **Impl**: History 概要 top line now shows **habit counts** only — 起床 · 入睡 · 喝水 x/6 · 起身 x/8 · 维生素. The `提醒 0/N` counter is removed from the summary and moved to a collapsed **提醒记录 (audit)** subsection.
 - **Verified (2026-10-16)**: build/typecheck green; 概要 built from stored summary habit counts (device check pending).
 - **Remaining**: owner device check.
+
+---
+
+### [P1-37] Note language bug on web
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-012 §1 · **Opened**: 2026-10-16
+- **Reproduction (logged first)**: all 5 stored notes are **Latin-only** (0 CJK/JP/KR). Owner note #349: *"The switch language does not work."* → the on-device keyboard/IME cannot switch to Chinese while composing in the PWA. Exact browser + steps still needed from the owner (ES-012 §1 checklist); no device here.
+- **Ranked causes** (ES-012 §1): inputMode/autoComplete · missing CJK glyphs · controlled-input composition · PWA standalone IME.
+- **Fix applied (defensive, addresses #1/#3)**: note textarea + chat input set `lang="zh-CN"`, `inputMode="text"`, `autoComplete/autoCorrect/autoCapitalize="off"`, `spellCheck={false}`, `onCompositionEnd` sync.
+- **Remaining**: owner verifies on the failing browser; if still broken, test browser (non-standalone) vs installed PWA to isolate cause #4.
+
+### [P1-36] 元婴 self-diagnostic response
+
+- **Status**: In Review · **Category**: Bug (voice) + Feature (provenance) · **Refs**: ES-011
+- **Voice**: `core/voice.md` gains "When something is wrong" (query own data → state what you see → what you cannot see → propose **one** direction; never a menu / never "你确认一下").
+- **Provenance**: steps signal logs `source`, `window_start`, `window_end`, `aggregation`, `raw_value` (ES-011 §3); the chat prompt now receives steps provenance so 元婴 can state it.
+- **Governance**: `AGENTS.md` §5.1 bullet 7 (signal provenance) + **v1.6**.
+- **Remaining**: owner confirms a discrepancy reply follows §4 (no menu).
+
+### [P1-38] Note tags — auto-derived, visible, editable
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §2
+- **Impl**: `lib/tags.ts` extractor (open vocabulary — words from the note + existing tags; no model call). Tags stored in note `value.tags` on save; shown under the note (home 今天 stream + History detail); editable (remove ×, add ＋); History search matches text **or** tag (`/api/history/search`); `PATCH /api/note/[id]`.
+- **Remaining**: owner device check; tag autocomplete is a simple prompt for now.
+
+### [P1-39] Feedback loop — notes → PM inbox
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §3
+- **Impl**: `value.feedback` flag; heuristic proposal on likely-feedback notes ("这像反馈，标记?"); **Feedback Inbox** page `/feedback` (small link on home, not a new tab); [promote] sets `value.promoted`, [dismiss] clears the flag (`PATCH /api/note/[id]`); `npm run inbox` drafts `docs/pm/inbox/YYYY-MM-DD.md`. One-way owner → dev; **never** writes TRACKING.
+- **Remaining**: owner device check; weekly promote review.
+
+### [P1-35] AI session capture — manual + folder (v1)
+
+- **Status**: In Progress · **Category**: Feature · **Refs**: ES-010
+- **Impl**: PWA `share_target` (`/import`, GET title/text/url prefill) + `POST /api/sessions` (stores a `session` signal with auto-tags); desktop folder import via `npm run import` normalizes `~/yuanying/imports/conversations/*.md` into `core/memory/conversations/YYYY-MM-DD-<slug>.md` (standard record format, ES-010 §5).
+- **Remaining**: surface the standard export prompt in-app (ES-010 §4); wire topic-tag retrieval into the chat session (ES-010 §7); owner device check of the share sheet.
 
 ---
 
@@ -504,6 +541,15 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-16 (session 14 — ES-010/011/012 from PM feedback)
+- Created specs: **ES-010** (AI session capture), **ES-011** (self-diagnostic response), **ES-012** (notes: language, tags, feedback loop) — in repo `docs/specs/` + PM `docs/specs/`.
+- **P0**:
+  - **P1-37** note language (**In Review**): reproduction logged (all notes Latin-only; owner note "switch language does not work"); defensive IME fix (`lang=zh-CN` + input attrs + composition sync).
+  - **P1-36** self-diagnostic (**In Review**): `core/voice.md` "When something is wrong"; provenance logging; AGENTS §5.1 bullet 7 + **v1.6**.
+  - **P1-23** steps provenance (`source`/`aggregation`/`raw_value`) + local-midnight fix; collector **v1.0.22 (code 23)**.
+- **This week**: **P1-38** tags (**In Review**), **P1-39** feedback loop (**In Review**), **P1-35** session capture (**In Progress**).
+- New: `lib/tags.ts`, `api/note/[id]`, `api/feedback`, `api/sessions`, pages `/import` + `/feedback`, scripts `import.mjs` + `inbox.mjs`.
 
 ### 2026-10-16 (session 13 — P1-23 steps window fix)
 - **P1-23 corrected**: `StepsCollector.startOfDay` used `Instant.now().truncatedTo(DAYS)` (**UTC**), so the window `[UTC 00:00, now)` started ~4h before the local day on `America/New_York` (inflating today: `2700`). Fixed to **local midnight** in the device timezone. Aggregation **unchanged** (owner: not a summation bug). Collector **v1.0.21 (code 22)**.

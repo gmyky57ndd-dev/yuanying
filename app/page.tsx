@@ -291,6 +291,26 @@ export default function Home() {
     setExpanded(e => ({ ...e, [id]: !e[id] }));
   }
 
+  // ES-012 §2/§3: edit a note's tags / feedback flag (optional, never required).
+  async function patchNote(id: number, body: Record<string, unknown>) {
+    try {
+      await fetchWithTimeout(`${API_BASE}/api/note/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      loadSignals();
+    } catch {}
+  }
+  function addTag(id: number, tags: string[]) {
+    const t = (window.prompt('标签') ?? '').trim();
+    if (!t) return;
+    patchNote(id, { tags: [...tags, t] });
+  }
+  function removeTag(id: number, tags: string[], t: string) {
+    patchNote(id, { tags: tags.filter(x => x !== t) });
+  }
+
   function startVoice() {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -332,6 +352,9 @@ export default function Home() {
         <div className="absolute right-4 top-5 flex gap-3 text-xs">
           <a href="/history" className="text-stone-600">
             历史
+          </a>
+          <a href="/feedback" className="text-stone-600">
+            反馈
           </a>
           <a href="/settings" className="text-stone-600">
             设置
@@ -375,8 +398,15 @@ export default function Home() {
             <textarea
               value={noteText}
               onChange={e => setNoteText(e.target.value)}
+              onCompositionEnd={e => setNoteText((e.target as HTMLTextAreaElement).value)}
               rows={3}
               placeholder="记点什么…"
+              lang="zh-CN"
+              inputMode="text"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
               className="w-full bg-stone-900 border border-stone-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-stone-600"
             />
             <div className="flex gap-2 justify-end items-center">
@@ -444,6 +474,42 @@ export default function Home() {
                         {open ? e.text : `“${e.text}”`}
                       </span>
                     </button>
+                    {open && (
+                      <div className="ml-[52px] mt-1 flex flex-wrap gap-1 items-center">
+                        {e.tags.map(t => (
+                          <span
+                            key={t}
+                            className="text-[10px] bg-stone-800 text-stone-400 rounded-full px-2 py-0.5"
+                          >
+                            #{t}
+                            <button
+                              onClick={() => removeTag(e.ref, e.tags, t)}
+                              className="ml-1 text-stone-500"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                        <button
+                          onClick={() => addTag(e.ref, e.tags)}
+                          className="text-[10px] text-stone-500 border border-stone-800 rounded-full px-2 py-0.5"
+                        >
+                          ＋标签
+                        </button>
+                        {e.feedback ? (
+                          <span className="text-[10px] text-emerald-500">
+                            反馈
+                          </span>
+                        ) : e.feedbackSuggested ? (
+                          <button
+                            onClick={() => patchNote(e.ref, { feedback: true })}
+                            className="text-[10px] text-amber-500"
+                          >
+                            这像反馈，标记?
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </li>
                 );
               }
@@ -550,6 +616,12 @@ export default function Home() {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && send()}
           placeholder="…"
+          lang="zh-CN"
+          inputMode="text"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           className="flex-1 bg-stone-900 border border-stone-800 rounded-full px-4 py-2 text-[15px] outline-none focus:border-stone-600"
         />
         <button

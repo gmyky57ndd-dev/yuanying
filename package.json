@@ -10,7 +10,9 @@
     "db:apply": "node --env-file=.env.local scripts/db.mjs supabase/schema.sql",
     "db:reset": "node --env-file=.env.local scripts/db.mjs --reset",
     "opinions:detect": "node --env-file=.env.local scripts/opinions.mjs detect",
-    "opinions:respond": "node --env-file=.env.local scripts/opinions.mjs respond"
+    "opinions:respond": "node --env-file=.env.local scripts/opinions.mjs respond",
+    "import": "node scripts/import.mjs",
+    "inbox": "node --env-file=.env.local scripts/inbox.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.3",

@@ -10,6 +10,13 @@ interface BuildOptions {
   message?: string;
   steps?: number | null;
   stepsGoal?: number;
+  stepsContext?: {
+    source?: string | null;
+    window_start?: string | null;
+    window_end?: string | null;
+    aggregation?: string | null;
+    raw_value?: number | null;
+  } | null;
   waterCount?: number;
   recentReminders?: Array<{
     name: string;
@@ -99,6 +106,15 @@ function buildDailyContext(opts: BuildOptions): string {
     const goal = opts.stepsGoal ?? 5000;
     lines.push(
       `- Steps today: ${opts.steps ?? 'unknown'} / goal ${goal}`
+    );
+  }
+  // ES-011 §3: provenance so 元婴 can state what it sees for a discrepancy.
+  if (opts.stepsContext) {
+    const c = opts.stepsContext;
+    lines.push(
+      `- Steps provenance: source ${c.source ?? 'unknown'} · window ${
+        c.window_start ?? '?'
+      } → ${c.window_end ?? '?'} · aggregation ${c.aggregation ?? 'unknown'}`
     );
   }
   if (opts.waterCount !== undefined) {

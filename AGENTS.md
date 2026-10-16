@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.5  
+**Version:** 1.6  
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -166,6 +166,12 @@ Before an Android collector release, identify how to stop or mitigate a bad vers
 4. Surface errors and blockers; distinguish observed facts from hypotheses.
 5. Prefer human-readable, portable formats for durable project information.
 6. Ask when a product decision, approval, or missing requirement blocks safe progress.
+7. **Log signal provenance (ES-011 §3).** Every signal the collector
+   sends must include enough metadata for 元婴 to explain it to the
+   owner: the value, its source, the collection window, and (where the
+   value is aggregated) the aggregation mode. A signal that 元婴 cannot
+   explain is not trustworthy. When the owner reports a discrepancy,
+   query this metadata before asking the owner to check anything.
 
 ### Never
 
@@ -275,6 +281,11 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.6 — 2026-10-16
+- Added §5.1 bullet 7 (signal provenance rule, ES-011 §3).
+- Context: ES-011 self-diagnostic response — 元婴 must explain any signal
+  it holds (value, source, window, aggregation) before asking the owner.
 
 ### v1.5 — 2026-10-16
 - Added §5.2 bullet 9 (no new capture surfaces without exhausting existing ones)

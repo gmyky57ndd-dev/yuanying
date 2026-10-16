@@ -87,7 +87,10 @@ class StepsCollector(private val ctx: Context) {
                 put("timezone", zone.id)
                 put("steps", total)
                 put("platform", "android")
-                put("aggregation", "sum_all_origins")
+                // ES-011 §3 provenance: enough for 元婴 to explain the value.
+                put("source", "merged")
+                put("aggregation", "sum")
+                put("raw_value", total)
                 put("sources", sources)
                 put("sources_count", byOrigin.size)
             }

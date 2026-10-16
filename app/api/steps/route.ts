@@ -16,6 +16,8 @@ export async function POST(req: NextRequest) {
       sources,
       aggregation,
       timezone,
+      source,
+      raw_value,
     } = body ?? {};
 
     if (typeof steps !== 'number' || steps < 0 || steps > 200000) {
@@ -37,7 +39,10 @@ export async function POST(req: NextRequest) {
         window_end,
         platform: platform ?? 'android',
         timezone: timezone ?? null,
+        // ES-011 §3 provenance
+        source: source ?? null,
         aggregation: aggregation ?? null,
+        raw_value: typeof raw_value === 'number' ? raw_value : null,
         sources: Array.isArray(sources) ? sources : null,
         sources_count: Array.isArray(sources) ? sources.length : null,
       },

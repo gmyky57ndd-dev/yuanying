@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         .order('created_at', { ascending: true }),
       supabase
         .from('signals')
-        .select('value')
+        .select('value, context, created_at')
         .eq('name', 'steps')
         .gte('created_at', startOfDay.toISOString())
         .order('created_at', { ascending: false })
@@ -91,6 +91,7 @@ export async function POST(req: NextRequest) {
       now: new Date().toISOString(),
       steps: stepsRes.data?.[0]?.value ?? null,
       stepsGoal: goalRes.data?.value ?? 5000,
+      stepsContext: stepsRes.data?.[0]?.context ?? null,
       waterCount: todaysSignals.filter(s => s.name === 'water').length,
       recentReminders: remindersRes.data ?? [],
       summary: summaryData,

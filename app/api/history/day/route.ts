@@ -52,7 +52,13 @@ export async function GET(req: NextRequest) {
   const signals = sigRes.data ?? [];
   const notes = signals
     .filter((s: any) => s.name === 'note')
-    .map((s: any) => ({ id: s.id, text: s.value?.text ?? '', at: s.created_at }));
+    .map((s: any) => ({
+      id: s.id,
+      text: s.value?.text ?? '',
+      tags: Array.isArray(s.value?.tags) ? s.value.tags : [],
+      feedback: s.value?.feedback === true,
+      at: s.created_at,
+    }));
 
   return NextResponse.json({
     date,

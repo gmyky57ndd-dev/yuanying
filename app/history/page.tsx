@@ -43,7 +43,7 @@ type DayDetail = {
   summary: any;
 };
 
-type NoteHit = { id: number; text: string; at: string; date: string };
+type NoteHit = { id: number; text: string; at: string; date: string; tags?: string[] };
 
 const EVENT_LABEL: Record<string, string> = {
   wake: '起床',
@@ -177,6 +177,11 @@ export default function HistoryPage() {
                           {open ? e.text : `“${e.text}”`}
                         </span>
                       </button>
+                      {open && e.tags.length > 0 && (
+                        <div className="ml-[56px] mt-0.5 text-[11px] text-stone-500">
+                          {e.tags.map(t => `#${t}`).join(' ')}
+                        </div>
+                      )}
                     </li>
                   );
                 }
@@ -342,6 +347,11 @@ export default function HistoryPage() {
                     <span className="whitespace-pre-wrap break-words">
                       {h.text}
                     </span>
+                    {h.tags && h.tags.length > 0 && (
+                      <span className="text-stone-600 ml-2">
+                        {h.tags.map(t => `#${t}`).join(' ')}
+                      </span>
+                    )}
                   </button>
                 </li>
               ))}
