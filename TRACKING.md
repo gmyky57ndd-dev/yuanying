@@ -311,12 +311,14 @@
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.2 · **Opened**: 2026-10-16
 - **Impl**: new page `/history` (day list newest-first; tap → day detail) backed by `GET /api/history/days`, `GET /api/history/day?date=`, `GET /api/history/search?q=`. Detail shows signals with timestamps, notes, reminders fired + responses, that day's conversation, and the stored prose summary. Search by date (jumps to the day) and by note keyword. Cloud-first (per request, nothing cached on the phone). Home links to 历史.
+- **Verified (2026-10-16, prod)**: `/api/history/days` → 4 days; `/api/history/day?date=2026-10-15` → 61 signals / 2 notes / 15 reminders / 10 messages + stored summary; `/api/history/search` date + keyword both work.
 - **Remaining**: owner device check.
 
 ### [P1-28] Note capture — free text, no metadata
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.3
 - **Impl**: note capture already complies — free-text field + optional mic, no dropdowns/tags/required fields; `POST /api/note` stores `{text}` only. Notes are now surfaced and searchable in History (§2.2). 元婴-side structure remains in ES-006 Detector 1 (not a user action).
+- **Verified (2026-10-16, prod)**: note keyword search returns matches from `/api/history/search`.
 - **Remaining**: owner device check.
 
 ---
