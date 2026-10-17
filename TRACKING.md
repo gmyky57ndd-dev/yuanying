@@ -439,10 +439,10 @@
 
 ---
 
-### [P1-42] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-43] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Originally tracked as P1-41; renumbered to **P1-42** on 2026-10-17 because the owner assigned **P1-41** to the notification-action bug.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered twice on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, so Fenshen is **P1-43**.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
@@ -461,6 +461,18 @@
 - **DB fix**: migration 014 extends `signals_source_check` to include `reminder`, `share`, `import`.
 - **Verified (2026-10-17, prod)**: `POST /api/signal {name:'brief_wake', source:'reminder'}` → row `id=448, source='reminder'` (test row deleted).
 - **Deploy**: collector **v1.0.26 (code 27)** + web — Play internal `completed` (code 27), CI build green.
+
+---
+
+### [P1-42] Feedback forwarding — GitHub issues + clipboard (ES-014)
+
+- **Status**: In Review · **Category**: Feature (Integration) · **Refs**: ES-014 · **Opened**: 2026-10-17
+- **Impl**: `POST /api/integrations/github` creates a repo issue (`GITHUB_TOKEN` + `GITHUB_REPO`, label `yuanying-feedback`); `lib/feedback-format.ts` builds the Dev body and the `[YUANYING FEEDBACK]` AI block. Feedback notes in the chat stream and the Feedback Inbox show **[Copy for Dev] [Copy for AI] [Save to Inbox]**.
+  - Copy for Dev → creates a real GitHub issue (URL copied to clipboard).
+  - Copy for AI → copies the markdown `<feedback>` block.
+  - Save to Inbox → sets `promoted` (materialized by `npm run inbox`).
+- **Env**: `GITHUB_REPO=gmyky57ndd-dev/yuanying`; `GITHUB_TOKEN` set in Vercel (server-only) + local `.env.local` (gitignored). Label `yuanying-feedback` created.
+- **Remaining**: owner device check (tap Copy for Dev / Copy for AI).
 
 ---
 
@@ -590,6 +602,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 ## Changelog
 
+### 2026-10-17 (session 18 — P1-42 feedback forwarding)
+- `POST /api/integrations/github` + `lib/feedback-format.ts`; chat/inbox buttons [Copy for Dev] [Copy for AI] [Save to Inbox]. Real GitHub issues via `GITHUB_TOKEN`/`GITHUB_REPO`; label `yuanying-feedback`. Renumbered Fenshen ES-013 to **P1-43**. → **P1-42**.
+
 ### 2026-10-17 (session 17 — P1-41 notification action → signal)
 - `ReminderActionReceiver` writes the habit signal directly via `POST /api/signal {name, source:'reminder'}` on acted, plus `/api/reminder/act` bookkeeping; `/api/signal` accepts `source`; `/api/reminder/act` no longer writes a habit signal (no double count). Collector **v1.0.26 (code 27)**.
 - Renumbered ES-013 Fenshen to **P1-42** (owner assigned P1-41 to this bug).
@@ -597,7 +612,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ### 2026-10-17 (session 16 — ES-013 Fenshen architecture)
 - Split **Core State (元婴)** from **Interfaces (Fenshen)**. `fenshen` table seeded `xiaowu`/`kael`/`elara`; `config.active_fenshen` = `xiaowu` (migration 013).
 - `buildSystemPrompt()` is now async and pulls the active persona from Supabase — no hardcoded prompt strings, no deploy to add a Fenshen.
-- `/fenshen <name>` command + `/api/fenshen` (GET/PUT) + Settings dropdown. Shared memory across personas. → **P1-42**.
+- `/fenshen <name>` command + `/api/fenshen` (GET/PUT) + Settings dropdown. Shared memory across personas. → **P1-43**.
 
 ### 2026-10-16 (session 15 — habits bugfix)
 - Owner report: no hourly standup · 喝了 didn't add water · missed 08:30 vitamin · no 起身/维生素 tracking.

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { fetchWithTimeout, API_BASE } from '@/lib/api';
+import { formatForAI, formatForDev, feedbackTitle } from '@/lib/feedback-format';
 
 type Item = {
   id: number;
@@ -42,6 +43,41 @@ export default function FeedbackPage() {
     } catch {}
   }
 
+  // ES-014: feedback forwarding.
+  async function copyForAI(it: Item) {
+    try {
+      await navigator.clipboard.writeText(
+        formatForAI({ text: it.text, tags: it.tags, at: it.at })
+      );
+      alert('已复制（Copy for AI）');
+    } catch {
+      alert('复制失败');
+    }
+  }
+  async function pushToDev(it: Item) {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/integrations/github`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `[元婴 feedback] ${feedbackTitle(it)}`,
+          body: formatForDev({ text: it.text, tags: it.tags, at: it.at }),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        alert(`GitHub: ${d.error ?? r.status}`);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(d.url);
+      } catch {}
+      alert(`Issue #${d.number} created (link copied)`);
+    } catch {
+      alert('GitHub 失败');
+    }
+  }
+
   return (
     <div className="min-h-[100dvh] bg-stone-950 text-stone-100 px-4 py-6">
       <div className="flex items-center justify-between mb-4">
@@ -72,17 +108,29 @@ export default function FeedbackPage() {
                   {it.tags.map(t => `#${t}`).join(' ')}
                 </div>
               )}
-              <div className="flex gap-2 mt-2 items-center">
+              <div className="flex flex-wrap gap-2 mt-2 items-center">
+                <button
+                  onClick={() => pushToDev(it)}
+                  className="text-[11px] bg-stone-800 rounded-full px-3 py-1"
+                >
+                  Copy for Dev
+                </button>
+                <button
+                  onClick={() => copyForAI(it)}
+                  className="text-[11px] bg-stone-800 rounded-full px-3 py-1"
+                >
+                  Copy for AI
+                </button>
                 {it.promoted ? (
                   <span className="text-[11px] text-emerald-500">
-                    已 promote → docs/pm/inbox/{it.date}.md
+                    已存入收件箱 → docs/pm/inbox/{it.date}.md
                   </span>
                 ) : (
                   <button
                     onClick={() => patch(it.id, { promoted: true })}
                     className="text-[11px] bg-stone-700 rounded-full px-3 py-1"
                   >
-                    promote
+                    Save to Inbox
                   </button>
                 )}
                 <button

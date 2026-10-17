@@ -8,6 +8,7 @@ import {
   formatDuration,
   StreamEntry,
 } from '@/lib/activity-stream';
+import { formatForAI, formatForDev, feedbackTitle } from '@/lib/feedback-format';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type Signal = {
@@ -315,6 +316,50 @@ export default function Home() {
     patchNote(id, { tags: tags.filter(x => x !== t) });
   }
 
+  // ES-014: feedback forwarding.
+  type NoteEntry = { text: string; tags: string[]; at: string };
+  async function copyText(text: string, msg: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      alert(msg);
+    } catch {
+      alert('复制失败');
+    }
+  }
+  function copyForAIEntry(n: NoteEntry) {
+    copyText(formatForAI(n), '已复制（Copy for AI）');
+  }
+  async function pushToDevEntry(n: NoteEntry) {
+    try {
+      const r = await fetchWithTimeout(
+        `${API_BASE}/api/integrations/github`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: `[元婴 feedback] ${feedbackTitle(n)}`,
+            body: formatForDev(n),
+          }),
+        }
+      );
+      const d = await r.json();
+      if (!r.ok) {
+        alert(`GitHub: ${d.error ?? r.status}`);
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(d.url);
+      } catch {}
+      alert(`Issue #${d.number} created (link copied)`);
+    } catch {
+      alert('GitHub 失败');
+    }
+  }
+  async function saveToInbox(id: number) {
+    await patchNote(id, { promoted: true });
+    alert('已存入收件箱');
+  }
+
   function startVoice() {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -536,6 +581,28 @@ export default function Home() {
                             这像反馈，标记?
                           </button>
                         ) : null}
+                      </div>
+                    )}
+                    {open && e.feedback && (
+                      <div className="ml-[52px] mt-1 flex flex-wrap gap-1">
+                        <button
+                          onClick={() => pushToDevEntry(e)}
+                          className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                        >
+                          Copy for Dev
+                        </button>
+                        <button
+                          onClick={() => copyForAIEntry(e)}
+                          className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                        >
+                          Copy for AI
+                        </button>
+                        <button
+                          onClick={() => saveToInbox(e.ref)}
+                          className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                        >
+                          Save to Inbox
+                        </button>
                       </div>
                     )}
                   </li>
