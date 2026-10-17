@@ -432,8 +432,9 @@
 - **Fix**: standup → interval **60**, window 09:00–18:00, condition `always` (migration 011); `/api/reminder/act` records the **habit action** (water/standup +1, vitamin done) — collector sends the habit name; removed the **Vercel vitamin cron** (`vercel.json` `crons: []`); daily cap 6 → **14**; home **tracking list** adds tappable **起身 N/8** and **维生素 ✓/--** (schema `v4_signal_name`).
 - **Doc**: `core/habits.md` (loaded into the prompt) + `docs/habits-tracking.md` so 元婴 can explain each habit.
 - **Deploy**: collector **v1.0.23 (code 24)** + web.
-- **Verified (2026-10-16)**: standup config now `interval 60 / 09:00–18:00 / always`; vitamin `08:30` local; Vercel crons removed; collector v1.0.23 (code 24) Play internal `completed`; homepage 200 with 起身/维生素 tracking.
-- **Remaining**: owner device check (hourly standup, 08:30 vitamin, 喝了 updates water).
+- **Refinement (2026-10-16)**: notification buttons only record + dismiss (no app-open); **vitamin** → hourly (07:00–22:00) **until confirmed**, then stops that day (migration 012); all reminders bounded to **wake time** (outside quiet window); daily cap 30. Collector **v1.0.24 (code 25)**.
+- **Verified (2026-10-16)**: standup config now `interval 60 / 09:00–18:00 / always`; vitamin `interval 60 / 07:00–22:00 / count_below_target 1`; Vercel crons removed; collector v1.0.23 (code 24) Play internal `completed`; homepage 200 with 起身/维生素 tracking.
+- **Remaining**: owner device check (hourly standup, hourly vitamin-until-done, 喝了/起身了 updates + dismiss).
 
 ---
 

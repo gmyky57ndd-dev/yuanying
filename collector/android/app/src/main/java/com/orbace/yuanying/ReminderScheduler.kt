@@ -33,7 +33,7 @@ object ReminderScheduler {
     private const val CHANNEL_ID = "yuanying_reminders"
     private const val PREFS = "yuanying_reminders"
     private const val DEFAULT_TZ = "Asia/Shanghai"
-    private const val DAILY_CAP = 14
+    private const val DAILY_CAP = 30
 
     // Authored templates (seed habits only); overrides may replace these.
     private val AUTHORED: Map<String, Pair<String, String>> = mapOf(

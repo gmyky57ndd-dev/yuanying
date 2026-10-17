@@ -34,8 +34,19 @@ every signal (AGENTS §5.1 / ES-011 §3).
 - Signal: `name=vitamin`, `type=event`. Source: manual tap **or** the 吃了 button on a vitamin reminder.
 - Done = at least one `vitamin` signal today (or an accepted vitamin reminder).
   Time = the moment it was logged.
-- Reminder: **fixed** at 08:30 local.
+- Reminder: **hourly** during wake time (07:00–22:00 local) **until confirmed** —
+  once a `vitamin` signal exists today, it stops for the day.
 - Where to see it: home 维生素 ✓/--, home 今天 stream, history day detail.
+
+## Notification behaviour (all habits)
+- Fired only during **wake time** (outside the quiet window, default 22:00–07:00).
+- Two buttons: the habit action (**喝了 / 起身了 / 吃了**) and **忽略**.
+  - Action → records the habit action (water/standup **+1**, vitamin **done**)
+    and the notification dismisses.
+  - 忽略 → records nothing; the notification just dismisses.
+  - Neither button opens the app.
+- A confirmed action collects a timestamp (the signal's `created_at`); for
+  one-time habits (vitamin) that timestamp stops further reminders that day.
 
 ## Reminder delivery (who fires what)
 - The **Android collector** generates and delivers reminders on-device (ES-001,

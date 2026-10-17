@@ -3,10 +3,14 @@ package com.orbace.yuanying
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import org.json.JSONObject
 
-/** Handles the notification action buttons on a reminder (P1-09 / P1-25). */
+/**
+ * Handles the notification action buttons on a reminder (P1-09 / P1-25).
+ *  - acted  → record the habit action (water/standup +1, vitamin done)
+ *  - ignore → record nothing; just let the notification dismiss
+ * Both let the notification auto-cancel; neither opens the app.
+ */
 class ReminderActionReceiver : BroadcastReceiver() {
 
     companion object {
@@ -31,14 +35,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
             } catch (_: Exception) {
             }
         }
-        // "acted" opens the app; "ignored" just clears the notification (quiet).
-        if (action == "acted") {
-            try {
-                val open = Intent(Intent.ACTION_VIEW, Uri.parse(ApiClient.BASE_URL))
-                open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                context.startActivity(open)
-            } catch (_: Exception) {
-            }
-        }
+        // No app launch — the tap records the action and the notification
+        // auto-cancels (setAutoCancel). Ignore only dismisses.
     }
 }
