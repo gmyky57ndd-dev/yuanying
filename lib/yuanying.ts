@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { SummaryData } from './summary-types';
 import { readConfirmed, relevantHeld, Opinion } from './opinions';
+import { supabase } from './db';
 
 interface BuildOptions {
   signals?: Array<{ name: string; created_at: string }>;
@@ -196,15 +197,58 @@ function buildOpinions(message?: string): string {
   return `\n\n# Opinions\n\n${lines.join('\n')}`;
 }
 
-export function buildSystemPrompt(opts: BuildOptions = {}): string {
+export type ActiveFenshen = {
+  id: string;
+  display_name: string;
+  prompt_md: string;
+  avatar_url: string | null;
+};
+
+/**
+ * ES-013: the active Fenshen is stored in the DB (`config.active_fenshen`),
+ * so adding/switching personas needs no deployment. Never hardcode prompts.
+ */
+export async function getActiveFenshen(): Promise<ActiveFenshen | null> {
+  const { data: cfg } = await supabase
+    .from('config')
+    .select('value')
+    .eq('key', 'active_fenshen')
+    .maybeSingle();
+  const id = typeof cfg?.value === 'string' ? cfg.value : 'xiaowu';
+
+  const cols = 'id, display_name, prompt_md, avatar_url';
+  const { data } = await supabase
+    .from('fenshen')
+    .select(cols)
+    .eq('id', id)
+    .maybeSingle();
+  if (data) return data as ActiveFenshen;
+
+  // Fallback so a bad config value never leaves us persona-less.
+  const { data: fallback } = await supabase
+    .from('fenshen')
+    .select(cols)
+    .eq('id', 'xiaowu')
+    .maybeSingle();
+  return (fallback as ActiveFenshen) ?? null;
+}
+
+export async function buildSystemPrompt(
+  opts: BuildOptions = {}
+): Promise<string> {
   const core = loadCore();
+  const fenshen = await getActiveFenshen();
   const signalCtx = buildSignalContext(opts.signals ?? []);
   const dailyCtx = buildDailyContext(opts);
   const summaryLine = opts.summary ? buildSummaryLine(opts.summary) : '';
   const opinionsCtx = buildOpinions(opts.message);
   const now = opts.now ?? new Date().toISOString();
 
-  return `${core}
+  const fenshenBlock = fenshen
+    ? `\n\n# Active Fenshen (分身)\n\nYou are currently manifesting as: ${fenshen.display_name}\n\n${fenshen.prompt_md}`
+    : '';
+
+  return `${core}${fenshenBlock}
 
 ---
 

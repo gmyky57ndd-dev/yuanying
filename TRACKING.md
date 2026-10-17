@@ -439,6 +439,16 @@
 
 ---
 
+### [P1-41] Fenshen architecture — Core State + configurable interfaces (ES-013)
+
+- **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
+- **Label note**: Work Order references **P1-40**, which is already the habits bugfix; ES-013 is tracked here as **P1-41** to avoid collision.
+- **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
+- **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
+- **Remaining**: owner verifies persona tone (xiaowu → kael → elara) and that inserting a new `fenshen` row works with no deploy.
+
+---
+
 ## To Do
 
 _(ES-008/ES-009 home + history work is in review; no open To Do items.)_
@@ -564,6 +574,11 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-17 (session 16 — ES-013 Fenshen architecture)
+- Split **Core State (元婴)** from **Interfaces (Fenshen)**. `fenshen` table seeded `xiaowu`/`kael`/`elara`; `config.active_fenshen` = `xiaowu` (migration 013).
+- `buildSystemPrompt()` is now async and pulls the active persona from Supabase — no hardcoded prompt strings, no deploy to add a Fenshen.
+- `/fenshen <name>` command + `/api/fenshen` (GET/PUT) + Settings dropdown. Shared memory across personas. → **P1-41**.
 
 ### 2026-10-16 (session 15 — habits bugfix)
 - Owner report: no hourly standup · 喝了 didn't add water · missed 08:30 vitamin · no 起身/维生素 tracking.

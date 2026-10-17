@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { buildSystemPrompt } from '@/lib/yuanying';
+import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
 import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
 import { getDisplaySummary } from '@/lib/summary-generator';
@@ -27,6 +27,54 @@ export async function POST(req: NextRequest) {
     }
 
     const session_id: string = body.session_id ?? randomUUID();
+
+    // ES-013: /fenshen <name> switches persona via DB (no deploy).
+    const fenshenCmd = message.trim().match(/^\/fenshen(?:\s+(\S+))?\s*$/i);
+    if (fenshenCmd) {
+      const requested = (fenshenCmd[1] ?? '').toLowerCase();
+      let reply: string;
+
+      if (!requested) {
+        const active = await getActiveFenshen();
+        const { data: all } = await supabase
+          .from('fenshen')
+          .select('id, display_name')
+          .order('id');
+        const list = (all ?? [])
+          .map(f => `${f.id} (${f.display_name})`)
+          .join(', ');
+        reply = `Active: ${active?.display_name ?? 'unknown'}. Available: ${list}.`;
+      } else {
+        const { data: row } = await supabase
+          .from('fenshen')
+          .select('id, display_name')
+          .eq('id', requested)
+          .maybeSingle();
+
+        if (!row) {
+          reply = `No Fenshen named "${requested}".`;
+        } else {
+          const { error: cfgErr } = await supabase
+            .from('config')
+            .upsert(
+              { key: 'active_fenshen', value: row.id },
+              { onConflict: 'key' }
+            );
+          if (cfgErr) {
+            console.error('fenshen switch failed:', cfgErr);
+            reply = 'Switch failed.';
+          } else {
+            reply = `Switched to ${row.display_name}.`;
+          }
+        }
+      }
+
+      await supabase.from('messages').insert([
+        { role: 'user', content: message, session_id },
+        { role: 'assistant', content: reply, session_id },
+      ]);
+      return NextResponse.json({ reply, session_id });
+    }
 
     // 1. Load history
     const { data: history, error: histErr } = await supabase
@@ -85,8 +133,8 @@ export async function POST(req: NextRequest) {
       console.error('summary load failed (non-fatal):', e);
     }
 
-    // 3. Build system prompt
-    const systemPrompt = buildSystemPrompt({
+    // 3. Build system prompt (Core + active Fenshen from DB)
+    const systemPrompt = await buildSystemPrompt({
       signals: todaysSignals,
       now: new Date().toISOString(),
       steps: stepsRes.data?.[0]?.value ?? null,

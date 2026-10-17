@@ -9,6 +9,7 @@ type Habit = {
   type: string;
   reminder: { mode?: string; times?: string[]; interval_min?: number } | null;
 };
+type FenshenItem = { id: string; display_name: string; avatar_url: string | null };
 
 export default function Settings() {
   const [enabled, setEnabled] = useState(true);
@@ -18,6 +19,8 @@ export default function Settings() {
     vitamin: true,
   });
   const [habits, setHabits] = useState<Habit[]>([]);
+  const [fenshen, setFenshen] = useState<FenshenItem[]>([]);
+  const [activeFenshen, setActiveFenshen] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -38,7 +41,23 @@ export default function Settings() {
       .then(r => r.json())
       .then(d => setHabits(d.habits ?? []))
       .catch(() => {});
+    fetchWithTimeout(`${API_BASE}/api/fenshen`, {})
+      .then(r => r.json())
+      .then(d => {
+        setFenshen(d.fenshen ?? []);
+        setActiveFenshen(d.active ?? '');
+      })
+      .catch(() => {});
   }, []);
+
+  async function switchFenshen(id: string) {
+    setActiveFenshen(id);
+    await fetchWithTimeout(`${API_BASE}/api/fenshen`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+  }
 
   async function toggleActivity() {
     const next = !enabled;
@@ -75,6 +94,27 @@ export default function Settings() {
           ← 返回
         </a>
         <h1 className="text-lg">设置</h1>
+      </div>
+
+      <div className="mb-6">
+        <label htmlFor="fenshen" className="text-sm text-stone-300 block mb-2">
+          分身
+        </label>
+        <select
+          id="fenshen"
+          value={activeFenshen}
+          onChange={e => switchFenshen(e.target.value)}
+          className="w-full bg-stone-900 border border-stone-800 rounded-xl px-3 py-2 text-sm"
+        >
+          {fenshen.map(f => (
+            <option key={f.id} value={f.id}>
+              {f.display_name} ({f.id})
+            </option>
+          ))}
+        </select>
+        <p className="text-[11px] text-stone-600 mt-1">
+          切换立即生效，下一条消息用新分身。也可在聊天输入 /fenshen &lt;name&gt;。
+        </p>
       </div>
 
       <div className="flex justify-between items-center">
