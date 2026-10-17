@@ -472,7 +472,8 @@
   - Copy for AI → copies the markdown `<feedback>` block.
   - Save to Inbox → sets `promoted` (materialized by `npm run inbox`).
 - **Env**: `GITHUB_REPO=gmyky57ndd-dev/yuanying`; `GITHUB_TOKEN` set in Vercel (server-only) + local `.env.local` (gitignored). Label `yuanying-feedback` created.
-- **Remaining**: owner device check (tap Copy for Dev / Copy for AI).
+- **Verified (2026-10-17, prod)**: `/api/integrations/github` created real issue **#1** (`gmyky57ndd-dev/yuanying`, label `yuanying-feedback`), then closed after verification. Web deployed with `GITHUB_REPO`/`GITHUB_TOKEN`.
+- **Remaining**: owner device check (tap Copy for Dev → new issue; Copy for AI → clipboard).
 
 ---
 
