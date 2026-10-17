@@ -276,6 +276,7 @@ object ReminderScheduler {
             action = ReminderActionReceiver.ACTION_ACTED
             putExtra("reminder_id", id)
             putExtra("habit", name)
+            putExtra("notif_id", 1000 + id)
         }
         val actedPi = PendingIntent.getBroadcast(
             context, id + 100000, actedIntent,
@@ -286,6 +287,7 @@ object ReminderScheduler {
             action = ReminderActionReceiver.ACTION_IGNORED
             putExtra("reminder_id", id)
             putExtra("habit", name)
+            putExtra("notif_id", 1000 + id)
         }
         val ignoredPi = PendingIntent.getBroadcast(
             context, id + 200000, ignoredIntent,

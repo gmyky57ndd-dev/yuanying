@@ -433,6 +433,7 @@
 - **Doc**: `core/habits.md` (loaded into the prompt) + `docs/habits-tracking.md` so 元婴 can explain each habit.
 - **Deploy**: collector **v1.0.23 (code 24)** + web.
 - **Refinement (2026-10-16)**: notification buttons only record + dismiss (no app-open); **vitamin** → hourly (07:00–22:00) **until confirmed**, then stops that day (migration 012); all reminders bounded to **wake time** (outside quiet window); daily cap 30. Collector **v1.0.24 (code 25)**.
+- **Bug (2026-10-16)**: buttons did nothing (notification stayed; vitamin unchecked). Cause: `ReminderActionReceiver.onReceive` ran the synchronous OkHttp POST on the **main thread** → `NetworkOnMainThreadException` (silently caught), and `setAutoCancel` does not dismiss on **action-button** taps. Fix: explicit `NotificationManagerCompat.cancel(notif_id)` + `goAsync()`/worker thread for the POST; fallback to `/api/signal` when the reminder row is missing. Collector **v1.0.25 (code 26)**.
 - **Verified (2026-10-16)**: standup config now `interval 60 / 09:00–18:00 / always`; vitamin `interval 60 / 07:00–22:00 / count_below_target 1`; Vercel crons removed; collector **v1.0.24 (code 25)** Play internal `completed`; homepage 200 with 起身/维生素 tracking.
 - **Remaining**: owner device check (hourly standup, hourly vitamin-until-done, 喝了/起身了 updates + dismiss).
 
