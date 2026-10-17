@@ -64,9 +64,19 @@ export default function FeedbackPage() {
           body: formatForDev({ text: it.text, tags: it.tags, at: it.at }),
         }),
       });
-      const d = await r.json();
+      const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        alert(`GitHub: ${d.error ?? r.status}`);
+        // ES-016: fallback to clipboard when GitHub is not configured.
+        try {
+          await navigator.clipboard.writeText(
+            formatForDev({ text: it.text, tags: it.tags, at: it.at })
+          );
+          alert(
+            `GitHub 未配置或失败（${d.error ?? r.status}），已复制 issue 内容`
+          );
+        } catch {
+          alert(`GitHub: ${d.error ?? r.status}`);
+        }
         return;
       }
       try {
@@ -113,7 +123,7 @@ export default function FeedbackPage() {
                   onClick={() => pushToDev(it)}
                   className="text-[11px] bg-stone-800 rounded-full px-3 py-1"
                 >
-                  Copy for Dev
+                  Push to Dev
                 </button>
                 <button
                   onClick={() => copyForAI(it)}

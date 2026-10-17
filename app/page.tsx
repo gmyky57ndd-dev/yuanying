@@ -346,9 +346,17 @@ export default function Home() {
           }),
         }
       );
-      const d = await r.json();
+      const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        alert(`GitHub: ${d.error ?? r.status}`);
+        // ES-016: fallback to clipboard when GitHub is not configured.
+        try {
+          await navigator.clipboard.writeText(formatForDev(n));
+          alert(
+            `GitHub 未配置或失败（${d.error ?? r.status}），已复制 issue 内容`
+          );
+        } catch {
+          alert(`GitHub: ${d.error ?? r.status}`);
+        }
         return;
       }
       try {
@@ -598,7 +606,7 @@ export default function Home() {
                           onClick={() => pushToDevEntry(e)}
                           className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
                         >
-                          Copy for Dev
+                          Push to Dev
                         </button>
                         <button
                           onClick={() => copyForAIEntry(e)}

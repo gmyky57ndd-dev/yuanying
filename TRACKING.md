@@ -448,10 +448,10 @@
 
 ---
 
-### [P1-45] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-46] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, so Fenshen is **P1-45**.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, so Fenshen is **P1-46**.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
@@ -493,6 +493,14 @@
 - **Result**: asking "how do I mark a note as feedback?" is answerable from the manifest.
 - **Verified (2026-10-17, prod)**: asked `/api/chat` "how do I mark a note as feedback?" — replied with *点开那条 note，选「标记为反馈」→ 右上角「反馈」tab → Copy for Dev / Copy for AI* (read from the injected manifest).
 - **Remaining**: owner device check of the toggle/buttons.
+
+---
+
+### [P1-45] Feedback loop fix + AI self-awareness (ES-016)
+
+- **Status**: In Review · **Category**: Bug (Integration) + Feature (AI Manifest) · **Refs**: ES-016 · **Opened**: 2026-10-17
+- **Impl**: `/api/integrations/github` confirmed working (issue #1 earlier); renamed the dev button **"Copy for Dev" → "Push to Dev"** in the note actions and Feedback tab; if GitHub is unconfigured/fails, it now **falls back to copying the issue text** to the clipboard. `core/system-manifest.md` rewritten to cover Home/History/Feedback/Settings and the note actions (标记为反馈, Save to Inbox, Push to Dev, Copy for AI) and loaded into `buildSystemPrompt()`.
+- **Remaining**: owner device check.
 
 ---
 
@@ -609,6 +617,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 - **Status**: Backlog · **Category**: UI/UX · **Refs**: ES-014 / ES-015 · **Opened**: 2026-10-17
 - Change **"Copy for Dev" → "Copy as GitHub Issue"** and **"Copy for AI" → "Copy for Assistant"** — both use the clipboard.
+- **Superseded** by ES-016: the dev button is renamed **"Push to Dev"** (creates a GitHub issue).
 
 ---
 
@@ -626,6 +635,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-17 (session 21 — ES-016 feedback loop + manifest)
+- Renamed dev action to **Push to Dev**; added clipboard fallback when GitHub is unconfigured. Rewrote `core/system-manifest.md` (nav + note actions incl. Save to Inbox) — loaded into the prompt. Renumbered Fenshen to **P1-46**. → **P1-45**.
 
 ### 2026-10-17 (session 20 — duplicate notes + P1-44 backlog)
 - Fixed duplicate notes (**B-23**): client save guard + 5s server dedupe.
