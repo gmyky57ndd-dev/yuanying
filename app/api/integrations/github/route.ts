@@ -4,63 +4,55 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * ES-014 §3.1 — create a GitHub issue from 元婴 feedback.
+ * ES-017 §2 — create a GitHub issue from 元婴 feedback.
  * Requires GITHUB_TOKEN and GITHUB_REPO in the environment (server-only).
+ * On missing config the client falls back to the clipboard.
  */
 export async function POST(req: NextRequest) {
   try {
-    const { title, body, labels } = await req.json();
+    const { title, body } = await req.json();
 
-    if (typeof title !== 'string' || title.trim().length === 0) {
-      return NextResponse.json({ error: 'title required' }, { status: 400 });
-    }
-    if (typeof body !== 'string' || body.trim().length === 0) {
-      return NextResponse.json({ error: 'body required' }, { status: 400 });
-    }
-
-    const token = process.env.GITHUB_TOKEN;
-    const repo = process.env.GITHUB_REPO;
-    if (!token || !repo) {
+    if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_REPO) {
       return NextResponse.json(
-        { error: 'github integration not configured (GITHUB_TOKEN / GITHUB_REPO)' },
-        { status: 503 }
+        { error: 'GitHub config missing' },
+        { status: 500 }
       );
     }
 
-    const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/vnd.github+json',
-        'Content-Type': 'application/json',
-        'User-Agent': 'yuanying-fenshen',
-      },
-      body: JSON.stringify({
-        title: title.trim().slice(0, 200),
-        body,
-        labels:
-          Array.isArray(labels) && labels.length > 0
-            ? labels
-            : ['yuanying-feedback'],
-      }),
-    });
+    const res = await fetch(
+      `https://api.github.com/repos/${process.env.GITHUB_REPO}/issues`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+          Accept: 'application/vnd.github.v3+json',
+          'Content-Type': 'application/json',
+          // GitHub requires a User-Agent.
+          'User-Agent': 'yuanying-fenshen',
+        },
+        body: JSON.stringify({
+          title: title || 'Yuanying Feedback',
+          body,
+          labels: ['yuanying-feedback'],
+        }),
+      }
+    );
 
-    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      console.error('github issue failed:', res.status, data?.message);
+      const err = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { error: data?.message ?? 'github error' },
-        { status: 502 }
+        { error: err?.message ?? 'github error' },
+        { status: res.status }
       );
     }
 
+    const data = await res.json();
     return NextResponse.json({
       ok: true,
+      issue_url: data.html_url,
       number: data.number,
-      url: data.html_url,
     });
-  } catch (err) {
-    console.error('github integration error:', err);
-    return NextResponse.json({ error: 'internal error' }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

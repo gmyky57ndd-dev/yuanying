@@ -448,10 +448,10 @@
 
 ---
 
-### [P1-46] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-47] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, so Fenshen is **P1-46**.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, **P1-46** = ES-017 GitHub integration, so Fenshen is **P1-47**.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
@@ -502,6 +502,16 @@
 - **Impl**: `/api/integrations/github` confirmed working (issue #1 earlier); renamed the dev button **"Copy for Dev" → "Push to Dev"** in the note actions and Feedback tab; if GitHub is unconfigured/fails, it now **falls back to copying the issue text** to the clipboard. `core/system-manifest.md` rewritten to cover Home/History/Feedback/Settings and the note actions (标记为反馈, Save to Inbox, Push to Dev, Copy for AI) and loaded into `buildSystemPrompt()`.
 - **Verified (2026-10-17, prod)**: asked the model to quote the Note Actions section — returned the new manifest verbatim (标记为反馈 / Save to Inbox / **Push to Dev** + clipboard fallback / Copy for AI). Earlier "I don't know" replies were conversation-history anchoring, not a stale deploy.
 - **Remaining**: owner device check.
+
+---
+
+### [P1-46] Explicit GitHub integration + UI naming (ES-017)
+
+- **Status**: In Review · **Category**: Bug (backend) + UI · **Refs**: ES-017 · **Opened**: 2026-10-17
+- **Impl**: `app/api/integrations/github/route.ts` implemented per ES-017 §2 (`POST`, `GITHUB_TOKEN`/`GITHUB_REPO`, label `yuanying-feedback`, returns `issue_url`). UI label changed to **[Push to GitHub]** (note actions + Feedback tab); on success shows "Issue created!" with the issue URL (copied); on missing config/failure falls back to copying the issue text and alerts "GitHub token missing, copied to clipboard instead."
+- **Env**: `GITHUB_TOKEN` / `GITHUB_REPO` documented in `.env.example`; already set in Vercel + `.env.local`.
+- **Docs**: AGENTS.md **v1.7 §4.8** — specs for AI agents must state explicit file paths, fallbacks, and verifiable acceptance.
+- **Remaining**: owner device check (Push to GitHub button).
 
 ---
 
@@ -636,6 +646,10 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-17 (session 22 — ES-017 GitHub integration + spec lesson)
+- Implemented `/api/integrations/github` per spec (`issue_url`); label → **Push to GitHub**; success shows issue URL, failure falls back to clipboard. `.env.example` documents `GITHUB_TOKEN`/`GITHUB_REPO`.
+- AGENTS.md **v1.7 §4.8**: explicit file paths + fallbacks + verifiable acceptance for AI-agent specs. Renumbered Fenshen to **P1-47**. → **P1-46**.
 
 ### 2026-10-17 (session 21 — ES-016 feedback loop + manifest)
 - Renamed dev action to **Push to Dev**; added clipboard fallback when GitHub is unconfigured. Rewrote `core/system-manifest.md` (nav + note actions incl. Save to Inbox) — loaded into the prompt. Renumbered Fenshen to **P1-46**. → **P1-45**.

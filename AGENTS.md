@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.6  
+**Version:** 1.7  
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -154,6 +154,24 @@ Treat deployed API routes as potentially reachable by anyone who knows or discov
 
 Before an Android collector release, identify how to stop or mitigate a bad version, accounting for devices that continue running older builds. Use a server-side flag only when the existing design supports one and the affected behavior can safely be disabled remotely; otherwise document a practical recovery plan. For web/PWA changes, verify the available hosting rollback path. A rollback plan does not replace release verification.
 
+### 4.8 Specs written for AI agents
+
+Specifications handed to an AI coding agent must be executable without
+inference. A spec that omits any of the following is incomplete — stop and
+ask rather than guess.
+
+- **Explicit file paths.** Name the exact files and handlers. Say "create
+  `app/api/xyz/route.ts` with the following `POST` handler", not "add an
+  endpoint."
+- **Explicit fallback behavior.** Define what happens when a dependency,
+  secret, or condition is missing. Say "if `GITHUB_TOKEN` is absent, copy the
+  text to the clipboard instead."
+- **Verifiable acceptance.** State the observable result (a DB row, a created
+  issue, a copied clipboard, a rendered label), not a vague intention.
+
+Agents cannot act on intent that is not written down. Paths and fallbacks are
+part of the requirement, not implementation details.
+
 ---
 
 ## 5. Rules of engagement
@@ -281,6 +299,12 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.7 — 2026-10-17
+- Added §4.8: specs written for AI agents require **explicit file paths**,
+  **explicit fallback behavior**, and **verifiable acceptance**.
+- Context: ES-014/ES-016 specs said "add an endpoint" without the route path
+  or a missing-token fallback, which caused avoidable rework.
 
 ### v1.6 — 2026-10-16
 - Added §5.1 bullet 7 (signal provenance rule, ES-011 §3).

@@ -13,7 +13,7 @@ When a user taps a note, they see:
 - **[标记为反馈]**: Marks the note so it appears in the Feedback Tab.
 - **[Save to Inbox]**: Saves the note directly to `docs/pm/inbox/` for Dev to
   review.
-- **[Push to Dev]**: Creates a GitHub issue (if configured); if it is not
+- **[Push to GitHub]**: Creates a GitHub issue (if configured); if it is not
   configured, it falls back to copying the issue text to the clipboard.
 - **[Copy for AI]**: Copies a conversational block to the clipboard for
   external AI design partners.

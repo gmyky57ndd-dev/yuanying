@@ -66,23 +66,22 @@ export default function FeedbackPage() {
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        // ES-016: fallback to clipboard when GitHub is not configured.
+        // ES-017: fallback to clipboard when GitHub is not configured.
         try {
           await navigator.clipboard.writeText(
             formatForDev({ text: it.text, tags: it.tags, at: it.at })
           );
-          alert(
-            `GitHub 未配置或失败（${d.error ?? r.status}），已复制 issue 内容`
-          );
+          alert('GitHub token missing, copied to clipboard instead.');
         } catch {
           alert(`GitHub: ${d.error ?? r.status}`);
         }
         return;
       }
+      const url: string | undefined = d.issue_url;
       try {
-        await navigator.clipboard.writeText(d.url);
+        if (url) await navigator.clipboard.writeText(url);
       } catch {}
-      alert(`Issue #${d.number} created (link copied)`);
+      alert(`Issue created!${url ? `\n${url}` : ''}`);
     } catch {
       alert('GitHub 失败');
     }
@@ -123,7 +122,7 @@ export default function FeedbackPage() {
                   onClick={() => pushToDev(it)}
                   className="text-[11px] bg-stone-800 rounded-full px-3 py-1"
                 >
-                  Push to Dev
+                  Push to GitHub
                 </button>
                 <button
                   onClick={() => copyForAI(it)}
