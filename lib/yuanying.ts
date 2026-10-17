@@ -35,10 +35,11 @@ function loadCore(): string {
   const required = ['identity.md', 'values.md', 'voice.md'];
   const groundRulesPath = path.join(coreDir, 'ground-rules.md');
   const habitsPath = path.join(coreDir, 'habits.md');
+  const manifestPath = path.join(coreDir, 'system-manifest.md');
 
   const newest = (() => {
     let m = fs.statSync(path.join(coreDir, required[0])).mtimeMs;
-    for (const p of [groundRulesPath, habitsPath]) {
+    for (const p of [groundRulesPath, habitsPath, manifestPath]) {
       try {
         m = Math.max(m, fs.statSync(p).mtimeMs);
       } catch {
@@ -84,6 +85,16 @@ function loadCore(): string {
     }
   } catch (e) {
     console.warn('failed to load core/habits.md', e);
+  }
+
+  // ES-015: system manifest — so 元婴 can explain how the app itself works.
+  try {
+    if (fs.existsSync(manifestPath)) {
+      const content = fs.readFileSync(manifestPath, 'utf-8').trim();
+      if (content.length > 0) parts.push(`## system-manifest.md\n\n${content}`);
+    }
+  } catch (e) {
+    console.warn('failed to load core/system-manifest.md', e);
   }
 
   coreCache = parts.join('\n\n---\n\n');

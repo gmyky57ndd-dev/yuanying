@@ -569,18 +569,23 @@ export default function Home() {
                         >
                           ＋标签
                         </button>
-                        {e.feedback ? (
-                          <span className="text-[10px] text-emerald-500">
-                            反馈
-                          </span>
-                        ) : e.feedbackSuggested ? (
-                          <button
-                            onClick={() => patchNote(e.ref, { feedback: true })}
-                            className="text-[10px] text-amber-500"
-                          >
-                            这像反馈，标记?
-                          </button>
-                        ) : null}
+                        {/* ES-015: explicit Mark-as-Feedback toggle */}
+                        <button
+                          onClick={() =>
+                            patchNote(e.ref, { feedback: !e.feedback })
+                          }
+                          className={`text-[10px] rounded-full px-2 py-0.5 border ${
+                            e.feedback
+                              ? 'bg-emerald-900 border-emerald-800 text-emerald-200'
+                              : 'border-stone-800 text-stone-400'
+                          }`}
+                        >
+                          {e.feedback
+                            ? '✓ 已标记反馈（取消）'
+                            : e.feedbackSuggested
+                              ? '标记为反馈 · 建议'
+                              : '标记为反馈'}
+                        </button>
                       </div>
                     )}
                     {open && e.feedback && (
