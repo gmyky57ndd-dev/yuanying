@@ -1,6 +1,6 @@
 # ES-003 — Tracking Visibility (Automatic, Manual, and Reminder Activity)
 
-**Status:** Draft — pending owner approval  
+**Status:** Approved (owner, 2026-10-15) — approvals in §6 resolved
 **Category:** Feature  
 **Tracking:** Proposed P1-14 — confirm assignment in `TRACKING.md` before approval  
 **Depends on:** B-16 (In Review; owner timezone verification pending), resolution of the button/summary inconsistency (proposed B-17 in the supplied PM handoff; current `TRACKING.md` B-17 is a different backlog item)
@@ -21,7 +21,13 @@ The home screen currently shows wake/sleep/water controls, a steps line, and cha
 
 ## 3. Proposed panel
 
-Place a compact, collapsible “今天” transparency panel below the existing controls/steps area. Group supported rows as:
+Place a compact, collapsible “今天” transparency panel below the existing controls/steps area.
+
+**Collapsed state (owner B1):** when collapsed, show a one-line summary — e.g. `今天 ▸  自动 2 · 手动 2 · 提醒 3` — not merely a header.
+
+**Count only (owner B2):** rows show counts only, for brevity. Details/names are available via the chat query. App names are already stored per the privacy statement, so this is a display choice, not a privacy gain.
+
+Group supported rows as:
 
 - **自动记录:** steps; app usage as a count or other privacy-approved aggregate. Do not show app names in this panel unless separately approved.
 - **手动记录:** wake/sleep state and water count/target.

@@ -1,9 +1,9 @@
 # ES-001 — Habits Framework (Configurable Tracking and Reminders)
 
-**Status:** Draft — pending owner approval  
+**Status:** Approved (owner, 2026-10-15) — approval answers in §8 resolved  
 **Category:** Feature  
-**Tracking:** Proposed P1-12 — conflicts with current `TRACKING.md` P1-12 (self-upgrade review); tech lead must assign the correct ID.  
-**Depends on:** B-16 (In Review; owner timezone verification pending), P1-09 (In Review; collector reminder implementation and device verification pending)
+**Tracking:** P1-12 (confirmed; self-upgrade review moved to P1-15)  
+**Depends on:** B-16, P1-09, and **ES-004 (API authentication)** — v1 must not introduce new public write endpoints until ES-004 lands.
 
 ---
 
@@ -21,13 +21,15 @@ The repository already has a reserved `habits` table, but it lacks the proposed 
 
 The schema also constrains accepted signal names. Supporting arbitrary habit names as signal names would require a deliberate schema/API change. This spec must not assume that adding a database row alone makes a new signal or reminder operational.
 
+**v1 scope (owner, 2026-10-15):** v1 supports **passive** new habits only (e.g., `steps`). Creating habits manually and presenting dynamic home-screen buttons are deferred to **v1.1**. v1 habit administration is **read-only** in the PWA.
+
 ## 3. Data model
 
 Extend the existing table through a forward migration; do not create a parallel table or drop existing data. Proposed fields:
 
 - `display_name`: required user-facing label.
 - `updated_at`: required update timestamp.
-- `reminder`: nullable, validated reminder-rule JSON.
+- `reminder`: nullable, validated reminder-rule JSON (see below).
 - `capture_config`: validated capture method/configuration, reusing the existing column where possible.
 - `target`: nullable, typed goal configuration.
 - `active`: soft-deactivation state.
@@ -58,34 +60,63 @@ Use validated structured data, not an arbitrary expression string:
 }
 ```
 
-Supported conditions for v1 should be an explicit allowlist, such as `always`, `count_below_target`, and `idle`. Do not evaluate configuration as code. All reminder evaluation uses the configured product timezone (`config.timezone`, default `Asia/Shanghai`) and the shared timezone utilities.
+**Per-habit content overrides (owner Q4):** the `reminder` object may include `text_override` and `voice_override` (each `string | null`). The owner defines `display_name`. When an override is `null`, the **authored template** is used; overrides are permitted only for **seeded** habits in v1 (new habits use authored templates).
 
-### Scheduling semantics to settle before approval
+```json
+{
+  "mode": "interval",
+  "interval_min": 60,
+  "window": { "start": "09:00", "end": "22:00" },
+  "days": "daily",
+  "condition": { "kind": "always" },
+  "text_override": null,
+  "voice_override": "该喝水了。"
+}
+```
 
-The collector runs hourly. It cannot guarantee firing at arbitrary exact minute values or every 90 minutes. Define whether rules are due-window based and may fire on the next collector run, how missed windows are handled, and how deduplication works across process restarts and multiple devices. Preserve the existing reminder windows and behavior for the seeded habits unless the owner approves a product change.
+Supported conditions for v1 should be an explicit allowlist, such as `always`, `count_below_target`, and `idle`. Do not evaluate configuration as code. All reminder evaluation uses the configured product timezone (`config.timezone`) and the shared timezone utilities.
+
+**Timezone writer (owner D5):** designate a single writer for `config.timezone`:
+- the **collector** writes it on each hourly run (primary), from the device timezone; and
+- the **PWA** writes it only when its device timezone differs by more than 1 hour (exception).
+
+Add a **quiet window `22:00–07:00`** (in `config.timezone`) — reminders are suppressed during the quiet window and are **not backfilled** (missed = missed).
+
+### 3.1 Scheduling semantics (resolved 2026-10-15)
+
+The collector runs hourly and cannot guarantee exact-minute firing or precise sub-hour intervals.
+
+- **Tick check (Plan A):** on each collector tick, a reminder is due when `now - last_fired_at >= interval_min` (for `interval` mode) or when `now` is within the configured window and today's `times` bucket applies (for `fixed` mode), evaluated in the product timezone.
+- **No backfill:** missed windows are **not** replayed. A rule fires at most once per its due evaluation on the next tick.
+- **Dedup window:** suppress a repeat if `now - last_fired_at < interval_min / 2`.
+- **Persistence:** `last_fired_at` is persisted per habit so a restart does not duplicate reminders.
+- **Manual logging is independent of reminders:** owner-logged signals (e.g., water taps) never affect whether a reminder fires, and vice versa; only explicit `count_below_target`/`idle` conditions read signal state if configured.
 
 ## 4. API and access
 
-Proposed operations:
+**v1 (read-only):**
 
 - `GET /api/habits`: return active habit configuration.
-- `POST /api/habits`: create a habit after server-side validation.
-- `PATCH /api/habits/:id`: update allowed fields; stable `name` is immutable.
-- Deactivation: set `active=false`; do not hard-delete through the ordinary UI.
 
-Before implementation, decide how these endpoints are protected. Existing routes must be treated as potentially internet-reachable; do not assume the deployment URL is private. Validate unique names, supported types, JSON shapes, reminder windows, weekdays, and capture methods server-side. Reject unknown fields where appropriate. The collector fetch should use the existing authenticated/service access pattern or an owner-approved equivalent; do not expose database credentials in the app.
+**Deferred to v1.1 (and gated on ES-004):**
+
+- `POST /api/habits` — create (manual habits).
+- `PATCH /api/habits/:id` — update allowed fields (`name` immutable).
+- Deactivation via `active=false`.
+
+**Access control (owner Q3):** this is a global, cross-cutting concern. It is tracked as **ES-004 — API authentication** (P0). Until ES-004 lands, ES-001 **must not introduce new public write endpoints**; v1 exposes only the read endpoint above. Do not expose database credentials in the app; the read endpoint follows the existing service-access pattern.
 
 ## 5. Collector integration
 
-The Android collector remains the primary reminder generator and delivery path (P1-09). It should fetch the active configuration at startup or on its hourly run, cache it for no longer than one hour, and retain a safe last-known configuration if offline. Configuration changes take effect on the next successful fetch.
+The Android collector remains the primary reminder generator and delivery path (P1-09). It should fetch the active habit configuration at startup or on its hourly run, cache it for no longer than one hour, and retain a safe last-known configuration if offline. Configuration changes take effect on the next successful fetch.
 
-Evaluate validated rules using the configured timezone and explicit due windows. Persist deduplication state so a restart does not produce duplicate reminders. Record reminder history through the existing reminder API/schema, extending its allowed identifiers in a migration where needed. Deliver notification and TTS using the configured display label and approved message/voice content.
+Evaluate validated rules using the configured timezone and the §3.1 semantics. Persist deduplication state so a restart does not produce duplicate reminders. Record reminder history through the existing reminder API/schema, extending allowed identifiers in a migration where needed. Deliver notification and TTS using `display_name` and the `text_override`/`voice_override`-or-authored content.
 
-A disabled/deactivated habit must stop producing reminders on the next successful configuration refresh. Define behavior when configuration cannot be fetched or is malformed; fail closed for newly introduced reminders and surface diagnostics without exposing credentials or personal data.
+A deactivated habit stops producing reminders on the next successful refresh. Fail closed for newly introduced reminders when configuration cannot be fetched or is malformed; surface diagnostics without exposing credentials or personal data.
 
 ## 6. PWA integration
 
-Add a “管理习惯” settings view to list, create, edit supported fields, and deactivate habits. The home view shows manual-capture habits as logging controls; passive-capture habits appear in relevant summaries. Keep existing signal-button behavior for the seeded habits unless an approved migration explicitly replaces it.
+v1 adds a **read-only** “管理习惯” view that lists active habits, their type, and their reminder rule. Creating, editing, and deactivating habits is **deferred to v1.1** (and requires ES-004). The home view keeps the existing signal-button behavior for the seeded habits; **passive** habits (e.g., steps) appear in the existing steps/summary surfaces. **Manual new habits and dynamic home buttons → v1.1.**
 
 Do not add a broad analytics or calendar interface in this scope.
 
@@ -93,22 +124,23 @@ Do not add a broad analytics or calendar interface in this scope.
 
 - [ ] Forward migration extends the existing table and preserves existing rows.
 - [ ] Idempotent seeding preserves existing owner configuration.
-- [ ] Server-side CRUD/activation validation and access control are implemented.
+- [ ] `GET /api/habits` returns active configuration; **no new public write endpoints** in v1.
 - [ ] Existing water, standup, and vitamin reminders retain agreed behavior.
-- [ ] Collector refreshes configuration at least hourly when online and does not duplicate reminders after restart.
-- [ ] New/edited/deactivated configuration takes effect within one successful collector refresh.
+- [ ] Collector refreshes configuration at least hourly when online and does not duplicate reminders after restart (dedup per §3.1).
+- [ ] New/previously-edited (via DB) configuration takes effect within one successful collector refresh.
 - [ ] Timezone and day scoping use shared utilities and have explicit boundary coverage.
 - [ ] Historical signals/reminders remain queryable after deactivation.
 - [ ] Offline, malformed-config, notification-permission, and upgrade behavior are documented and handled.
+- [ ] v1 supports passive new habits only; manual habit creation and dynamic home buttons are tracked for v1.1.
 
-## 8. Approval questions
+## 8. Approval questions — resolved (owner, 2026-10-15)
 
-1. Which additional habit types and capture methods are supported in v1, beyond preserving current defaults?
-2. What are the precise due-window, missed-window, and deduplication rules for an hourly collector?
-3. What authentication/access-control mechanism protects habit and reminder configuration endpoints?
-4. Are habit-specific notification text and TTS editable, or are they authored templates?
-5. Confirm the tracking ID: current P1-12 already refers to self-upgrade review.
+1. **Habit types / capture methods in v1:** v1 supports **passive** new habits only (e.g., steps). Manual new habits + dynamic home-screen buttons → **v1.1**. (§2, §6 updated.)
+2. **Scheduling semantics:** **Plan A** — tick-based `now - last_fired_at >= interval_min`; missed windows are **not** backfilled; dedup window = `interval_min / 2`; manual logging is independent of reminders. (New §3.1.)
+3. **Endpoint access control:** global concern → new **ES-004 — API authentication** (P0), recommended shared-secret bearer token. ES-001 v1 introduces **no new public write endpoints** until ES-004 lands.
+4. **Notification text/TTS:** hybrid — `display_name` is owner-defined; `text_override`/`voice_override` are optional (`null` → authored template, permitted for seeded habits only). (§3 updated.)
+5. **Tracking ID:** confirmed **P1-12** (self-upgrade moved to P1-15).
 
 ## 9. Non-goals
 
-Do not add streaks, calendars, statistics, multi-user support, arbitrary condition expressions, hard deletion, editable machine identity, or habit-specific code branches that cannot be represented by validated configuration.
+Do not add streaks, calendars, statistics, multi-user support, arbitrary condition expressions, hard deletion, editable machine identity, or habit-specific code branches that cannot be represented by validated configuration. Do not add public write endpoints before ES-004.
