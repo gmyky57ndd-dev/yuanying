@@ -511,6 +511,7 @@
 - **Impl**: `app/api/integrations/github/route.ts` implemented per ES-017 §2 (`POST`, `GITHUB_TOKEN`/`GITHUB_REPO`, label `yuanying-feedback`, returns `issue_url`). UI label changed to **[Push to GitHub]** (note actions + Feedback tab); on success shows "Issue created!" with the issue URL (copied); on missing config/failure falls back to copying the issue text and alerts "GitHub token missing, copied to clipboard instead."
 - **Env**: `GITHUB_TOKEN` / `GITHUB_REPO` documented in `.env.example`; already set in Vercel + `.env.local`.
 - **Docs**: AGENTS.md **v1.7 §4.8** — specs for AI agents must state explicit file paths, fallbacks, and verifiable acceptance.
+- **Verified (2026-10-17, prod)**: endpoint created real issue **#4** (`issue_url` returned, label `yuanying-feedback`), then closed after verification. Web deployed.
 - **Remaining**: owner device check (Push to GitHub button).
 
 ---
