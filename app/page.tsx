@@ -79,6 +79,7 @@ export default function Home() {
   const [notes, setNotes] = useState<Array<{ id: number; text: string }>>([]);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
   const [noteListening, setNoteListening] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -176,7 +177,8 @@ export default function Home() {
 
   async function saveNote() {
     const text = noteText.trim();
-    if (!text) return;
+    if (!text || noteSaving) return;
+    setNoteSaving(true);
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/note`, {
         method: 'POST',
@@ -193,6 +195,8 @@ export default function Home() {
       loadSignals();
     } catch {
       alert('保存失败');
+    } finally {
+      setNoteSaving(false);
     }
   }
 
@@ -507,10 +511,10 @@ export default function Home() {
               </button>
               <button
                 onClick={saveNote}
-                disabled={!noteText.trim()}
+                disabled={!noteText.trim() || noteSaving}
                 className="bg-stone-700 disabled:opacity-40 rounded-full px-4 py-1.5 text-xs"
               >
-                保存
+                {noteSaving ? '保存中…' : '保存'}
               </button>
             </div>
           </div>

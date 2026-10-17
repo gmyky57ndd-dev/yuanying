@@ -100,6 +100,14 @@
 - **Re-diagnosed (2026-10-16, ES-009 §5)**: home shows `步骤 0` while yesterday shows `2809`. Query of today's rows: all **7** `steps` signals for the local day are `value=0` (16:56–18:24 UTC). So aggregation (max) is correct — the current day's **collection** is 0. Yesterday's rows: `723`, `0`, `2809` → max `2809`. Conclusion: **not** an aggregation bug; the collector's HealthConnect read returns 0 for the current day → **collection/source** issue, escalated.
 - **Moved** from Backlog to Bug per Work Order §5.2.
 
+### [B-23] Note saved twice on submit `[BUG]`
+
+- **Status**: In Review · **Category**: Bug · **Opened**: 2026-10-17 · **Refs**: ES-012 §1
+- **Report**: two identical notes are saved every time.
+- **Diagnosis** (DB, 2026-10-17): duplicate pairs with identical text ~0.75–0.93s apart (ids 482/483, 470s) → a double submit; the save button had no in-flight guard.
+- **Fix**: client `noteSaving` guard (disable + "保存中…"); server dedupe — an identical note inserted within 5s returns the existing row.
+- **Remaining**: owner device check.
+
 ### [P1-16] Voice pass — 元婴 speaks, not reports
 
 - **Status**: In Review
@@ -439,10 +447,10 @@
 
 ---
 
-### [P1-44] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-45] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, so Fenshen is **P1-44**.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, so Fenshen is **P1-45**.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
@@ -596,6 +604,11 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 - **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-22]** Note deletion UI (ES-002; deferred, not v1)
 
+### [P1-44] Clarify feedback button labels (UI Phase C)
+
+- **Status**: Backlog · **Category**: UI/UX · **Refs**: ES-014 / ES-015 · **Opened**: 2026-10-17
+- Change **"Copy for Dev" → "Copy as GitHub Issue"** and **"Copy for AI" → "Copy for Assistant"** — both use the clipboard.
+
 ---
 
 ## Won't Do
@@ -612,6 +625,10 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-17 (session 20 — duplicate notes + P1-44 backlog)
+- Fixed duplicate notes (**B-23**): client save guard + 5s server dedupe.
+- Added **P1-44** (clarify feedback labels) to Backlog per owner (UI Phase C). Renumbered Fenshen to **P1-45**.
 
 ### 2026-10-17 (session 19 — P1-43 system self-awareness)
 - Added `core/system-manifest.md` (injected into the prompt); explicit [标记为反馈] toggle in the note UI; Feedback tab copy buttons already present. Renumbered Fenshen to **P1-44**. → **P1-43**.

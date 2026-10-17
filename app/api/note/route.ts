@@ -78,6 +78,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Dedupe accidental double-submits: an identical note inserted within the
+    // last 5 seconds returns the existing row instead of creating a duplicate.
+    const recentCutoff = new Date(Date.now() - 5000).toISOString();
+    const { data: dup } = await supabase
+      .from('signals')
+      .select('id')
+      .eq('name', 'note')
+      .filter('value->>text', 'eq', trimmed)
+      .gte('created_at', recentCutoff)
+      .limit(1)
+      .maybeSingle();
+    if (dup) {
+      return NextResponse.json({ ok: true, id: dup.id, deduped: true });
+    }
+
     // ES-012 §2: tags auto-derived, never required. §3: propose feedback flag.
     const tags = extractTags(trimmed, await existingTags());
     const feedbackSuggested = looksLikeFeedback(trimmed);
