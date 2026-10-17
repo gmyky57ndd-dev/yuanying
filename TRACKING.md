@@ -106,6 +106,7 @@
 - **Report**: two identical notes are saved every time.
 - **Diagnosis** (DB, 2026-10-17): duplicate pairs with identical text ~0.75–0.93s apart (ids 482/483, 470s) → a double submit; the save button had no in-flight guard.
 - **Fix**: client `noteSaving` guard (disable + "保存中…"); server dedupe — an identical note inserted within 5s returns the existing row.
+- **Verified (2026-10-17, prod)**: two identical POSTs within 5s → second returned `{deduped:true, id:484}`; only **1** row created (test row deleted).
 - **Remaining**: owner device check.
 
 ### [P1-16] Voice pass — 元婴 speaks, not reports
