@@ -42,6 +42,8 @@ const EVENT_NAMES = new Set([
   'wake',
   'sleep',
   'water',
+  'standup',
+  'vitamin',
   'brief_wake',
   'reminder_acted',
 ]);

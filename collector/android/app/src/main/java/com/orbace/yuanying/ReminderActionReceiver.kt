@@ -42,6 +42,17 @@ class ReminderActionReceiver : BroadcastReceiver() {
         val pending = goAsync()
         Thread {
             try {
+                // P1-41: the action button writes the habit signal directly.
+                if (action == "acted" && habit != null) {
+                    ApiClient().postForBody(
+                        ApiClient.BASE_URL + "/api/signal",
+                        JSONObject().apply {
+                            put("name", habit)
+                            put("source", "reminder")
+                        }
+                    )
+                }
+                // Bookkeeping on the reminder row (acted_at / dismissed_at).
                 if (id > 0) {
                     ApiClient().postForBody(
                         ApiClient.BASE_URL + "/api/reminder/act",
@@ -50,12 +61,6 @@ class ReminderActionReceiver : BroadcastReceiver() {
                             put("action", action)
                             if (habit != null) put("name", habit)
                         }
-                    )
-                } else if (habit != null && action == "acted") {
-                    // reminder row missing — still record the habit action.
-                    ApiClient().postForBody(
-                        ApiClient.BASE_URL + "/api/signal",
-                        JSONObject().apply { put("name", habit) }
                     )
                 }
             } catch (_: Exception) {

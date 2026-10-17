@@ -8,11 +8,13 @@ export const dynamic = 'force-dynamic';
 const VALID_NAMES = ['wake', 'sleep', 'water', 'standup', 'vitamin', 'brief_wake'] as const;
 const COUNT_NAMES: readonly string[] = ['water', 'standup'];
 const IDEMPOTENT: readonly string[] = ['wake', 'sleep'];
+const SOURCES: readonly string[] = ['manual', 'reminder', 'passive'];
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, value, note, context } = body ?? {};
+    const { name, value, note, context, source } = body ?? {};
+    const src = SOURCES.includes(source) ? source : 'manual';
 
     if (!VALID_NAMES.includes(name)) {
       return NextResponse.json(
@@ -46,7 +48,7 @@ export async function POST(req: NextRequest) {
         type: COUNT_NAMES.includes(name) ? 'count' : 'event',
         value: value ?? (COUNT_NAMES.includes(name) ? 1 : true),
         note: note ?? null,
-        source: 'manual',
+        source: src,
         context: context ?? {},
       })
       .select('id')

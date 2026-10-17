@@ -32,6 +32,8 @@ const EVENT_LABEL: Record<string, string> = {
   wake: '起床',
   sleep: '入睡',
   water: '喝水',
+  standup: '起身',
+  vitamin: '维生素',
   brief_wake: '短暂唤醒',
   reminder_acted: '提醒响应',
 };
@@ -285,17 +287,8 @@ export default function Home() {
   }
 
   const waterCount = todaySignals.filter(s => s.name === 'water').length;
-  const habitName = (s: Signal) => s.context?.habit ?? s.context?.reminder_name;
-  const standupCount =
-    todaySignals.filter(s => s.name === 'standup').length +
-    todaySignals.filter(
-      s => s.name === 'reminder_acted' && habitName(s) === 'standup'
-    ).length;
-  const vitaminDone = todaySignals.some(
-    s =>
-      s.name === 'vitamin' ||
-      (s.name === 'reminder_acted' && habitName(s) === 'vitamin')
-  );
+  const standupCount = todaySignals.filter(s => s.name === 'standup').length;
+  const vitaminDone = todaySignals.some(s => s.name === 'vitamin');
   const stream: StreamEntry[] = buildActivityStream(todaySignals);
 
   function toggle(id: string) {

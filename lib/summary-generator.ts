@@ -55,15 +55,11 @@ export async function generateSummary(opts?: {
   const signals = signalsRes.data ?? [];
   const reminders = remindersRes.data ?? [];
 
-  // ES-007 §4 + habits bugfix: one action counter per habit.
-  const habitOf = (s: any) => s.context?.habit ?? s.context?.reminder_name;
-  const reminderActed = signals.filter((s: any) => s.name === 'reminder_acted');
-  const standupActions =
-    signals.filter((s: any) => s.name === 'standup').length +
-    reminderActed.filter((s: any) => habitOf(s) === 'standup').length;
+  // ES-007 §4 + P1-41: one action counter per habit, counted from the habit
+  // signal itself (manual tap or the reminder action button). No double count.
+  const standupActions = signals.filter((s: any) => s.name === 'standup').length;
   const vitaminManual = signals.find((s: any) => s.name === 'vitamin');
-  const vitaminActed = reminderActed.find((s: any) => habitOf(s) === 'vitamin');
-  const vitaminDone = !!vitaminManual || !!vitaminActed;
+  const vitaminDone = !!vitaminManual;
 
   const data: SummaryData = {
     wake: pickWake(signals),
@@ -75,7 +71,7 @@ export async function generateSummary(opts?: {
     standup: { count: standupActions, target: 8 },
     vitamin: {
       done: vitaminDone,
-      at: vitaminManual?.created_at ?? vitaminActed?.created_at ?? null,
+      at: vitaminManual?.created_at ?? null,
     },
     steps: {
       value: pickDailySteps(signals),

@@ -439,14 +439,25 @@
 
 ---
 
-### [P1-41] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-42] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order references **P1-40**, which is already the habits bugfix; ES-013 is tracked here as **P1-41** to avoid collision.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Originally tracked as P1-41; renumbered to **P1-42** on 2026-10-17 because the owner assigned **P1-41** to the notification-action bug.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
 - **Remaining**: owner verifies adding a new `fenshen` row works with no deploy.
+
+---
+
+### [P1-41] Android notification action → signal write
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §4 / P1-40 follow-up · **Opened**: 2026-10-17
+- **Report**: tapping **起身了** on an Android reminder writes no `standup` signal (the reminder row exists, no signal). Same check for **喝了** (water).
+- **Root cause**: the action path recorded the action server-side but did not create the habit signal as a first-class `POST /api/signal` call; `/api/signal` also hardcoded `source='manual'`.
+- **Fix**: `ReminderActionReceiver` now calls `POST /api/signal {name, source:'reminder'}` on **acted** (water/standup/vitamin) and `POST /api/reminder/act` for bookkeeping; `/api/signal` accepts `source` (`manual`/`reminder`/`passive`); `/api/reminder/act` no longer writes a habit signal (avoids double counting) — it only records `reminder_acted` + `acted_at`. Summary/home count from the habit signal alone.
+- **Acceptance**: action button → new `signals` row with `source='reminder'`; summary count updates.
+- **Deploy**: collector **v1.0.26 (code 27)** + web.
 
 ---
 
@@ -576,10 +587,14 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 ## Changelog
 
+### 2026-10-17 (session 17 — P1-41 notification action → signal)
+- `ReminderActionReceiver` writes the habit signal directly via `POST /api/signal {name, source:'reminder'}` on acted, plus `/api/reminder/act` bookkeeping; `/api/signal` accepts `source`; `/api/reminder/act` no longer writes a habit signal (no double count). Collector **v1.0.26 (code 27)**.
+- Renumbered ES-013 Fenshen to **P1-42** (owner assigned P1-41 to this bug).
+
 ### 2026-10-17 (session 16 — ES-013 Fenshen architecture)
 - Split **Core State (元婴)** from **Interfaces (Fenshen)**. `fenshen` table seeded `xiaowu`/`kael`/`elara`; `config.active_fenshen` = `xiaowu` (migration 013).
 - `buildSystemPrompt()` is now async and pulls the active persona from Supabase — no hardcoded prompt strings, no deploy to add a Fenshen.
-- `/fenshen <name>` command + `/api/fenshen` (GET/PUT) + Settings dropdown. Shared memory across personas. → **P1-41**.
+- `/fenshen <name>` command + `/api/fenshen` (GET/PUT) + Settings dropdown. Shared memory across personas. → **P1-42**.
 
 ### 2026-10-16 (session 15 — habits bugfix)
 - Owner report: no hourly standup · 喝了 didn't add water · missed 08:30 vitamin · no 起身/维生素 tracking.

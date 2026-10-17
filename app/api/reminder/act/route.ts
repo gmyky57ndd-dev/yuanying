@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 
 const ACTIONS = ['acted', 'dismissed', 'snoozed'];
 const HABITS = ['water', 'standup', 'vitamin'];
-const COUNT_HABITS = ['water', 'standup'];
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,8 +21,6 @@ export async function POST(req: NextRequest) {
       .eq('id', reminder_id)
       .maybeSingle();
 
-    // Prefer the habit name the client sends (robust if the reminder row is
-    // missing); otherwise fall back to the stored reminder name.
     const habit: string | null = HABITS.includes(name)
       ? name
       : HABITS.includes(rem?.name)
@@ -44,8 +41,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // ES-007 §4 + habits bugfix: an acted reminder IS the habit action —
-    // 喝水/起身 +1, 维生素 done. Recorded once here (single source of truth).
+    // Audit only. The habit signal itself is written by the client to
+    // POST /api/signal {name, source:'reminder'} (P1-41) — do not write a
+    // second habit signal here or the count would double.
     if (action === 'acted' && habit) {
       await supabase.from('signals').insert({
         name: 'reminder_acted',
@@ -53,13 +51,6 @@ export async function POST(req: NextRequest) {
         value: true,
         source: 'reminder',
         context: { habit, reminder_name: habit, reminder_id },
-      });
-      await supabase.from('signals').insert({
-        name: habit,
-        type: COUNT_HABITS.includes(habit) ? 'count' : 'event',
-        value: COUNT_HABITS.includes(habit) ? 1 : true,
-        source: 'reminder',
-        context: { habit, reminder_id },
       });
     }
 

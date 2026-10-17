@@ -49,6 +49,8 @@ const EVENT_LABEL: Record<string, string> = {
   wake: '起床',
   sleep: '入睡',
   water: '喝水',
+  standup: '起身',
+  vitamin: '维生素',
   brief_wake: '短暂唤醒',
   reminder_acted: '提醒响应',
 };
