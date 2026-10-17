@@ -445,7 +445,8 @@
 - **Label note**: Work Order references **P1-40**, which is already the habits bugfix; ES-013 is tracked here as **P1-41** to avoid collision.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
-- **Remaining**: owner verifies persona tone (xiaowu → kael → elara) and that inserting a new `fenshen` row works with no deploy.
+- **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
+- **Remaining**: owner verifies adding a new `fenshen` row works with no deploy.
 
 ---
 
