@@ -482,7 +482,8 @@
 - **Status**: In Review · **Category**: Bug (UI) + Feature (AI Self-Awareness) · **Refs**: ES-015 · **Opened**: 2026-10-17
 - **Impl**: new `core/system-manifest.md` maps the app's features (notes, tags, feedback, history, settings, collector) and is injected into `buildSystemPrompt()` (loaded in `loadCore`). Note UI now has an explicit **[标记为反馈]** toggle (tap a note → expand → mark/unmark). Feedback tab shows **[Copy for Dev]** and **[Copy for AI]** (plus Save to Inbox).
 - **Result**: asking "how do I mark a note as feedback?" is answerable from the manifest.
-- **Remaining**: owner device check.
+- **Verified (2026-10-17, prod)**: asked `/api/chat` "how do I mark a note as feedback?" — replied with *点开那条 note，选「标记为反馈」→ 右上角「反馈」tab → Copy for Dev / Copy for AI* (read from the injected manifest).
+- **Remaining**: owner device check of the toggle/buttons.
 
 ---
 
