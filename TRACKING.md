@@ -454,9 +454,12 @@
 
 - **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §4 / P1-40 follow-up · **Opened**: 2026-10-17
 - **Report**: tapping **起身了** on an Android reminder writes no `standup` signal (the reminder row exists, no signal). Same check for **喝了** (water).
-- **Root cause**: the action path recorded the action server-side but did not create the habit signal as a first-class `POST /api/signal` call; `/api/signal` also hardcoded `source='manual'`.
+- **Root cause (confirmed)**: `signals_source_check` allowed only `manual/usagestats/activitywatch/passive/inferred` — **not `reminder`**. Every reminder-originated signal insert was rejected (and swallowed). (`share`/`import` for session capture were rejected too.)
+- **Secondary**: the action path leaned on the server to write the habit signal; `/api/signal` hardcoded `source='manual'`.
 - **Fix**: `ReminderActionReceiver` now calls `POST /api/signal {name, source:'reminder'}` on **acted** (water/standup/vitamin) and `POST /api/reminder/act` for bookkeeping; `/api/signal` accepts `source` (`manual`/`reminder`/`passive`); `/api/reminder/act` no longer writes a habit signal (avoids double counting) — it only records `reminder_acted` + `acted_at`. Summary/home count from the habit signal alone.
 - **Acceptance**: action button → new `signals` row with `source='reminder'`; summary count updates.
+- **DB fix**: migration 014 extends `signals_source_check` to include `reminder`, `share`, `import`.
+- **Verified (2026-10-17, prod)**: `POST /api/signal {name:'brief_wake', source:'reminder'}` → row `id=448, source='reminder'` (test row deleted).
 - **Deploy**: collector **v1.0.26 (code 27)** + web.
 
 ---

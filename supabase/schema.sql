@@ -317,3 +317,10 @@ insert into fenshen (id, display_name, prompt_md) values
 on conflict (id) do nothing;
 insert into config (key, value) values ('active_fenshen', '"xiaowu"'::jsonb)
 on conflict (key) do nothing;
+
+-- P1-41: allow reminder / share / import signal sources
+alter table signals drop constraint if exists signals_source_check;
+alter table signals drop constraint if exists signals_source_check_v2;
+alter table signals add constraint signals_source_check_v2 check (
+  source in ('manual','usagestats','activitywatch','passive','inferred','reminder','share','import')
+);
