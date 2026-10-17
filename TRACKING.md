@@ -460,7 +460,7 @@
 - **Acceptance**: action button → new `signals` row with `source='reminder'`; summary count updates.
 - **DB fix**: migration 014 extends `signals_source_check` to include `reminder`, `share`, `import`.
 - **Verified (2026-10-17, prod)**: `POST /api/signal {name:'brief_wake', source:'reminder'}` → row `id=448, source='reminder'` (test row deleted).
-- **Deploy**: collector **v1.0.26 (code 27)** + web.
+- **Deploy**: collector **v1.0.26 (code 27)** + web — Play internal `completed` (code 27), CI build green.
 
 ---
 
