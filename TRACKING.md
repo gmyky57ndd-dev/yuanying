@@ -500,6 +500,7 @@
 
 - **Status**: In Review · **Category**: Bug (Integration) + Feature (AI Manifest) · **Refs**: ES-016 · **Opened**: 2026-10-17
 - **Impl**: `/api/integrations/github` confirmed working (issue #1 earlier); renamed the dev button **"Copy for Dev" → "Push to Dev"** in the note actions and Feedback tab; if GitHub is unconfigured/fails, it now **falls back to copying the issue text** to the clipboard. `core/system-manifest.md` rewritten to cover Home/History/Feedback/Settings and the note actions (标记为反馈, Save to Inbox, Push to Dev, Copy for AI) and loaded into `buildSystemPrompt()`.
+- **Verified (2026-10-17, prod)**: asked the model to quote the Note Actions section — returned the new manifest verbatim (标记为反馈 / Save to Inbox / **Push to Dev** + clipboard fallback / Copy for AI). Earlier "I don't know" replies were conversation-history anchoring, not a stale deploy.
 - **Remaining**: owner device check.
 
 ---
