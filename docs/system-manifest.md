@@ -22,3 +22,13 @@ The same actions appear in the **反馈 (Feedback)** tab for marked notes.
 
 If a user asks "how do I send this to dev?", tell them to tap the note and use
 these buttons.
+
+## Feedback Status
+Each feedback note has a status:
+- `new`: Not yet sent anywhere.
+- `inbox`: Committed to `docs/pm/inbox/` in the repo. Dev reads on next pull.
+- `pushed`: GitHub issue created. Dev notified immediately.
+- `resolved`: Owner marked as handled.
+
+When the user asks "did you send that?", check `feedback_status` before
+answering. If status is `new`, say: "还没发。要我发到 inbox 还是 GitHub？"

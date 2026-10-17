@@ -18,6 +18,11 @@ interface BuildOptions {
     aggregation?: string | null;
     raw_value?: number | null;
   } | null;
+  feedbackNotes?: Array<{
+    text: string;
+    status: string;
+    issue_url?: string | null;
+  }>;
   waterCount?: number;
   recentReminders?: Array<{
     name: string;
@@ -150,6 +155,16 @@ function buildDailyContext(opts: BuildOptions): string {
       .map(x => `${x.name} at ${beijingTime(x.scheduled_at)}`)
       .join(', ');
     lines.push(`- Reminders (last 2h): ${r}`);
+  }
+  // ES-018: feedback statuses so 元婴 can answer "did you send it?".
+  if (opts.feedbackNotes && opts.feedbackNotes.length > 0) {
+    lines.push('\n- Feedback notes (recent):');
+    for (const f of opts.feedbackNotes.slice(0, 6)) {
+      const text = f.text.length > 80 ? `${f.text.slice(0, 77)}…` : f.text;
+      lines.push(
+        `  - [${f.status}] "${text}"${f.issue_url ? ` ${f.issue_url}` : ''}`
+      );
+    }
   }
 
   if (lines.length === 0) return '';
@@ -291,6 +306,10 @@ definitions above. Do not invent other meanings.
 
 Answer real-data questions (steps, water, reminders) only from the
 data below. If data is missing, say you don't know. Do not fabricate.
+
+If the owner asks whether feedback was sent, answer from the feedback statuses
+below. Only claim it was sent if the status is inbox/pushed/resolved. If it is
+"new", say: 「还没发。要我发到 inbox 还是 GitHub？」
 
 Observe, don't diagnose: state what the data shows; present any
 inference as a question or proposal, never as fact. Say

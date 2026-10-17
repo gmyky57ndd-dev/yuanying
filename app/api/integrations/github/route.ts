@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(req: NextRequest) {
   try {
-    const { title, body } = await req.json();
+    const { title, body, note_id } = await req.json();
 
     if (!process.env.GITHUB_TOKEN || !process.env.GITHUB_REPO) {
       return NextResponse.json(
@@ -47,6 +48,26 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await res.json();
+
+    // ES-018 §4: mark the note `pushed` and store the issue link.
+    if (note_id) {
+      const { data: note } = await supabase
+        .from('signals')
+        .select('context')
+        .eq('id', note_id)
+        .eq('name', 'note')
+        .maybeSingle();
+      const context = {
+        ...(note?.context ?? {}),
+        github_issue_url: data.html_url,
+        github_issue_number: data.number,
+      };
+      await supabase
+        .from('signals')
+        .update({ feedback_status: 'pushed', context })
+        .eq('id', note_id);
+    }
+
     return NextResponse.json({
       ok: true,
       issue_url: data.html_url,

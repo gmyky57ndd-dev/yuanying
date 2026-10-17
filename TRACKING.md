@@ -448,10 +448,10 @@
 
 ---
 
-### [P1-47] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-48] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, **P1-46** = ES-017 GitHub integration, so Fenshen is **P1-47**.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, **P1-46** = ES-017 GitHub integration, **P1-47** = ES-018 feedback status, so Fenshen is **P1-48**.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
@@ -513,6 +513,14 @@
 - **Docs**: AGENTS.md **v1.7 §4.8** — specs for AI agents must state explicit file paths, fallbacks, and verifiable acceptance.
 - **Verified (2026-10-17, prod)**: endpoint created real issue **#4** (`issue_url` returned, label `yuanying-feedback`), then closed after verification. Web deployed.
 - **Remaining**: owner device check (Push to GitHub button).
+
+---
+
+### [P1-47] Feedback status & inbox commit (ES-018)
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-018 · **Opened**: 2026-10-17
+- **Impl**: `feedback_status` column (`new|inbox|pushed|resolved`, migration 015). `POST /api/integrations/inbox` commits `docs/pm/inbox/YYYY-MM-DD-<id>.md` via the GitHub Contents API and sets `inbox` (stays `new` on failure). Push to GitHub sets `pushed` + stores `github_issue_url`. Feedback tab shows **[status]** chips, **[Save to Inbox]** (real commit), **[Mark Resolved]** (inbox/pushed only). `core/system-manifest.md` explains statuses; the chat prompt receives recent feedback statuses so 元婴 can answer "did you send it?".
+- **Remaining**: owner device check; verify a real inbox commit.
 
 ---
 
@@ -647,6 +655,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-17 (session 23 — ES-018 feedback status & inbox commit)
+- Added `feedback_status` (new/inbox/pushed/resolved); `POST /api/integrations/inbox` commits the inbox file via GitHub Contents API; Push to GitHub sets `pushed` + issue URL; status chips + Mark Resolved; manifest + prompt status awareness. Renumbered Fenshen to **P1-48**. → **P1-47**.
 
 ### 2026-10-17 (session 22 — ES-017 GitHub integration + spec lesson)
 - Implemented `/api/integrations/github` per spec (`issue_url`); label → **Push to GitHub**; success shows issue URL, failure falls back to clipboard. `.env.example` documents `GITHUB_TOKEN`/`GITHUB_REPO`.

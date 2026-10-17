@@ -94,7 +94,8 @@ export async function POST(req: NextRequest) {
     const { start: startOfDay, end: endOfDay } = getTodayRange(tz);
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
 
-    const [signalsRes, stepsRes, goalRes, remindersRes] = await Promise.all([
+    const [signalsRes, stepsRes, goalRes, remindersRes, feedbackRes] =
+      await Promise.all([
       supabase
         .from('signals')
         .select('name, created_at')
@@ -118,6 +119,14 @@ export async function POST(req: NextRequest) {
         .select('name, scheduled_at, context')
         .gte('scheduled_at', twoHoursAgo.toISOString())
         .order('scheduled_at', { ascending: true }),
+      // ES-018: recent feedback notes + status for self-awareness.
+      supabase
+        .from('signals')
+        .select('value, feedback_status, context, created_at')
+        .eq('name', 'note')
+        .filter('value->>feedback', 'eq', 'true')
+        .order('created_at', { ascending: false })
+        .limit(10),
     ]);
 
     const todaysSignals = (signalsRes.data ?? []) as Array<{
@@ -142,6 +151,17 @@ export async function POST(req: NextRequest) {
       stepsContext: stepsRes.data?.[0]?.context ?? null,
       waterCount: todaysSignals.filter(s => s.name === 'water').length,
       recentReminders: remindersRes.data ?? [],
+      feedbackNotes: (
+        (feedbackRes.data ?? []) as Array<{
+          value: any;
+          feedback_status: string | null;
+          context: any;
+        }>
+      ).map(r => ({
+        text: r.value?.text ?? '',
+        status: r.feedback_status ?? 'new',
+        issue_url: r.context?.github_issue_url ?? null,
+      })),
       summary: summaryData,
       message,
     });

@@ -320,8 +320,8 @@ export default function Home() {
     patchNote(id, { tags: tags.filter(x => x !== t) });
   }
 
-  // ES-014: feedback forwarding.
-  type NoteEntry = { text: string; tags: string[]; at: string };
+  // ES-014 / ES-018: feedback forwarding.
+  type NoteEntry = { text: string; tags: string[]; at: string; ref?: number };
   async function copyText(text: string, msg: string) {
     try {
       await navigator.clipboard.writeText(text);
@@ -343,6 +343,7 @@ export default function Home() {
           body: JSON.stringify({
             title: `[元婴 feedback] ${feedbackTitle(n)}`,
             body: formatForDev(n),
+            note_id: n.ref,
           }),
         }
       );
@@ -367,8 +368,23 @@ export default function Home() {
     }
   }
   async function saveToInbox(id: number) {
-    await patchNote(id, { promoted: true });
-    alert('已存入收件箱');
+    // ES-018: commit the file to docs/pm/inbox/ via the GitHub Contents API.
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/integrations/inbox`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noteId: id }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(`Inbox: ${d.error ?? r.status}`);
+        return;
+      }
+      alert(`已提交到 inbox\n${d.path ?? ''}`);
+      loadSignals();
+    } catch {
+      alert('Inbox 提交失败');
+    }
   }
 
   function startVoice() {

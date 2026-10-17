@@ -51,7 +51,7 @@ do $$ begin
   exception when duplicate_object then null; end;
   begin
     alter table signals add constraint signals_source_check
-      check (source in ('manual', 'usagestats', 'activitywatch', 'passive', 'inferred'));
+      check (source in ('manual', 'usagestats', 'activitywatch', 'passive', 'inferred', 'reminder', 'share', 'import'));
   exception when duplicate_object then null; end;
 end $$;
 
@@ -324,3 +324,13 @@ alter table signals drop constraint if exists signals_source_check_v2;
 alter table signals add constraint signals_source_check_v2 check (
   source in ('manual','usagestats','activitywatch','passive','inferred','reminder','share','import')
 );
+
+-- ES-018: feedback status
+alter table signals add column if not exists feedback_status text;
+alter table signals drop constraint if exists signals_feedback_status_check;
+alter table signals add constraint signals_feedback_status_check
+  check (feedback_status is null or feedback_status in ('new','inbox','pushed','resolved'));
+create index if not exists idx_signals_feedback_status
+  on signals (feedback_status) where feedback_status is not null;
+update signals set feedback_status='new'
+  where name='note' and value->>'feedback'='true' and feedback_status is null;

@@ -9,11 +9,13 @@ type Item = {
   text: string;
   tags: string[];
   promoted: boolean;
+  status: 'new' | 'inbox' | 'pushed' | 'resolved';
+  issue_url: string | null;
   date: string;
   at: string;
 };
 
-/** ES-012 §3: Feedback Inbox — pre-PM staging, one-way owner → dev. */
+/** ES-012 §3 / ES-018: Feedback Inbox with status + delivery actions. */
 export default function FeedbackPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,7 +45,7 @@ export default function FeedbackPage() {
     } catch {}
   }
 
-  // ES-014: feedback forwarding.
+  // ES-014 / ES-018: feedback forwarding.
   async function copyForAI(it: Item) {
     try {
       await navigator.clipboard.writeText(
@@ -54,6 +56,7 @@ export default function FeedbackPage() {
       alert('复制失败');
     }
   }
+
   async function pushToDev(it: Item) {
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/integrations/github`, {
@@ -62,11 +65,12 @@ export default function FeedbackPage() {
         body: JSON.stringify({
           title: `[元婴 feedback] ${feedbackTitle(it)}`,
           body: formatForDev({ text: it.text, tags: it.tags, at: it.at }),
+          note_id: it.id,
         }),
       });
       const d = await r.json().catch(() => ({}));
       if (!r.ok) {
-        // ES-017: fallback to clipboard when GitHub is not configured.
+        // ES-017/ES-018: fallback to clipboard when GitHub is not configured.
         try {
           await navigator.clipboard.writeText(
             formatForDev({ text: it.text, tags: it.tags, at: it.at })
@@ -82,8 +86,28 @@ export default function FeedbackPage() {
         if (url) await navigator.clipboard.writeText(url);
       } catch {}
       alert(`Issue created!${url ? `\n${url}` : ''}`);
+      load();
     } catch {
       alert('GitHub 失败');
+    }
+  }
+
+  async function saveToInbox(it: Item) {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/integrations/inbox`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ noteId: it.id }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(`Inbox: ${d.error ?? r.status}`);
+        return;
+      }
+      alert(`已提交到 inbox\n${d.path ?? ''}`);
+      load();
+    } catch {
+      alert('Inbox 提交失败');
     }
   }
 
@@ -97,7 +121,8 @@ export default function FeedbackPage() {
       </div>
 
       <p className="text-[12px] text-stone-500 mb-4">
-        每周过一遍。promote 会写入 docs/pm/inbox/；dismiss 只是取消标记。
+        Save to Inbox 会提交文件到 docs/pm/inbox/；Push to GitHub 立刻通知
+        dev；Mark Resolved 标记已处理。
       </p>
 
       {loading ? (
@@ -108,7 +133,20 @@ export default function FeedbackPage() {
         <ul className="space-y-3">
           {items.map(it => (
             <li key={it.id} className="border border-stone-900 rounded-xl p-3">
-              <div className="text-[11px] text-stone-600 mb-1">{it.date}</div>
+              <div className="flex items-center gap-2 text-[11px] text-stone-600 mb-1">
+                <span>{it.date}</span>
+                <span className="text-stone-500">[{it.status}]</span>
+                {it.issue_url && (
+                  <a
+                    href={it.issue_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-stone-400 underline"
+                  >
+                    issue
+                  </a>
+                )}
+              </div>
               <div className="text-[13px] text-stone-200 whitespace-pre-wrap break-words">
                 {it.text}
               </div>
@@ -130,16 +168,20 @@ export default function FeedbackPage() {
                 >
                   Copy for AI
                 </button>
-                {it.promoted ? (
-                  <span className="text-[11px] text-emerald-500">
-                    已存入收件箱 → docs/pm/inbox/{it.date}.md
-                  </span>
-                ) : (
+                {it.status === 'new' && (
                   <button
-                    onClick={() => patch(it.id, { promoted: true })}
+                    onClick={() => saveToInbox(it)}
                     className="text-[11px] bg-stone-700 rounded-full px-3 py-1"
                   >
                     Save to Inbox
+                  </button>
+                )}
+                {(it.status === 'inbox' || it.status === 'pushed') && (
+                  <button
+                    onClick={() => patch(it.id, { feedback_status: 'resolved' })}
+                    className="text-[11px] bg-stone-700 rounded-full px-3 py-1"
+                  >
+                    Mark Resolved
                   </button>
                 )}
                 <button

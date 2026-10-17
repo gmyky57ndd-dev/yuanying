@@ -26,7 +26,7 @@ export async function PATCH(
 
   const { data: row, error: readErr } = await supabase
     .from('signals')
-    .select('value')
+    .select('value, feedback_status')
     .eq('id', id)
     .eq('name', 'note')
     .maybeSingle();
@@ -39,6 +39,9 @@ export async function PATCH(
   }
 
   const value: Record<string, any> = { ...(row.value ?? {}) };
+  const update: Record<string, any> = { value };
+  const currentStatus: string | null = row.feedback_status ?? null;
+
   if (Array.isArray(body.tags)) {
     value.tags = body.tags
       .map((t: unknown) => String(t).trim())
@@ -48,18 +51,45 @@ export async function PATCH(
   if (typeof body.feedback === 'boolean') {
     value.feedback = body.feedback;
     if (!body.feedback) value.promoted = false;
+    // ES-018: marking feedback starts the status at `new`.
+    if (body.feedback && !currentStatus) update.feedback_status = 'new';
   }
   if (typeof body.promoted === 'boolean') {
     value.promoted = body.promoted;
   }
+  if (typeof body.feedback_status === 'string') {
+    const allowed = ['new', 'inbox', 'pushed', 'resolved'];
+    if (!allowed.includes(body.feedback_status)) {
+      return NextResponse.json(
+        { error: `invalid feedback_status: ${body.feedback_status}` },
+        { status: 400 }
+      );
+    }
+    // ES-018 §5: only inbox/pushed can be marked resolved.
+    if (
+      body.feedback_status === 'resolved' &&
+      !['inbox', 'pushed'].includes(currentStatus ?? '')
+    ) {
+      return NextResponse.json(
+        { error: 'only inbox/pushed can be resolved' },
+        { status: 400 }
+      );
+    }
+    update.feedback_status = body.feedback_status;
+  }
 
   const { error } = await supabase
     .from('signals')
-    .update({ value })
+    .update(update)
     .eq('id', id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, tags: value.tags ?? [], feedback: value.feedback ?? false });
+  return NextResponse.json({
+    ok: true,
+    tags: value.tags ?? [],
+    feedback: value.feedback ?? false,
+    feedback_status: update.feedback_status ?? currentStatus ?? 'new',
+  });
 }
