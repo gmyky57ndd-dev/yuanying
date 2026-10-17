@@ -520,7 +520,9 @@
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-018 · **Opened**: 2026-10-17
 - **Impl**: `feedback_status` column (`new|inbox|pushed|resolved`, migration 015). `POST /api/integrations/inbox` commits `docs/pm/inbox/YYYY-MM-DD-<id>.md` via the GitHub Contents API and sets `inbox` (stays `new` on failure). Push to GitHub sets `pushed` + stores `github_issue_url`. Feedback tab shows **[status]** chips, **[Save to Inbox]** (real commit), **[Mark Resolved]** (inbox/pushed only). `core/system-manifest.md` explains statuses; the chat prompt receives recent feedback statuses so 元婴 can answer "did you send it?".
-- **Remaining**: owner device check; verify a real inbox commit.
+- **Verified (2026-10-17, prod)**: Save to Inbox on note #490 → `POST /api/integrations/inbox` returned `docs/pm/inbox/2026-10-17-490.md`; repo commit `c551fd0` (332 B); DB `feedback_status='inbox'`, `promoted=true`.
+- **Verified (2026-10-17)**: asked "did you send the feedback about Save to Inbox?" — 元婴 answered from the status (`[inbox]`, dev sees on next pull) and correctly said the new note was not sent.
+- **Remaining**: owner device check (chips / Save to Inbox / Mark Resolved).
 
 ---
 
