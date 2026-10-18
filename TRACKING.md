@@ -62,6 +62,43 @@
 - **Description**: `ReminderPoller` demoted to a **fallback that only runs while the PWA is open**. Primary delivery becomes the collector (P1-09).
 - **Notes**: Keep mounted; do not invest further until P1-09 lands.
 
+### [P2-06] Phase C — Home restructure (ES-026)
+
+- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Spec**: `docs/specs/ES-026-phase-c-ui-restructure.md`.
+- **Label note**: the handoff requested P2-01..P2-05, but those IDs are the Opinions items; Phase C uses P2-06..P2-10.
+- **Impl**: active Fenshen avatar/name from `/api/fenshen` (tap opens Settings); five core habits in `components/HabitGrid.tsx`; steps debug modal preserved; today-only activity/chat.
+- **Acceptance**: Home today-only; empty state; no new capture surface.
+
+### [P2-07] Phase C — History restructure (ES-026)
+
+- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: day list now shows water/standup/steps; detail adds full notes + tags and AI conversation excerpts; raw activity and chat log remain.
+- **Acceptance**: list + tap-to-detail; full notes visible.
+
+### [P2-08] Phase C — Chat message actions (ES-026)
+
+- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026, ES-019 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: `⋮` menu keeps Push to GitHub / Save to Inbox / Copy; Push shows a spinner then `Issue #N`; Save persists `metadata.inbox_path` and shows **Saved to Inbox**.
+- **Acceptance**: actions work; badges visible after reload.
+
+### [P2-09] Phase C — Tool-loading state (ES-026)
+
+- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: chat shows a spinner + context-aware status bubble while a tool-requiring message is in flight. Client-side intent hint, not a server tool trace.
+- **Acceptance**: visible loading state while waiting.
+
+### [P2-10] Phase C — Visual polish (ES-026)
+
+- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: subtle `fade-in` for chat messages; breathing Fenshen avatar; `prefers-reduced-motion` fallback; stone/green palette.
+- **Acceptance**: animations subtle and disabled when reduced motion is requested.
+
 ---
 
 ## In Review

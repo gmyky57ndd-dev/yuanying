@@ -30,6 +30,8 @@ export async function POST(req: NextRequest) {
     let noteStatus: string | null = null;
     let noteValue: Record<string, any> = {};
     let noteIdNum: number | null = null;
+    let messageIdNum: number | null = null;
+    let messageMeta: Record<string, any> = {};
 
     if (messageId) {
       const id = Number(messageId);
@@ -38,12 +40,14 @@ export async function POST(req: NextRequest) {
       }
       const { data: msg } = await supabase
         .from('messages')
-        .select('id, content, created_at')
+        .select('id, content, created_at, metadata')
         .eq('id', id)
         .maybeSingle();
       if (!msg) {
         return NextResponse.json({ error: 'message not found' }, { status: 404 });
       }
+      messageIdNum = id;
+      messageMeta = msg.metadata ?? {};
       date = getDateInTimezone(tz, new Date(msg.created_at));
       path = `docs/pm/inbox/${date}-msg-${id}.md`;
       content = `# Feedback — message ${id}
@@ -147,6 +151,20 @@ _Sent via 元婴 → Inbox._
           value: { ...noteValue, promoted: true },
         })
         .eq('id', noteIdNum);
+    }
+
+    if (messageIdNum) {
+      // ES-026: remember the inbox file so the chat can show a Saved badge.
+      await supabase
+        .from('messages')
+        .update({
+          metadata: {
+            ...messageMeta,
+            inbox_path: path,
+            inbox_saved_at: new Date().toISOString(),
+          },
+        })
+        .eq('id', messageIdNum);
     }
 
     return NextResponse.json({

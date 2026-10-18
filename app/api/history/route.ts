@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
   let query = supabase
     .from('messages')
     .select(
-      'id, role, content, created_at, github_issue_url, github_issue_number'
+      'id, role, content, created_at, github_issue_url, github_issue_number, metadata'
     )
     .order('created_at', { ascending: false })
     .order('id', { ascending: false })
@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
       content: m.content,
       github_issue_url: m.github_issue_url ?? null,
       github_issue_number: m.github_issue_number ?? null,
+      inbox_path: m.metadata?.inbox_path ?? null,
     })),
   });
 }

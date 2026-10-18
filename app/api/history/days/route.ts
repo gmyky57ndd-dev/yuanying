@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 type DayAgg = {
   date: string;
   water: number;
+  standup: number;
   steps: number;
   notes: number;
   chats: number;
@@ -59,6 +60,7 @@ export async function GET(req: NextRequest) {
       d = {
         date,
         water: 0,
+        standup: 0,
         steps: 0,
         notes: 0,
         chats: 0,
@@ -74,6 +76,7 @@ export async function GET(req: NextRequest) {
     const d = ensure(dayOf(s.created_at));
     d.signals += 1;
     if (s.name === 'water') d.water += 1;
+    if (s.name === 'standup') d.standup += 1;
     if (s.name === 'note') d.notes += 1;
     if (s.name === 'steps') {
       const v = typeof s.value === 'number' ? s.value : 0;
