@@ -459,10 +459,10 @@
 
 ---
 
-### [P1-49] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-50] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, **P1-46** = ES-017 GitHub integration, **P1-47** = ES-019 message actions, **P1-48** = ES-018 feedback status, so Fenshen is **P1-49**.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, **P1-46** = ES-017 GitHub integration, **P1-47** = ES-019 message actions, **P1-48** = ES-020 summary context/tone, **P1-49** = ES-018 feedback status, so Fenshen is **P1-50**.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
@@ -527,7 +527,7 @@
 
 ---
 
-### [P1-48] Feedback status & inbox commit (ES-018)
+### [P1-49] Feedback status & inbox commit (ES-018)
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-018 · **Opened**: 2026-10-17
 - **Impl**: `feedback_status` column (`new|inbox|pushed|resolved`, migration 015). `POST /api/integrations/inbox` commits `docs/pm/inbox/YYYY-MM-DD-<id>.md` via the GitHub Contents API and sets `inbox` (stays `new` on failure). Push to GitHub sets `pushed` + stores `github_issue_url`. Feedback tab shows **[status]** chips, **[Save to Inbox]** (real commit), **[Mark Resolved]** (inbox/pushed only). `core/system-manifest.md` explains statuses; the chat prompt receives recent feedback statuses so 元婴 can answer "did you send it?".
@@ -545,6 +545,14 @@
 - **Impl**: assistant message bubbles get a `⋮` menu (hover on desktop, long-press on mobile) with **Push to GitHub**, **Save to Inbox**, **Copy**. `POST /api/integrations/github` and `/api/integrations/inbox` accept `message_id`; pushed messages store `github_issue_url`/`github_issue_number` (migration 016) and show an **Issue #N** badge. Duplicate-safe (existing issue returned). Manifest gains a **Chat Actions** section.
 - **Verified (2026-10-17, prod)**: test assistant message #81 → issue **#10** created and `messages.github_issue_url`/number set; Save to Inbox committed `docs/pm/inbox/2026-10-17-msg-81.md`. Test issue/file/message cleaned up.
 - **Remaining**: owner device check (⋮ menu hover/long-press, badge).
+
+---
+
+### [P1-48] Daily summary context & tone (ES-020)
+
+- **Status**: In Review · **Category**: Bug (prompt/logic) + Feature · **Refs**: ES-020 · **Opened**: 2026-10-18
+- **Impl**: `SummaryData` gains `conversations`; `generateSummary` reads `core/memory/conversations/<date>-*.md` (Decisions section) and keeps the day's notes. The chat prompt renders **Owner's Notes** + **AI Conversations** first and numbers as secondary context. Base prompt adds a **Daily Summaries** rule (no unsolicited health advice; reflect inner state; "No notes yesterday." when empty).
+- **Remaining**: owner check (ask for a summary and confirm notes/project context are prioritized).
 
 ---
 
@@ -679,6 +687,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 28 — ES-020 summary context & tone)
+- Summary data includes the day's notes + distilled AI conversations; prompt prioritizes them and adds a no-health-coach tone rule ("No notes yesterday."). Renumbered ES-018 to **P1-49**, Fenshen to **P1-50**. → **P1-48**.
 
 ### 2026-10-18 (session 27 — issue #11 chat history truncation)
 - Root cause: ascending + limit 50 returned the oldest messages once a day exceeded 50. Fixed to newest-first (+ reverse) with a day upper bound; UI no longer wipes on error. → **B-24**. Closed issue #11.

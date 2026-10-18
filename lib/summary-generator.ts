@@ -1,4 +1,6 @@
 import { supabase } from './db';
+import fs from 'fs';
+import path from 'path';
 import {
   getDayRange,
   getTodayRange,
@@ -85,6 +87,7 @@ export async function generateSummary(opts?: {
     },
     top_apps: pickTopApps(signals, TOP_APPS_LIMIT),
     notes: pickNotes(signals),
+    conversations: pickConversations(range.date),
     signals_total: signals.length,
     generated_at: new Date().toISOString(),
   };
@@ -126,7 +129,10 @@ async function readOrGenerate(date: string, tz: string): Promise<CachedSummary> 
     const latest = await latestDataAt(range.start, range.end);
     const writtenAt = new Date(existing.updated_at).getTime();
     const shapeOk =
-      typeof (existing.data as { apps_used?: unknown })?.apps_used === 'number';
+      typeof (existing.data as { apps_used?: unknown })?.apps_used ===
+        'number' &&
+      // ES-020: regenerate summaries written before `conversations` existed.
+      Array.isArray((existing.data as { conversations?: unknown })?.conversations);
     if (latest <= writtenAt && shapeOk) {
       return {
         date,
@@ -254,6 +260,38 @@ function pickNotes(signals: any[]) {
       text: truncateText(String(s.value?.text ?? ''), 200),
     })),
   };
+}
+
+/** Extract a `## Heading` section from a markdown file. */
+function section(raw: string, heading: string): string | null {
+  const m = raw.match(new RegExp(`^##\\s+${heading}\\s*$`, 'm'));
+  if (!m || m.index == null) return null;
+  const rest = raw.slice(m.index + m[0].length);
+  const next = rest.search(/^##\s/m);
+  return (next >= 0 ? rest.slice(0, next) : rest).trim();
+}
+
+/**
+ * ES-020: distilled AI-conversation records for the target day
+ * (`core/memory/conversations/YYYY-MM-DD-*.md`). Prefer the Decisions
+ * section; fall back to the file body.
+ */
+function pickConversations(date: string) {
+  const dir = path.join(process.cwd(), 'core', 'memory', 'conversations');
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter(f => f.startsWith(`${date}-`) && f.endsWith('.md'))
+    .sort()
+    .map(f => {
+      const raw = fs.readFileSync(path.join(dir, f), 'utf-8');
+      const title = (raw.match(/^#\s+(.+)$/m)?.[1] ?? f).replace(
+        /^Conversation Record\s*—\s*/,
+        ''
+      );
+      const body = section(raw, 'Decisions') ?? raw;
+      return { file: f, title, excerpt: truncateText(body, 1200) };
+    });
 }
 
 function truncateText(s: string, max: number): string {

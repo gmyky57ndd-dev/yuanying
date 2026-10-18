@@ -13,6 +13,7 @@ export interface SummaryData {
   };
   top_apps: Array<{ name: string; minutes: number }>;
   notes: { count: number; items: Array<{ at: string; text: string }> };
+  conversations: Array<{ file: string; title: string; excerpt: string }>;
   signals_total: number;
   generated_at: string;
 }

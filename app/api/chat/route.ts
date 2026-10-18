@@ -136,8 +136,11 @@ export async function POST(req: NextRequest) {
 
     // Display-day summary (ES-007 §1: last completed day).
     let summaryData = undefined;
+    let summaryLabel: string | undefined;
     try {
-      summaryData = (await getDisplaySummary()).data;
+      const display = await getDisplaySummary();
+      summaryData = display.data;
+      summaryLabel = display.label;
     } catch (e) {
       console.error('summary load failed (non-fatal):', e);
     }
@@ -163,6 +166,7 @@ export async function POST(req: NextRequest) {
         issue_url: r.context?.github_issue_url ?? null,
       })),
       summary: summaryData,
+      summaryLabel,
       message,
     });
 
