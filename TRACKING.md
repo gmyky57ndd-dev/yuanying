@@ -598,7 +598,13 @@
   - `get_conversation_records` → ES-013 quotes (Core/Interface, no-deploy, D7 rationale).
   - `push_to_dev` → created issue **#12** with the requested title/body; closed after verification as test cleanup.
   - Error path (local dev, invalid `GITHUB_TOKEN`) → 元婴 reported "失败了。原因：Bad credentials…没建成功" instead of claiming success.
-- **Deploy note**: production deployment `dpl_B1FQXQMfAnvB9B9L8ALVQ75yF7wC` (commit `ff99e64`) was Ready and aliased to `https://yuanying-rust.vercel.app`. The GitHub Actions `Deploy Web (Vercel)` run initially failed because the `VERCEL_TOKEN` secret was invalid. Replaced it with a dedicated project-scoped Vercel CI token; workflow run **39140374327** passes and deployed `dpl_GjfcjFjyr9G2Br6znnkTku7SU2E9` (`yuanying-oh9enmnsi-yuanying.vercel.app`), aliased to production.
+- **Incident + fix (2026-10-18)**: production `GITHUB_TOKEN` went stale (`Bad credentials`). On a follow-up attempt, `push_to_dev` failed but 元婴 reported success and invented an issue URL (issue #13 did not exist). Root causes: invalid production token + model anchoring from the global last-20-message history. Fixes:
+  - Replaced the production Vercel `GITHUB_TOKEN`/`GITHUB_REPO` with the verified local token/repo; redeployed (run **39140926403**). `push_to_dev` then created real issue **#13**, which was closed after verification.
+  - Added a deterministic route guard in `app/api/chat/route.ts`: if the last `push_to_dev` result is an error/`success:false`, the reply is replaced with `没发成功。系统报错：<reason>`; `push_to_dev` now returns `success:false` on failure.
+  - Hardened `core/system-manifest.md` + `lib/yuanying.ts`: only report success when the result has `success:true` and an `issue_url`; never invent a URL.
+  - Deployed guard commit `3d7a643` (run **39141830075**, `yuanying-qj6vy2nqx-yuanying.vercel.app`). `tsc`/lint pass.
+- **Known follow-up**: when chat history contains a near-identical prior request, the model may answer from history without calling `push_to_dev` even when explicitly asked. The route guard only applies after a tool call. History is currently the global last 20 messages, not session-scoped; revisit under P1-31/P1-52 if it recurs.
+- **Deploy note**: production deployment `dpl_B1FQXQMfAnvB9B9L8ALVQ75yF7wC` (commit `ff99e64`) was Ready and aliased to `https://yuanying-rust.vercel.app`. The GitHub Actions `Deploy Web (Vercel)` run initially failed because the `VERCEL_TOKEN` secret was invalid. Replaced it with a dedicated project-scoped Vercel CI token; workflow run **39140374327** passes. Later runs **39140926403** (prod GitHub token rotation) and **39141830075** (failure guard, commit `3d7a643`) are green and aliased to production.
 - **Acceptance**:
   - [x] `get_notes` works when asked "昨天我写了什么笔记？", and the response includes actual note content.
   - [x] `get_conversation_records` quotes the ES-013 decision when asked "我们是怎么决定Fenshen架构的？".
@@ -636,10 +642,10 @@ _(ES-008/ES-009 home + history work is in review; no open To Do items.)_
   - **Collector**: Play auto-update vs. in-app `AppUpdateManager`; ensure the release pipeline (`v*` tag → signed AAB → Play track) is automated.
 - **Acceptance**:
   - [x] Deploy loop verified from a clean state; failures surface
-  - [ ] Dedicated `VERCEL_TOKEN` (no expiration) with rotation note — owner action
+  - [x] Dedicated `VERCEL_TOKEN` (no expiration) with rotation note — **done 2026-10-18**: project-scoped token stored as the GitHub Actions secret; deploy run `39140374327` green. Rotate/revoke at https://vercel.com/account/tokens if exposed.
   - [x] Play upload automated (service account) OR documented manual fallback — **verified**: v1.0.14 release uploaded to Play internal (draft); workflow gated on `PLAY_SERVICE_ACCOUNT_JSON`
   - [x] A short runbook in `docs/` — `docs/runbooks/self-upgrade.md`
-- **Notes**: **Dedicated session** — do not fold into other work. **Scheduled 2026-10-15** (owner: run the manual process one more day). **Interim (owner, 2026-10-14):** use web auto-deployment (`deploy.yml`) for the PWA and **manual AAB upload to Google Play** for the collector until this session. **Observation 2026-10-15:** the Vercel Git integration is auto-deploying on push again (independent of CI); the CI `VERCEL_TOKEN` (reused CLI OAuth) rotated and was refreshed — a dedicated no-expiration token is still required.
+- **Notes**: **Dedicated session** — do not fold into other work. **Scheduled 2026-10-15** (owner: run the manual process one more day). **Interim (owner, 2026-10-14):** use web auto-deployment (`deploy.yml`) for the PWA and **manual AAB upload to Google Play** for the collector until this session. **Observation 2026-10-15:** the Vercel Git integration is auto-deploying on push again (independent of CI); the CI `VERCEL_TOKEN` (reused CLI OAuth) rotated and was refreshed — a dedicated no-expiration token is still required. **Token update (2026-10-18):** replaced it with a dedicated project-scoped token; CI deploy is green.
 - **Bug fix (2026-10-16)** — *Play internal never updated past 1.0.9*:
   - **Report**: owner saw the Play Store internal list still on **1.0.9**.
   - **Diagnosis** (Play Developer API, `internal` track): `status=draft versionCodes=18` (the latest draft) alongside `status=completed versionCodes=10` (1.0.9). Every upload since 1.0.9 was a **draft**, which is never rolled out → testers stayed on 1.0.9.
@@ -738,6 +744,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 32 — push_to_dev token failure + fabricated success)
+- Production `GITHUB_TOKEN` was stale (`Bad credentials`); `push_to_dev` failed and the model falsely reported success with a nonexistent issue URL. Rotated the Vercel production token/repo and redeployed; real issue **#13** created and closed. Added a deterministic failure guard in `app/api/chat/route.ts`, `success:false` tool returns, and stricter manifest/runtime wording. Guard commit `3d7a643` deployed via run **39141830075**. Known follow-up: model anchoring from global history can skip the tool call. → **P1-53** evidence updated.
 
 ### 2026-10-18 (session 31 — ES-022 Phase 1 tools)
 - Added `push_to_dev(title, body)` to the DeepSeek tool array; extracted shared `lib/github.ts` (title dedupe, `yuanying-feedback` label) used by both the tool and `/api/integrations/github`. Manifest/runtime require owner confirmation before filing and honest tool-error wording. Forbidden tools not added. New item **P1-53** (handoff labeled P1-51, already ES-013). → **P1-53**.
