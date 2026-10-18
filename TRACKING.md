@@ -307,6 +307,7 @@
 - **Display cutoff (2026-10-16)**: the day value is the **max** snapshot, so an already-stored inflated reading would persist. `pickDailySteps` + `GET /api/steps` now **prefer rows tagged `context.timezone`** (collector v1.0.21+ = corrected local window); legacy UTC-window rows are preserved for audit but excluded once a corrected row exists (clean-data cutoff, AGENTS §3).
 - **ES-011 §3 provenance (2026-10-16)**: steps `context` now also carries `source` (`merged`), `aggregation` (`sum`), and `raw_value`, alongside `window_start`/`window_end`/`timezone`/`sources`. Collector **v1.0.22 (code 23)**.
 - **Fix (issue #8, 2026-10-17)**: per-origin data proved double counting — Fit `4054` + HC-phone `4317` = `8371`. Collector now takes **max per origin** (`aggregation: max_per_origin`; `raw_value` = raw sum), so it reports ~`4317`. Collector **v1.0.27 (code 28)**.
+- **Verified (2026-10-17)**: release run green; Play internal `completed` (code 28). Open issues #2/#3/#5/#6/#7/#8 all commented + closed (3/5/6 duplicate/completed; 8 fixed).
 - **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
 - **Verified (2026-10-16)**: Play internal `completed` (versionCode 22); GitHub Release `v1.0.21`; web `/api/steps` live. Production still shows the pre-fix value (`2700`) until the phone runs v1.0.21 and posts a corrected row — then the cutoff switches the day value to the local-day reading.
 
