@@ -615,7 +615,7 @@
 
 ### [P1-54] Feedback lifecycle & copy/send separation (ES-023, issue #14)
 
-- **Status**: In Progress · **Category**: Bug (UI/Architecture) + Documentation · **Refs**: Issue #14, ES-023, ES-024 (merged) · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Bug (UI/Architecture) + Documentation · **Refs**: Issue #14, ES-023, ES-024 (merged) · **Opened**: 2026-10-18
 - **Spec**: `docs/specs/ES-023-feedback-lifecycle.md`. ES-024 overlapped and was merged into ES-023.
 - **Problem**: Copy actions sat next to sending actions with no visual distinction; status was plain `[new]` text; no lifecycle diagram or inbox consumption doc. `Copy for Dev` was already removed in ES-016.
 - **Impl**:
@@ -625,15 +625,17 @@
   - `docs/feedback-lifecycle.md` — Mermaid state machine, action/effect table, failure behavior, inbox consumption.
   - `docs/pm/inbox/README.md` — Dev consumption process and `[已处理]`/archive convention.
   - `core/system-manifest.md` — accurate copy vs send and state-machine description.
+- **Verified (2026-10-18, local)**: `npx tsc --noEmit`, `npm run lint`, and `npm run build` pass.
+- **Verified (2026-10-18, prod, commit `3a201c8`, deploy run `39143672850`)**: production chunks contain **Copy as Text**, **本地 / 发送** labels, and the status labels; no `Copy for AI` or `Copy for Dev` remains. Docs are in `docs/feedback-lifecycle.md`, `docs/pm/inbox/README.md`, and `docs/specs/ES-023-feedback-lifecycle.md`.
 - **Acceptance**:
-  - [ ] No `Copy for Dev` in the UI.
-  - [ ] `Copy as Text` is visually local-only; sending actions are separate.
-  - [ ] Colored status badges in notes and Feedback tab.
-  - [ ] `docs/feedback-lifecycle.md` exists with Mermaid.
-  - [ ] `docs/pm/inbox/README.md` exists with consumption process.
-  - [ ] Manifest matches the implementation.
-  - [ ] `tsc` + lint + build pass; production contains the new labels/docs.
-- **Remaining**: build/deploy, production check, close issue #14.
+  - [x] No `Copy for Dev` in the UI.
+  - [x] `Copy as Text` is visually local-only; sending actions are separate.
+  - [x] Colored status badges in notes and Feedback tab.
+  - [x] `docs/feedback-lifecycle.md` exists with Mermaid.
+  - [x] `docs/pm/inbox/README.md` exists with consumption process.
+  - [x] Manifest matches the implementation.
+  - [x] `tsc` + lint + build pass; production contains the new labels/docs.
+- **Notes**: `resolved` is now terminal server-side (`409` on Push). The guard is code-verified; there was no resolved note to exercise it in production. Issue #14 closed with the evidence.
 
 ---
 
@@ -768,6 +770,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 33 — ES-023 feedback lifecycle, issue #14)
+- Renamed **Copy for AI** → **Copy as Text** and grouped it as local-only; sending actions stay separate. Added shared colored status badges. Blocked Push for `resolved` notes (`409`). Added `docs/feedback-lifecycle.md`, `docs/pm/inbox/README.md`, and `docs/specs/ES-023-feedback-lifecycle.md` (ES-024 merged). Verified in production (run `39143672850`); issue #14 closed. → **P1-54 Done**.
 
 ### 2026-10-18 (session 32 — push_to_dev token failure + fabricated success)
 - Production `GITHUB_TOKEN` was stale (`Bad credentials`); `push_to_dev` failed and the model falsely reported success with a nonexistent issue URL. Rotated the Vercel production token/repo and redeployed; real issue **#13** created and closed. Added a deterministic failure guard in `app/api/chat/route.ts`, `success:false` tool returns, and stricter manifest/runtime wording. Guard commit `3d7a643` deployed via run **39141830075**. Known follow-up: model anchoring from global history can skip the tool call. → **P1-53** evidence updated.
