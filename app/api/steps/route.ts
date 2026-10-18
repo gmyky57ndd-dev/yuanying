@@ -81,11 +81,13 @@ export async function GET() {
   const byAgg = rows.filter((r: any) => r.context?.aggregation === 'max_per_origin');
   const byTz = rows.filter((r: any) => r.context?.timezone);
   const pool = byAgg.length > 0 ? byAgg : byTz.length > 0 ? byTz : rows;
-  const steps = pool.reduce(
-    (max: number, r: any) => Math.max(max, Number(r.value) || 0),
-    0
+  const best = pool.reduce(
+    (a: any, b: any) =>
+      (Number(b.value) || 0) > (Number(a.value) || 0) ? b : a,
+    pool[0]
   );
-  const latest = pool[0];
+  const steps = Number(best?.value) || 0;
+  const ctx = best?.context ?? {};
 
   const { data: goalConfig } = await supabase
     .from('config')
@@ -96,6 +98,20 @@ export async function GET() {
   return NextResponse.json({
     steps,
     goal: goalConfig?.value ?? 5000,
-    updated_at: latest?.created_at ?? null,
+    updated_at: best?.created_at ?? null,
+    // ES-025: expose the source breakdown behind the displayed value.
+    source: ctx.source ?? null,
+    aggregation: ctx.aggregation ?? null,
+    raw_value: typeof ctx.raw_value === 'number' ? ctx.raw_value : null,
+    sources: Array.isArray(ctx.sources) ? ctx.sources : [],
+    sources_count:
+      typeof ctx.sources_count === 'number'
+        ? ctx.sources_count
+        : Array.isArray(ctx.sources)
+          ? ctx.sources.length
+          : 0,
+    window_start: ctx.window_start ?? null,
+    window_end: ctx.window_end ?? null,
+    timezone: ctx.timezone ?? null,
   });
 }

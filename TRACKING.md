@@ -639,6 +639,25 @@
 
 ---
 
+### [P1-55] Steps source merge logic + debug view (ES-025)
+
+- **Status**: In Progress · **Category**: Bug (Diagnostics) + Feature (Debug UI) · **Refs**: Issue #8, Issue #15 · **Opened**: 2026-10-18
+- **Spec**: `docs/specs/ES-025-steps-source-debug.md`.
+- **Issue note**: issue #15 is the separate `push_to_dev` fabricated-URL bug (fixed under P1-53); the steps questions belong on issue #8.
+- **Impl**:
+  - `app/api/steps/route.ts` — GET returns `sources`, `sources_count`, `source`, `aggregation`, `raw_value`, `window_start`, `window_end`, `timezone`, and `updated_at` from the row that produced the displayed max value.
+  - `app/page.tsx` — tapping or long-pressing the steps line opens a debug modal listing each source (`package`, `steps`, record count), window, aggregation, and raw total.
+- **Evidence (prod, 2026-10-18 16:45:36 UTC, signal #592)**: displayed **536**, raw **932**, two origins — Fit **396** (18 records) and HC phone **536** (35 records). No row in the last 200 had more than 2 origins. Watch **569** → 33-step gap, consistent with sync/sampling delay; double counting would look like the raw 932.
+- **Answers**: `max_per_origin` groups by `dataOrigin.packageName`, sums each origin's records, then takes the max (not max per device/record). Sources are HealthConnect origins, not physical devices. The 33-step gap is within the <50-step sampling range; the watch source/timestamps are needed to prove the exact delay.
+- **Acceptance**:
+  - [ ] Four answers posted on issue #8.
+  - [ ] UI shows per-source breakdown.
+  - [ ] Production `/api/steps` returns `sources`.
+  - [ ] `tsc` + lint + build pass.
+- **Remaining**: deploy, post issue #8 comment, close issue #15 separately.
+
+---
+
 ## To Do
 
 _(ES-008/ES-009 home + history work is in review; no open To Do items.)_

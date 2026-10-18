@@ -27,6 +27,25 @@ type Signal = {
   context: Record<string, any>;
 };
 
+type StepSource = {
+  package: string;
+  steps: number;
+  count: number;
+};
+
+type StepsInfo = {
+  value: number;
+  goal: number;
+  sources: StepSource[];
+  source?: string | null;
+  aggregation?: string | null;
+  raw_value?: number | null;
+  window_start?: string | null;
+  window_end?: string | null;
+  timezone?: string | null;
+  updated_at?: string | null;
+};
+
 function hm(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-GB', {
     hour: '2-digit',
@@ -82,9 +101,8 @@ export default function Home() {
   const [todaySignals, setTodaySignals] = useState<Signal[]>([]);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [steps, setSteps] = useState<{ value: number; goal: number } | null>(
-    null
-  );
+  const [steps, setSteps] = useState<StepsInfo | null>(null);
+  const [stepsDetailOpen, setStepsDetailOpen] = useState(false);
   const [notes, setNotes] = useState<Array<{ id: number; text: string }>>([]);
   const [noteOpen, setNoteOpen] = useState(false);
   const [noteText, setNoteText] = useState('');
@@ -252,7 +270,18 @@ export default function Home() {
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/steps`, {});
       const d = await r.json();
-      setSteps({ value: d.steps ?? 0, goal: d.goal ?? 5000 });
+      setSteps({
+        value: d.steps ?? 0,
+        goal: d.goal ?? 5000,
+        sources: Array.isArray(d.sources) ? d.sources : [],
+        source: d.source ?? null,
+        aggregation: d.aggregation ?? null,
+        raw_value: d.raw_value ?? null,
+        window_start: d.window_start ?? null,
+        window_end: d.window_end ?? null,
+        timezone: d.timezone ?? null,
+        updated_at: d.updated_at ?? null,
+      });
     } catch {}
   }
 
@@ -546,9 +575,23 @@ export default function Home() {
 
       {/* Steps */}
       {steps && (
-        <div className="text-center text-[11px] text-stone-500 pb-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => setStepsDetailOpen(true)}
+          onContextMenu={e => {
+            e.preventDefault();
+            setStepsDetailOpen(true);
+          }}
+          className="text-center text-[11px] text-stone-500 pb-2 shrink-0 hover:text-stone-300"
+          title="查看步数来源明细"
+        >
           步数 {steps.value} / {steps.goal}
-        </div>
+          {steps.sources.length > 0 && (
+            <span className="ml-1 text-stone-600">
+              · 来源 {steps.sources.length}
+            </span>
+          )}
+        </button>
       )}
 
       {/* Habit tracking: 起身 + 维生素 (owner request) */}
@@ -936,6 +979,79 @@ export default function Home() {
           →
         </button>
       </div>
+
+      {/* ES-025: steps source debug */}
+      {stepsDetailOpen && steps && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4"
+          onClick={() => setStepsDetailOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-stone-800 bg-stone-900 p-4 text-stone-200"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-sm text-stone-200">步数明细</div>
+              <button
+                onClick={() => setStepsDetailOpen(false)}
+                className="text-stone-500 text-lg leading-none"
+                aria-label="close"
+              >
+                ×
+              </button>
+            </div>
+            <div className="text-[11px] text-stone-500 space-y-1">
+              <div>
+                今日 {steps.value} / {steps.goal}
+                {steps.updated_at ? ` · ${hm(steps.updated_at)}` : ''}
+              </div>
+              <div>
+                聚合 {steps.aggregation ?? '—'}
+                {typeof steps.raw_value === 'number'
+                  ? ` · 原始合计 ${steps.raw_value}`
+                  : ''}
+              </div>
+              {steps.window_start && steps.window_end && (
+                <div>
+                  窗口 {hm(steps.window_start)} → {hm(steps.window_end)}
+                  {steps.timezone ? ` (${steps.timezone})` : ''}
+                </div>
+              )}
+            </div>
+            <div className="mt-3 border-t border-stone-800 pt-3">
+              <div className="text-[11px] text-stone-500 mb-2">
+                数据来源（{steps.sources.length}）
+              </div>
+              {steps.sources.length === 0 ? (
+                <div className="text-[11px] text-stone-600">
+                  这次上报没有 source 明细（旧版 collector）。
+                </div>
+              ) : (
+                <ul className="space-y-2">
+                  {steps.sources.map(s => (
+                    <li
+                      key={s.package}
+                      className="flex items-start justify-between gap-3 text-[11px]"
+                    >
+                      <span className="text-stone-400 break-all">
+                        {s.package}
+                      </span>
+                      <span className="text-stone-200 shrink-0">
+                        {s.steps}
+                        <span className="text-stone-600"> · {s.count} 条</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <p className="text-[10px] text-stone-600 mt-3">
+              显示值取各来源最大值（max per origin），不是相加。不同来源是独立采样，
+              差值通常是同步延迟，不是重复计数。
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
