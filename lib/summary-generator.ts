@@ -211,11 +211,14 @@ function pickSleep(signals: any[]) {
 function pickDailySteps(signals: any[]): number {
   const steps = signals.filter(s => s.name === 'steps');
   if (steps.length === 0) return 0;
-  // P1-23: prefer rows from the corrected local-midnight window (collector
-  // v1.0.21+ tags context.timezone). Legacy UTC-window rows are preserved for
-  // audit but excluded from the day's value once a corrected row exists.
-  const corrected = steps.filter((s: any) => s.context?.timezone);
-  const pool = corrected.length > 0 ? corrected : steps;
+  // Clean-data cutoff (issue #8): prefer rows from the corrected aggregation
+  // (`max_per_origin`, collector v1.0.27+), then local-window rows
+  // (`context.timezone`, v1.0.21+), then legacy rows. Old `sum` rows (which
+  // double-counted phone + Fit) are kept for audit but never override a
+  // corrected reading.
+  const byAgg = steps.filter((s: any) => s.context?.aggregation === 'max_per_origin');
+  const byTz = steps.filter((s: any) => s.context?.timezone);
+  const pool = byAgg.length > 0 ? byAgg : byTz.length > 0 ? byTz : steps;
   // Steps are cumulative-within-day; take max snapshot, not last (guards a
   // late empty sync writing 0).
   return pool.reduce((max, s) => {

@@ -72,14 +72,15 @@ export async function GET() {
     .lt('created_at', end.toISOString())
     .order('created_at', { ascending: false });
 
-  // P1-23: steps are cumulative-within-day; take the max snapshot, not the
-  // last, so a late empty HealthConnect sync (value 0) does not erase a real
-  // value. Prefer rows from the corrected local-midnight window (collector
-  // v1.0.21+ tags context.timezone); legacy UTC-window rows are kept for audit
-  // but excluded once a corrected row exists (clean-data cutoff).
+  // P1-23 / issue #8: steps are cumulative-within-day; take the max snapshot,
+  // not the last, so a late empty sync (0) does not erase a real value. Prefer
+  // the corrected aggregation (`max_per_origin`, collector v1.0.27+), then
+  // local-window rows (`context.timezone`), then legacy rows — old `sum` rows
+  // (double-counted phone + Fit) never override a corrected reading.
   const rows = data ?? [];
-  const corrected = rows.filter((r: any) => r.context?.timezone);
-  const pool = corrected.length > 0 ? corrected : rows;
+  const byAgg = rows.filter((r: any) => r.context?.aggregation === 'max_per_origin');
+  const byTz = rows.filter((r: any) => r.context?.timezone);
+  const pool = byAgg.length > 0 ? byAgg : byTz.length > 0 ? byTz : rows;
   const steps = pool.reduce(
     (max: number, r: any) => Math.max(max, Number(r.value) || 0),
     0

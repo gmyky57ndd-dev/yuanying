@@ -308,6 +308,7 @@
 - **ES-011 §3 provenance (2026-10-16)**: steps `context` now also carries `source` (`merged`), `aggregation` (`sum`), and `raw_value`, alongside `window_start`/`window_end`/`timezone`/`sources`. Collector **v1.0.22 (code 23)**.
 - **Fix (issue #8, 2026-10-17)**: per-origin data proved double counting — Fit `4054` + HC-phone `4317` = `8371`. Collector now takes **max per origin** (`aggregation: max_per_origin`; `raw_value` = raw sum), so it reports ~`4317`. Collector **v1.0.27 (code 28)**.
 - **Verified (2026-10-17)**: release run green; Play internal `completed` (code 28). Open issues #2/#3/#5/#6/#7/#8 all commented + closed (3/5/6 duplicate/completed; 8 fixed).
+- **Display cutoff (2026-10-17)**: home/summary now prefer rows with `aggregation='max_per_origin'` (then `context.timezone`, then legacy). This stops the old `sum` row (8371) from overriding the corrected `max_per_origin` row (4595) via the max-snapshot rule.
 - **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
 - **Verified (2026-10-16)**: Play internal `completed` (versionCode 22); GitHub Release `v1.0.21`; web `/api/steps` live. Production still shows the pre-fix value (`2700`) until the phone runs v1.0.21 and posts a corrected row — then the cutoff switches the day value to the local-day reading.
 
@@ -524,6 +525,7 @@
 - **Impl**: `feedback_status` column (`new|inbox|pushed|resolved`, migration 015). `POST /api/integrations/inbox` commits `docs/pm/inbox/YYYY-MM-DD-<id>.md` via the GitHub Contents API and sets `inbox` (stays `new` on failure). Push to GitHub sets `pushed` + stores `github_issue_url`. Feedback tab shows **[status]** chips, **[Save to Inbox]** (real commit), **[Mark Resolved]** (inbox/pushed only). `core/system-manifest.md` explains statuses; the chat prompt receives recent feedback statuses so 元婴 can answer "did you send it?".
 - **Verified (2026-10-17, prod)**: Save to Inbox on note #490 → `POST /api/integrations/inbox` returned `docs/pm/inbox/2026-10-17-490.md`; repo commit `c551fd0` (332 B); DB `feedback_status='inbox'`, `promoted=true`.
 - **Verified (2026-10-17)**: asked "did you send the feedback about Save to Inbox?" — 元婴 answered from the status (`[inbox]`, dev sees on next pull) and correctly said the new note was not sent.
+- **Duplicate guardrail (2026-10-17)**: `/api/integrations/github` returns the existing issue (`already:true`) if the note already has `github_issue_url`; the UI shows **Pushed** and disables re-send. Save to Inbox remains hidden once status != `new`.
 - **Remaining**: owner device check (chips / Save to Inbox / Mark Resolved).
 
 ---
@@ -659,6 +661,10 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-17 (session 25 — duplicate guardrail + steps cutoff)
+- Issue duplicate guardrail: server returns the existing issue if a note already has `github_issue_url`; UI shows **Pushed**/disabled; hides Save to Inbox unless status is `new`.
+- Steps display cutoff now prefers `aggregation='max_per_origin'` rows, so the invalid `sum` row (8371) no longer overrides the corrected row (4595).
 
 ### 2026-10-17 (session 24 — issue triage + steps max-per-origin)
 - Issue #8: HealthConnect origins were summed (Fit 4054 + phone 4317 = 8371). Steps now use **max per origin** (`max_per_origin`), raw sum kept for audit. Collector **v1.0.27 (code 28)**.

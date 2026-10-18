@@ -362,7 +362,10 @@ export default function Home() {
       try {
         if (url) await navigator.clipboard.writeText(url);
       } catch {}
-      alert(`Issue created!${url ? `\n${url}` : ''}`);
+      alert(
+        `${d.already ? 'Already sent!' : 'Issue created!'}${url ? `\n${url}` : ''}`
+      );
+      loadSignals();
     } catch {
       alert('GitHub 失败');
     }
@@ -617,24 +620,37 @@ export default function Home() {
                     )}
                     {open && e.feedback && (
                       <div className="ml-[52px] mt-1 flex flex-wrap gap-1">
-                        <button
-                          onClick={() => pushToDevEntry(e)}
-                          className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
-                        >
-                          Push to GitHub
-                        </button>
+                        {e.issueUrl ? (
+                          <a
+                            href={e.issueUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                          >
+                            Pushed ↗
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => pushToDevEntry(e)}
+                            className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                          >
+                            Push to GitHub
+                          </button>
+                        )}
                         <button
                           onClick={() => copyForAIEntry(e)}
                           className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
                         >
                           Copy for AI
                         </button>
-                        <button
-                          onClick={() => saveToInbox(e.ref)}
-                          className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
-                        >
-                          Save to Inbox
-                        </button>
+                        {(!e.status || e.status === 'new') && (
+                          <button
+                            onClick={() => saveToInbox(e.ref)}
+                            className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                          >
+                            Save to Inbox
+                          </button>
+                        )}
                       </div>
                     )}
                   </li>

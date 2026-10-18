@@ -20,6 +20,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Guardrail: if this note already produced an issue, return it instead of
+    // creating a duplicate.
+    if (note_id) {
+      const { data: existing } = await supabase
+        .from('signals')
+        .select('context, feedback_status')
+        .eq('id', note_id)
+        .eq('name', 'note')
+        .maybeSingle();
+      const issueUrl = existing?.context?.github_issue_url;
+      if (issueUrl) {
+        return NextResponse.json({
+          ok: true,
+          issue_url: issueUrl,
+          number: existing?.context?.github_issue_number ?? null,
+          already: true,
+        });
+      }
+    }
+
     const res = await fetch(
       `https://api.github.com/repos/${process.env.GITHUB_REPO}/issues`,
       {

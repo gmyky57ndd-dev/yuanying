@@ -19,6 +19,7 @@ type Item = {
 export default function FeedbackPage() {
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pushingId, setPushingId] = useState<number | null>(null);
 
   async function load() {
     setLoading(true);
@@ -58,6 +59,8 @@ export default function FeedbackPage() {
   }
 
   async function pushToDev(it: Item) {
+    if (it.issue_url || pushingId === it.id) return;
+    setPushingId(it.id);
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/integrations/github`, {
         method: 'POST',
@@ -85,10 +88,14 @@ export default function FeedbackPage() {
       try {
         if (url) await navigator.clipboard.writeText(url);
       } catch {}
-      alert(`Issue created!${url ? `\n${url}` : ''}`);
+      alert(
+        `${d.already ? 'Already sent!' : 'Issue created!'}${url ? `\n${url}` : ''}`
+      );
       load();
     } catch {
       alert('GitHub 失败');
+    } finally {
+      setPushingId(null);
     }
   }
 
@@ -158,9 +165,15 @@ export default function FeedbackPage() {
               <div className="flex flex-wrap gap-2 mt-2 items-center">
                 <button
                   onClick={() => pushToDev(it)}
-                  className="text-[11px] bg-stone-800 rounded-full px-3 py-1"
+                  disabled={!!it.issue_url || pushingId === it.id}
+                  className="text-[11px] bg-stone-800 rounded-full px-3 py-1 disabled:opacity-40"
+                  title={it.issue_url ? 'Already sent' : undefined}
                 >
-                  Push to GitHub
+                  {it.issue_url
+                    ? 'Pushed'
+                    : pushingId === it.id
+                      ? 'Pushing…'
+                      : 'Push to GitHub'}
                 </button>
                 <button
                   onClick={() => copyForAI(it)}

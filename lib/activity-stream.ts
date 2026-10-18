@@ -12,6 +12,7 @@ export type RawSignal = {
   value: any;
   context?: Record<string, any>;
   created_at: string;
+  feedback_status?: string | null;
 };
 
 export type StreamApp = { package: string; name: string; minutes: number };
@@ -27,6 +28,8 @@ export type StreamEntry =
       tags: string[];
       feedback: boolean;
       feedbackSuggested: boolean;
+      status: string;
+      issueUrl: string | null;
     }
   | { kind: 'steps'; id: string; at: string; value: number }
   | {
@@ -75,6 +78,9 @@ export function buildActivityStream(signals: RawSignal[]): StreamEntry[] {
         tags: Array.isArray(s.value?.tags) ? s.value.tags : [],
         feedback: s.value?.feedback === true,
         feedbackSuggested: s.value?.feedbackSuggested === true,
+        status:
+          s.feedback_status ?? (s.value?.feedback === true ? 'new' : ''),
+        issueUrl: s.context?.github_issue_url ?? null,
       });
     }
   }
