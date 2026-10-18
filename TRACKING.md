@@ -109,6 +109,13 @@
 - **Verified (2026-10-17, prod)**: two identical POSTs within 5s → second returned `{deduped:true, id:484}`; only **1** row created (test row deleted).
 - **Remaining**: owner device check.
 
+### [B-24] Chat messages vanished after 10:20pm `[BUG]`
+
+- **Status**: In Review · **Category**: Bug · **Opened**: 2026-10-18 · **Refs**: issue #11
+- **Diagnosis**: the messages were in the DB (ids 82–91). `/api/history?today=1` ordered **ascending** + `limit=50`; Oct 17 had **58** messages, so it returned the **oldest 50** and dropped the newest 8. Every send reloaded and replaced the UI with that page.
+- **Fix**: query newest-first then reverse; add the product-day upper bound; `loadMessages` no longer wipes the view on a server error.
+- **Verified (2026-10-18, prod)**: `/api/history?limit=5` returns ids 91–95 (newest); `/api/history?today=1` returns today's 4.
+
 ### [P1-16] Voice pass — 元婴 speaks, not reports
 
 - **Status**: In Review
@@ -672,6 +679,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 27 — issue #11 chat history truncation)
+- Root cause: ascending + limit 50 returned the oldest messages once a day exceeded 50. Fixed to newest-first (+ reverse) with a day upper bound; UI no longer wipes on error. → **B-24**. Closed issue #11.
 
 ### 2026-10-17 (session 26 — ES-019 message actions)
 - Chat assistant messages get **Push to GitHub / Save to Inbox / Copy** via a `⋮` menu (hover/long-press); message-level `github_issue_url` + **Issue #N** badge. Renumbered ES-018 to **P1-48**, Fenshen to **P1-49**. → **P1-47**.
