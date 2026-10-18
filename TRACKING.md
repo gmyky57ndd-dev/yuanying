@@ -562,7 +562,43 @@
 - **Status**: In Review · **Category**: Feature (Architecture) · **Refs**: ES-021 · **Opened**: 2026-10-18
 - **Impl**: DeepSeek calls now include `tools` (`get_notes`, `get_conversation_records`, `get_summary`) with a bounded tool loop (3 rounds, 20s/call); the backend executes Supabase/filesystem queries and feeds results back. Manifest gains a **Tools (法术)** section.
 - **Verified (2026-10-18, prod)**: "昨天我写了什么笔记？" → `get_notes` returned the 9 Oct-17 notes; "Fenshen 是怎么决定的？" → `get_conversation_records` returned the ES-013 decisions (Core vs Interface, shared memory, no-deploy). (Earlier misses were deploy lag + model anchoring; a forced tool call listed ES-013.)
+- **Extended by**: P1-53 / ES-022 (`push_to_dev`; shared GitHub helper).
 - **Remaining**: owner check.
+
+---
+
+### [P1-52] Force proactive tool use (ES-021b)
+
+- **Status**: In Progress · **Category**: Bug (Prompt/Behavior) · **Refs**: ES-021b, P1-49 · **Opened**: 2026-10-18
+- **Label note**: Handoff labeled this **P1-50**, but P1-50 is ES-018 feedback status; following the owner-ID convention above, this item is **P1-52**.
+- **Problem**: 元婴 has `get_conversation_records` / `get_notes` but answers shallowly or says it lacks context without querying the DB first.
+- **Impl**: `core/system-manifest.md` gains **Rule: Proactive Tool Use** (must call a tool before answering questions about past notes/events/decisions; never claim missing context before querying; quote the returned section). Runtime prompt in `lib/yuanying.ts` reinforces: call `get_notes` / `get_conversation_records` / `get_summary` before answering, and only say "not in my context" after the tool returns nothing.
+- **Acceptance**:
+  - [ ] User asks about a past decision → 元婴 calls the tool without being prompted.
+  - [ ] 元婴 stops giving shallow answers when deep context exists in the DB.
+- **Remaining**: deploy + owner verification.
+
+---
+
+### [P1-53] Phase 1 agentic tools (ES-022)
+
+- **Status**: In Review · **Category**: Feature (Architecture) · **Refs**: ES-022, ES-021, ES-021b · **Opened**: 2026-10-18
+- **Label note**: Handoff labeled this **P1-51**, but P1-51 is ES-013 Fenshen architecture; following the owner-ID convention above, this item is **P1-53**.
+- **Spec**: `docs/specs/ES-022-phase-1-tools.md`.
+- **Impl**: `app/api/chat/route.ts` tool array now exposes `get_notes`, `get_conversation_records`, `get_summary` (retained from ES-021), and `push_to_dev(title, body)`. The bounded loop already handled `tool_calls` → backend execution → `role: 'tool'` → final answer. `push_to_dev` uses the new shared `lib/github.ts` helper (also used by `/api/integrations/github`); it reuses title-based dedupe and the `yuanying-feedback` label, returning `{ success, issue_url, number, already }` or `{ error }`.
+- **Manifest**: `core/system-manifest.md` gains **你的工具 (Your Tools)**, tool-error wording, and **Rule: Confirm Before Sending**. Runtime prompt (`lib/yuanying.ts`) adds the same confirmation and failure-is-not-success rule.
+- **Deviations from the handoff (recorded)**:
+  - Notes are stored in `signals` where `name='note'` (not a `notes` table); `get_notes` already queries them with the product timezone.
+  - `get_summary` is retained from ES-021 rather than removed, to avoid regressing an approved tool.
+  - `push_to_dev` requires explicit owner confirmation before filing (AGENTS §2.2), so it is not fully autonomous on an inferred bug.
+  - Forbidden tools (`send_email`, `send_message`, `write_code`, `execute_code`, `access_bank`, `make_payment`, `delete_data`, `drop_table`) were not added.
+- **Verified (2026-10-18, local)**: `npx tsc --noEmit` and `npm run lint` pass. The tool loop itself was verified in production under P1-49 for `get_notes` and `get_conversation_records`.
+- **Acceptance**:
+  - [x] `get_notes` works (verified in prod under P1-49).
+  - [x] `get_conversation_records` quotes ES-013 (verified in prod under P1-49).
+  - [ ] `push_to_dev` creates a GitHub issue when the owner asks and confirms (prod).
+  - [ ] Tool errors produce "我尝试查了，但系统报错" rather than fabricated success (prod).
+- **Remaining**: deploy + owner verification of `push_to_dev` (and its dedupe/error path).
 
 ---
 
@@ -697,6 +733,12 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 31 — ES-022 Phase 1 tools)
+- Added `push_to_dev(title, body)` to the DeepSeek tool array; extracted shared `lib/github.ts` (title dedupe, `yuanying-feedback` label) used by both the tool and `/api/integrations/github`. Manifest/runtime require owner confirmation before filing and honest tool-error wording. Forbidden tools not added. New item **P1-53** (handoff labeled P1-51, already ES-013). → **P1-53**.
+
+### 2026-10-18 (session 30 — ES-021b proactive tool use)
+- Manifest gains **Rule: Proactive Tool Use**; runtime prompt requires querying `get_notes` / `get_conversation_records` / `get_summary` before answering past-context questions. New item **P1-52** (handoff labeled P1-50, already ES-018).
 
 ### 2026-10-18 (session 29 — ES-021 agentic tools)
 - Added DeepSeek function calling (`get_notes`, `get_conversation_records`, `get_summary`) with a bounded tool loop; manifest documents the tools. Renumbered ES-018 to **P1-50**, Fenshen to **P1-51**. → **P1-49**.

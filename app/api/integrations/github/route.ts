@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import {
+  CreatedIssue,
+  GitHubConfigError,
+  GitHubRequestError,
+  findOrCreateIssue,
+} from '@/lib/github';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,81 +83,35 @@ export async function POST(req: NextRequest) {
       if (!expectedBody) expectedBody = msg.content;
     }
 
-    expectedTitle = (expectedTitle || 'Yuanying Feedback').slice(0, 200);
-    const headers = {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-      'User-Agent': 'yuanying-fenshen',
-    };
-
-    // Title-based guardrail (covers issues created before we stored links).
+    let issue: CreatedIssue;
     try {
-      const listRes = await fetch(
-        `https://api.github.com/repos/${repo}/issues?state=all&per_page=100&sort=created&direction=desc`,
-        { headers }
-      );
-      if (listRes.ok) {
-        const list = await listRes.json();
-        const hit = Array.isArray(list)
-          ? list.find(
-              (i: any) => !i.pull_request && i.title === expectedTitle
-            )
-          : null;
-        if (hit) {
-          await attachIssue({
-            note_id,
-            message_id,
-            noteContext,
-            url: hit.html_url,
-            number: hit.number,
-          });
-          return NextResponse.json({
-            ok: true,
-            issue_url: hit.html_url,
-            number: hit.number,
-            already: true,
-          });
-        }
+      issue = await findOrCreateIssue(expectedTitle, expectedBody);
+    } catch (e) {
+      if (e instanceof GitHubConfigError) {
+        return NextResponse.json(
+          { error: 'GitHub config missing' },
+          { status: 500 }
+        );
       }
-    } catch {
-      // Non-fatal: fall through and create the issue.
+      if (e instanceof GitHubRequestError) {
+        return NextResponse.json({ error: e.message }, { status: e.status });
+      }
+      return NextResponse.json({ error: 'github error' }, { status: 500 });
     }
 
-    const res = await fetch(
-      `https://api.github.com/repos/${repo}/issues`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          title: expectedTitle,
-          body: expectedBody,
-          labels: ['yuanying-feedback'],
-        }),
-      }
-    );
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return NextResponse.json(
-        { error: err?.message ?? 'github error' },
-        { status: res.status }
-      );
-    }
-
-    const data = await res.json();
     await attachIssue({
       note_id,
       message_id,
       noteContext,
-      url: data.html_url,
-      number: data.number,
+      url: issue.issue_url,
+      number: issue.number,
     });
 
     return NextResponse.json({
       ok: true,
-      issue_url: data.html_url,
-      number: data.number,
+      issue_url: issue.issue_url,
+      number: issue.number,
+      already: issue.already,
     });
   } catch {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

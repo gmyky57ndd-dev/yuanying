@@ -11,6 +11,7 @@ import {
   getDateInTimezone,
 } from '@/lib/timezone';
 import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
+import { findOrCreateIssue } from '@/lib/github';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -59,6 +60,26 @@ const TOOLS = [
           date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
         },
         required: ['date'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'push_to_dev',
+      description:
+        'Create a GitHub issue for the dev team. Use only when the owner explicitly asks to send a bug report or feedback to dev, after they confirm the title and body.',
+      parameters: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: 'Short, descriptive title' },
+          body: {
+            type: 'string',
+            description:
+              'Detailed issue description including problem, findings, and suggestions.',
+          },
+        },
+        required: ['title', 'body'],
       },
     },
   },
@@ -137,6 +158,26 @@ async function runTool(name: string, args: any): Promise<any> {
       keyword,
       matches: [...conv, ...specs].slice(0, 6),
     };
+  }
+
+  if (name === 'push_to_dev') {
+    const title = String(args?.title ?? '').trim();
+    const body = String(args?.body ?? '').trim();
+    if (!title) return { error: 'title required' };
+    if (!body) return { error: 'body required' };
+    try {
+      const issue = await findOrCreateIssue(title, body);
+      return {
+        success: true,
+        issue_url: issue.issue_url,
+        number: issue.number,
+        already: issue.already ?? false,
+      };
+    } catch (e) {
+      return {
+        error: e instanceof Error ? e.message : 'github error',
+      };
+    }
   }
 
   if (name === 'get_summary') {
