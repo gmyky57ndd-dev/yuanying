@@ -119,7 +119,7 @@ async function runTool(name: string, args: any): Promise<any> {
         } else {
           const idx = lower.indexOf(needle);
           snippet = raw
-            .slice(Math.max(0, idx - 200), idx + 400)
+            .slice(Math.max(0, idx - 300), idx + 900)
             .replace(/\s+/g, ' ')
             .trim();
         }
@@ -129,16 +129,13 @@ async function runTool(name: string, args: any): Promise<any> {
       return out;
     };
 
-    // Primary: distilled conversation memory. Fallback: specs (the distilled
-    // decisions from design sessions, e.g. ES-013 Fenshen).
-    const conv = searchDir('core/memory/conversations', 5);
-    if (conv.length > 0) {
-      return { keyword, source: 'conversations', matches: conv };
-    }
+    // Return distilled conversation memory AND the relevant spec (specs hold
+    // the design decisions; conversations may only mention them in passing).
+    const conv = searchDir('core/memory/conversations', 3);
+    const specs = searchDir('docs/specs', 4, true);
     return {
       keyword,
-      source: 'specs',
-      matches: searchDir('docs/specs', 5, true),
+      matches: [...conv, ...specs].slice(0, 6),
     };
   }
 
