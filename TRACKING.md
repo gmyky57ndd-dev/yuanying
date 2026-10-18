@@ -598,7 +598,7 @@
   - `get_conversation_records` → ES-013 quotes (Core/Interface, no-deploy, D7 rationale).
   - `push_to_dev` → created issue **#12** with the requested title/body; closed after verification as test cleanup.
   - Error path (local dev, invalid `GITHUB_TOKEN`) → 元婴 reported "失败了。原因：Bad credentials…没建成功" instead of claiming success.
-- **Deploy note**: production deployment `dpl_B1FQXQMfAnvB9B9L8ALVQ75yF7wC` (commit `ff99e64`) was Ready and aliased to `https://yuanying-rust.vercel.app`. The GitHub Actions `Deploy Web (Vercel)` run initially failed because the `VERCEL_TOKEN` secret was invalid. Replaced it with the authenticated Vercel CLI token; workflow run **39139044950** now passes and deployed `yuanying-l43joa352-yuanying.vercel.app`, aliased to production.
+- **Deploy note**: production deployment `dpl_B1FQXQMfAnvB9B9L8ALVQ75yF7wC` (commit `ff99e64`) was Ready and aliased to `https://yuanying-rust.vercel.app`. The GitHub Actions `Deploy Web (Vercel)` run initially failed because the `VERCEL_TOKEN` secret was invalid. Replaced it with a dedicated project-scoped Vercel CI token; workflow run **39140374327** passes and deployed `dpl_GjfcjFjyr9G2Br6znnkTku7SU2E9` (`yuanying-oh9enmnsi-yuanying.vercel.app`), aliased to production.
 - **Acceptance**:
   - [x] `get_notes` works when asked "昨天我写了什么笔记？", and the response includes actual note content.
   - [x] `get_conversation_records` quotes the ES-013 decision when asked "我们是怎么决定Fenshen架构的？".
@@ -742,7 +742,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ### 2026-10-18 (session 31 — ES-022 Phase 1 tools)
 - Added `push_to_dev(title, body)` to the DeepSeek tool array; extracted shared `lib/github.ts` (title dedupe, `yuanying-feedback` label) used by both the tool and `/api/integrations/github`. Manifest/runtime require owner confirmation before filing and honest tool-error wording. Forbidden tools not added. New item **P1-53** (handoff labeled P1-51, already ES-013). → **P1-53**.
 - **Verified in prod (commit `ff99e64`)**: 元婴 auto-called `get_notes` and `get_conversation_records`; `push_to_dev` created issue **#12** with the requested title/body (closed after test); invalid GitHub credentials produced an honest failure message. → **P1-52 Done**, **P1-53 Done**.
-- **Deploy**: replaced the invalid `VERCEL_TOKEN` repo secret with the authenticated Vercel CLI token; workflow run **39139044950** passed and aliased `yuanying-l43joa352-yuanying.vercel.app` to production.
+- **Deploy**: replaced the invalid `VERCEL_TOKEN` repo secret with a dedicated project-scoped Vercel CI token; workflow run **39140374327** passed and aliased `yuanying-oh9enmnsi-yuanying.vercel.app` to production.
 
 ### 2026-10-18 (session 30 — ES-021b proactive tool use)
 - Manifest gains **Rule: Proactive Tool Use**; runtime prompt requires querying `get_notes` / `get_conversation_records` / `get_summary` before answering past-context questions. New item **P1-52** (handoff labeled P1-50, already ES-018).
