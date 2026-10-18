@@ -603,7 +603,7 @@
   - Added a deterministic route guard in `app/api/chat/route.ts`: if the last `push_to_dev` result is an error/`success:false`, the reply is replaced with `没发成功。系统报错：<reason>`; `push_to_dev` now returns `success:false` on failure.
   - Hardened `core/system-manifest.md` + `lib/yuanying.ts`: only report success when the result has `success:true` and an `issue_url`; never invent a URL.
   - Deployed guard commit `3d7a643` (run **39141830075**, `yuanying-qj6vy2nqx-yuanying.vercel.app`). `tsc`/lint pass.
-- **Known follow-up**: when chat history contains a near-identical prior request, the model may answer from history without calling `push_to_dev` even when explicitly asked. The route guard only applies after a tool call. History is currently the global last 20 messages, not session-scoped; revisit under P1-31/P1-52 if it recurs.
+- **Known follow-up**: when chat history contains a near-identical prior request, the model may answer from history without calling `push_to_dev` even when explicitly asked. The route guard only applies after a tool call. History is currently the global last 20 messages, not session-scoped; revisit under P1-31/P1-52 if it recurs. Issue **#15** (fabricated issue URL) was closed on 2026-10-18 with this fix evidence.
 - **Deploy note**: production deployment `dpl_B1FQXQMfAnvB9B9L8ALVQ75yF7wC` (commit `ff99e64`) was Ready and aliased to `https://yuanying-rust.vercel.app`. The GitHub Actions `Deploy Web (Vercel)` run initially failed because the `VERCEL_TOKEN` secret was invalid. Replaced it with a dedicated project-scoped Vercel CI token; workflow run **39140374327** passes. Later runs **39140926403** (prod GitHub token rotation) and **39141830075** (failure guard, commit `3d7a643`) are green and aliased to production.
 - **Acceptance**:
   - [x] `get_notes` works when asked "昨天我写了什么笔记？", and the response includes actual note content.
@@ -641,7 +641,7 @@
 
 ### [P1-55] Steps source merge logic + debug view (ES-025)
 
-- **Status**: In Progress · **Category**: Bug (Diagnostics) + Feature (Debug UI) · **Refs**: Issue #8, Issue #15 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Bug (Diagnostics) + Feature (Debug UI) · **Refs**: Issue #8, Issue #15 · **Opened**: 2026-10-18
 - **Spec**: `docs/specs/ES-025-steps-source-debug.md`.
 - **Issue note**: issue #15 is the separate `push_to_dev` fabricated-URL bug (fixed under P1-53); the steps questions belong on issue #8.
 - **Impl**:
@@ -649,12 +649,15 @@
   - `app/page.tsx` — tapping or long-pressing the steps line opens a debug modal listing each source (`package`, `steps`, record count), window, aggregation, and raw total.
 - **Evidence (prod, 2026-10-18 16:45:36 UTC, signal #592)**: displayed **536**, raw **932**, two origins — Fit **396** (18 records) and HC phone **536** (35 records). No row in the last 200 had more than 2 origins. Watch **569** → 33-step gap, consistent with sync/sampling delay; double counting would look like the raw 932.
 - **Answers**: `max_per_origin` groups by `dataOrigin.packageName`, sums each origin's records, then takes the max (not max per device/record). Sources are HealthConnect origins, not physical devices. The 33-step gap is within the <50-step sampling range; the watch source/timestamps are needed to prove the exact delay.
+- **Verified (2026-10-18, local)**: `npx tsc --noEmit`, `npm run lint`, and `npm run build` pass.
+- **Verified (2026-10-18, prod, commit `0668f4a`, deploy run `39148233605`)**: `/api/steps` returns `sources` (Fit 396 / 18 records; HC phone 536 / 35 records), `raw_value: 932`, `aggregation: max_per_origin`, window/timezone. Production bundle contains the steps modal (`步数明细`).
+- **GitHub**: four answers posted on issue #8 (comment `6252733575`). Issue #15 (push_to_dev fabricated URL) was closed separately with the P1-53 fix evidence.
 - **Acceptance**:
-  - [ ] Four answers posted on issue #8.
-  - [ ] UI shows per-source breakdown.
-  - [ ] Production `/api/steps` returns `sources`.
-  - [ ] `tsc` + lint + build pass.
-- **Remaining**: deploy, post issue #8 comment, close issue #15 separately.
+  - [x] Four answers posted on issue #8.
+  - [x] UI shows per-source breakdown.
+  - [x] Production `/api/steps` returns `sources`.
+  - [x] `tsc` + lint + build pass.
+- **Notes**: 33-step watch gap is within the <50-step acceptance range; the debug view is the evidence path to distinguish sync lag from a logic bug. No collector change was needed.
 
 ---
 
@@ -789,6 +792,10 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 34 — ES-025 steps source debug, issue #8/#15)
+- `/api/steps` now returns the source breakdown and metadata for the row that produced the displayed max. Home steps line opens a debug modal on tap/long-press. Documented `max_per_origin` and the 33-step sync-delay evidence in `docs/specs/ES-025-steps-source-debug.md`; answers posted on issue #8. Verified in prod (run `39148233605`). → **P1-55 Done**.
+- Closed issue #15 (push_to_dev fabricated URL) with the P1-53 fix evidence.
 
 ### 2026-10-18 (session 33 — ES-023 feedback lifecycle, issue #14)
 - Renamed **Copy for AI** → **Copy as Text** and grouped it as local-only; sending actions stay separate. Added shared colored status badges. Blocked Push for `resolved` notes (`409`). Added `docs/feedback-lifecycle.md`, `docs/pm/inbox/README.md`, and `docs/specs/ES-023-feedback-lifecycle.md` (ES-024 merged). Verified in production (run `39143672850`); issue #14 closed. → **P1-54 Done**.
