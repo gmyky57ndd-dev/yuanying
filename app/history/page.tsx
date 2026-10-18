@@ -11,6 +11,7 @@ import {
 type DayAgg = {
   date: string;
   water: number;
+  standup: number;
   steps: number;
   notes: number;
   chats: number;
@@ -30,7 +31,7 @@ type DayDetail = {
   date: string;
   timezone: string;
   signals: Signal[];
-  notes: Array<{ id: number; text: string; at: string }>;
+  notes: Array<{ id: number; text: string; at: string; tags?: string[] }>;
   reminders: Array<{
     id: number;
     name: string;
@@ -147,6 +148,43 @@ export default function HistoryPage() {
             {s.water?.count ?? 0}/{s.water?.target ?? 6} · 起身{' '}
             {s.standup?.count ?? 0}/{s.standup?.target ?? 8} · 维生素{' '}
             {s.vitamin?.done ? '✓' : '--'}
+          </section>
+        )}
+
+        {s?.conversations?.length > 0 && (
+          <section className="mb-4">
+            <div className="text-[11px] text-stone-600 mb-1">对话摘要</div>
+            <div className="space-y-2 text-[13px] text-stone-300">
+              {s.conversations.map((c: any) => (
+                <div key={c.file}>
+                  <div className="text-stone-400">{c.title}</div>
+                  <p className="text-stone-500 whitespace-pre-wrap break-words">
+                    {c.excerpt}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {detail.notes.length > 0 && (
+          <section className="mb-4">
+            <div className="text-[11px] text-stone-600 mb-1">笔记</div>
+            <ul className="space-y-2 text-[13px] text-stone-300">
+              {detail.notes.map(n => (
+                <li key={n.id}>
+                  <div className="text-[11px] text-stone-600">{hm(n.at)}</div>
+                  <div className="whitespace-pre-wrap break-words">
+                    {n.text}
+                  </div>
+                  {n.tags && n.tags.length > 0 && (
+                    <div className="text-[11px] text-stone-500">
+                      {n.tags.map(t => `#${t}`).join(' ')}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 
@@ -376,8 +414,7 @@ export default function HistoryPage() {
               >
                 <span className="text-[13px] text-stone-200">{d.date}</span>
                 <span className="text-[11px] text-stone-500">
-                  喝水 {d.water} · 步 {d.steps} · 笔记 {d.notes} · 提醒{' '}
-                  {d.reminders.acted}/{d.reminders.shown}
+                  喝水 {d.water}/6 · 起身 {d.standup}/8 · 步 {d.steps}
                 </span>
               </button>
             </li>

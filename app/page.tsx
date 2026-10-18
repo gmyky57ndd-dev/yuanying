@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { SignalButton } from '@/components/SignalButton';
+import { HabitGrid } from '@/components/HabitGrid';
 import { postChat, fetchWithTimeout, API_BASE } from '@/lib/api';
 import {
   buildActivityStream,
@@ -17,6 +17,13 @@ type Message = {
   content: string;
   github_issue_url?: string | null;
   github_issue_number?: number | null;
+  inbox_path?: string | null;
+};
+
+type FenshenInfo = {
+  id: string;
+  display_name: string;
+  avatar_url: string | null;
 };
 type Signal = {
   id: number;
@@ -52,8 +59,6 @@ function hm(iso: string): string {
     minute: '2-digit',
   });
 }
-
-const SIGNALS = ['wake', 'sleep', 'water'] as const;
 
 const EVENT_LABEL: Record<string, string> = {
   wake: '起床',
@@ -98,6 +103,10 @@ export default function Home() {
   const longPressRef = useRef<any>(null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
+  const [pushingMsg, setPushingMsg] = useState<number | null>(null);
+  const [inboxingMsg, setInboxingMsg] = useState<number | null>(null);
+  const [fenshen, setFenshen] = useState<FenshenInfo | null>(null);
   const [todaySignals, setTodaySignals] = useState<Signal[]>([]);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +135,7 @@ export default function Home() {
     loadSignals();
     loadSteps();
     loadNotes();
+    loadFenshen();
   }, []);
 
   useEffect(() => {
@@ -210,9 +220,10 @@ export default function Home() {
     }
   }
   async function pushMessage(m: Message) {
-    if (!m.id || m.github_issue_url) return;
+    if (!m.id || m.github_issue_url || pushingMsg) return;
     const first =
       m.content.split('\n').find(l => l.trim())?.trim().slice(0, 80) ?? '';
+    setPushingMsg(m.id);
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/integrations/github`, {
         method: 'POST',
@@ -237,10 +248,13 @@ export default function Home() {
       loadMessages();
     } catch {
       alert('GitHub 失败');
+    } finally {
+      setPushingMsg(null);
     }
   }
   async function inboxMessage(m: Message) {
-    if (!m.id) return;
+    if (!m.id || inboxingMsg) return;
+    setInboxingMsg(m.id);
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/integrations/inbox`, {
         method: 'POST',
@@ -254,8 +268,11 @@ export default function Home() {
       }
       alert(`已提交到 inbox\n${d.path ?? ''}`);
       setMsgMenu(null);
+      loadMessages();
     } catch {
       alert('Inbox 提交失败');
+    } finally {
+      setInboxingMsg(null);
     }
   }
   function copyMessage(m: Message) {
@@ -282,6 +299,17 @@ export default function Home() {
         timezone: d.timezone ?? null,
         updated_at: d.updated_at ?? null,
       });
+    } catch {}
+  }
+
+  async function loadFenshen() {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/fenshen`, {});
+      const d = await r.json();
+      const active = (d.fenshen ?? []).find(
+        (f: FenshenInfo) => f.id === d.active
+      );
+      setFenshen(active ?? (d.fenshen?.[0] ?? null));
     } catch {}
   }
 
@@ -338,11 +366,25 @@ export default function Home() {
     setNoteListening(true);
   }
 
+  function toolStatusFor(message: string): string {
+    if (/笔记|note|昨天|写了什么|记了/.test(message)) {
+      return '正在翻笔记…';
+    }
+    if (/架构|决定|之前|Fenshen|ES-\d|设计/.test(message)) {
+      return '正在翻过去的对话…';
+    }
+    if (/步数|喝水|起身|维生素|简报|数据|今天/.test(message)) {
+      return '正在读取今天的数据…';
+    }
+    return '正在想…';
+  }
+
   async function send(text?: string) {
     const content = (text ?? input).trim();
     if (!content || sending) return;
     setInput('');
     setError(null);
+    setToolStatus(toolStatusFor(content));
     setMessages(m => [...m, { role: 'user', content }]);
     setSending(true);
 
@@ -364,6 +406,7 @@ export default function Home() {
       ]);
     } finally {
       setSending(false);
+      setToolStatus(null);
       loadSignals();
       loadMessages();
     }
@@ -374,8 +417,8 @@ export default function Home() {
     const optimistic: Signal = {
       id: -Date.now(),
       name,
-      type: name === 'water' ? 'count' : 'event',
-      value: name === 'water' ? 1 : true,
+      type: name === 'water' || name === 'standup' ? 'count' : 'event',
+      value: name === 'water' || name === 'standup' ? 1 : true,
       created_at: new Date().toISOString(),
       context: {},
     };
@@ -406,13 +449,6 @@ export default function Home() {
     }
   }
 
-  function isLogged(name: string) {
-    return todaySignals.some(s => s.name === name);
-  }
-
-  const waterCount = todaySignals.filter(s => s.name === 'water').length;
-  const standupCount = todaySignals.filter(s => s.name === 'standup').length;
-  const vitaminDone = todaySignals.some(s => s.name === 'vitamin');
   const stream: StreamEntry[] = buildActivityStream(todaySignals);
 
   function toggle(id: string) {
@@ -534,44 +570,41 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-stone-950 text-stone-100">
-      {/* Avatar */}
-      <div className="flex flex-col items-center pt-5 pb-2 shrink-0">
-        <img
-          src="/avatar.png"
-          alt="元婴"
-          className="w-16 h-16 rounded-full bg-stone-800 object-cover"
-          onError={e => {
-            (e.target as HTMLImageElement).style.opacity = '0';
-          }}
-        />
-        <div className="text-[10px] text-stone-500 mt-1 tracking-widest">
-          元婴
-        </div>
+      {/* Fenshen & vitals */}
+      <div className="flex flex-col items-center pt-4 pb-2 shrink-0">
+        <a
+          href="/settings"
+          className="flex flex-col items-center"
+          title="设置"
+        >
+          <img
+            src={fenshen?.avatar_url || '/avatar.png'}
+            alt={fenshen?.display_name || '元婴'}
+            className="w-16 h-16 rounded-full bg-stone-800 object-cover breathe"
+            onError={e => {
+              const img = e.currentTarget;
+              if (img.src.endsWith('/avatar.png')) return;
+              img.src = '/avatar.png';
+            }}
+          />
+          <div className="text-[10px] text-stone-500 mt-1 tracking-widest">
+            {fenshen?.display_name || '元婴'}
+          </div>
+        </a>
         <div className="absolute right-4 top-5 flex gap-3 text-xs">
-          <a href="/history" className="text-stone-600">
+          <a href="/history" className="text-stone-500">
             历史
           </a>
-          <a href="/feedback" className="text-stone-600">
+          <a href="/feedback" className="text-stone-500">
             反馈
           </a>
-          <a href="/settings" className="text-stone-600">
+          <a href="/settings" className="text-stone-500">
             设置
           </a>
         </div>
       </div>
 
-      {/* Signals */}
-      <div className="flex gap-2 justify-center px-4 pb-3 shrink-0">
-        {SIGNALS.map(name => (
-          <SignalButton
-            key={name}
-            name={name}
-            logged={isLogged(name)}
-            count={name === 'water' ? waterCount : undefined}
-            onClick={() => logSignal(name)}
-          />
-        ))}
-      </div>
+      <HabitGrid signals={todaySignals} onLog={logSignal} />
 
       {/* Steps */}
       {steps && (
@@ -593,30 +626,6 @@ export default function Home() {
           )}
         </button>
       )}
-
-      {/* Habit tracking: 起身 + 维生素 (owner request) */}
-      <div className="flex gap-2 justify-center px-4 pb-3 shrink-0 text-[11px]">
-        <button
-          onClick={() => logSignal('standup')}
-          className={`rounded-full px-3 py-1 border ${
-            standupCount > 0
-              ? 'bg-stone-800 border-stone-700 text-stone-200'
-              : 'border-stone-800 text-stone-400'
-          }`}
-        >
-          起身 {standupCount} / 8
-        </button>
-        <button
-          onClick={() => logSignal('vitamin')}
-          className={`rounded-full px-3 py-1 border ${
-            vitaminDone
-              ? 'bg-emerald-900 border-emerald-800 text-emerald-200'
-              : 'border-stone-800 text-stone-400'
-          }`}
-        >
-          维生素 {vitaminDone ? '✓' : '--'}
-        </button>
-      </div>
 
       {/* Notes — capture rides on the existing 记一笔 button (no new surface) */}
       <div className="px-4 pb-2 shrink-0">
@@ -865,7 +874,7 @@ export default function Home() {
           return (
             <div
               key={m.id ?? i}
-              className={isAssistant ? 'mr-auto max-w-[85%] group' : 'ml-auto max-w-[80%]'}
+              className={`${isAssistant ? 'mr-auto max-w-[85%] group' : 'ml-auto max-w-[80%]'} fade-in`}
             >
               <div
                 className={`px-3.5 py-2 rounded-2xl text-[15px] leading-snug whitespace-pre-wrap break-words ${
@@ -908,6 +917,11 @@ export default function Home() {
                       Issue #{m.github_issue_number ?? ''}
                     </a>
                   )}
+                  {m.inbox_path && (
+                    <span className="text-[10px] text-stone-500">
+                      Saved to Inbox
+                    </span>
+                  )}
                 </div>
               )}
               {isAssistant && m.id && msgMenu === m.id && (
@@ -915,16 +929,34 @@ export default function Home() {
                   {!m.github_issue_url && (
                     <button
                       onClick={() => pushMessage(m)}
-                      className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                      disabled={pushingMsg === m.id}
+                      className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5 disabled:opacity-50"
                     >
-                      Push to GitHub
+                      {pushingMsg === m.id ? (
+                        <span className="inline-flex items-center gap-1">
+                          <span className="inline-block h-2 w-2 animate-spin rounded-full border border-stone-500 border-t-transparent" />
+                          Pushing…
+                        </span>
+                      ) : (
+                        'Push to GitHub'
+                      )}
                     </button>
                   )}
                   <button
                     onClick={() => inboxMessage(m)}
-                    className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                    disabled={inboxingMsg === m.id || !!m.inbox_path}
+                    className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5 disabled:opacity-50"
                   >
-                    Save to Inbox
+                    {m.inbox_path ? (
+                      'Saved to Inbox'
+                    ) : inboxingMsg === m.id ? (
+                      <span className="inline-flex items-center gap-1">
+                        <span className="inline-block h-2 w-2 animate-spin rounded-full border border-stone-500 border-t-transparent" />
+                        Saving…
+                      </span>
+                    ) : (
+                      'Save to Inbox'
+                    )}
                   </button>
                   <button
                     onClick={() => copyMessage(m)}
@@ -938,8 +970,11 @@ export default function Home() {
           );
         })}
         {sending && (
-          <div className="mr-auto bg-stone-800 px-3.5 py-2 rounded-2xl text-stone-500 text-[15px]">
-            …
+          <div className="mr-auto bg-stone-800 px-3.5 py-2 rounded-2xl text-stone-400 text-[13px] flex items-center gap-2 fade-in">
+            <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-stone-500 border-t-transparent" />
+            <span>
+              {fenshen?.display_name || '元婴'} · {toolStatus ?? '正在想…'}
+            </span>
           </div>
         )}
         <div ref={bottomRef} />
