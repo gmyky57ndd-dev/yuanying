@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { fetchWithTimeout, API_BASE } from '@/lib/api';
 import { formatForAI, formatForDev, feedbackTitle } from '@/lib/feedback-format';
+import { FeedbackStatusBadge } from '@/components/FeedbackStatusBadge';
 
 type Item = {
   id: number;
@@ -52,7 +53,7 @@ export default function FeedbackPage() {
       await navigator.clipboard.writeText(
         formatForAI({ text: it.text, tags: it.tags, at: it.at })
       );
-      alert('已复制（Copy for AI）');
+      alert('已复制（Copy as Text）');
     } catch {
       alert('复制失败');
     }
@@ -128,8 +129,9 @@ export default function FeedbackPage() {
       </div>
 
       <p className="text-[12px] text-stone-500 mb-4">
-        Save to Inbox 会提交文件到 docs/pm/inbox/；Push to GitHub 立刻通知
-        dev；Mark Resolved 标记已处理。
+        「发送」动作会改变反馈状态并通知 Dev；「本地」动作只复制文本，不改状态、
+        不通知 Dev。Save to Inbox 提交文件到 docs/pm/inbox/；Push to GitHub
+        立刻创建 Issue；Mark Resolved 标记已处理。
       </p>
 
       {loading ? (
@@ -142,7 +144,7 @@ export default function FeedbackPage() {
             <li key={it.id} className="border border-stone-900 rounded-xl p-3">
               <div className="flex items-center gap-2 text-[11px] text-stone-600 mb-1">
                 <span>{it.date}</span>
-                <span className="text-stone-500">[{it.status}]</span>
+                <FeedbackStatusBadge status={it.status} />
                 {it.issue_url && (
                   <a
                     href={it.issue_url}
@@ -163,23 +165,26 @@ export default function FeedbackPage() {
                 </div>
               )}
               <div className="flex flex-wrap gap-2 mt-2 items-center">
+                <span className="text-[10px] uppercase tracking-wider text-stone-600">
+                  发送
+                </span>
                 <button
                   onClick={() => pushToDev(it)}
-                  disabled={!!it.issue_url || pushingId === it.id}
+                  disabled={
+                    !!it.issue_url ||
+                    pushingId === it.id ||
+                    it.status === 'resolved'
+                  }
                   className="text-[11px] bg-stone-800 rounded-full px-3 py-1 disabled:opacity-40"
                   title={it.issue_url ? 'Already sent' : undefined}
                 >
-                  {it.issue_url
-                    ? 'Pushed'
-                    : pushingId === it.id
-                      ? 'Pushing…'
-                      : 'Push to GitHub'}
-                </button>
-                <button
-                  onClick={() => copyForAI(it)}
-                  className="text-[11px] bg-stone-800 rounded-full px-3 py-1"
-                >
-                  Copy for AI
+                  {it.status === 'resolved'
+                    ? 'Resolved'
+                    : it.issue_url
+                      ? 'Pushed'
+                      : pushingId === it.id
+                        ? 'Pushing…'
+                        : 'Push to GitHub'}
                 </button>
                 {it.status === 'new' && (
                   <button
@@ -197,6 +202,17 @@ export default function FeedbackPage() {
                     Mark Resolved
                   </button>
                 )}
+                <span className="mx-1 h-4 w-px bg-stone-800" aria-hidden />
+                <span className="text-[10px] uppercase tracking-wider text-stone-600">
+                  本地
+                </span>
+                <button
+                  onClick={() => copyForAI(it)}
+                  className="text-[11px] border border-stone-800 text-stone-400 rounded-full px-3 py-1"
+                  title="仅复制到剪贴板，不改变状态，也不通知 Dev"
+                >
+                  Copy as Text
+                </button>
                 <button
                   onClick={() => patch(it.id, { feedback: false })}
                   className="text-[11px] text-stone-500 px-2"

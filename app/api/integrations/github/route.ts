@@ -57,6 +57,13 @@ export async function POST(req: NextRequest) {
           already: true,
         });
       }
+      // ES-023: resolved is terminal — do not create a new issue for it.
+      if (note?.feedback_status === 'resolved') {
+        return NextResponse.json(
+          { error: 'note already resolved' },
+          { status: 409 }
+        );
+      }
     }
 
     // Guardrail: return the existing issue for this message.

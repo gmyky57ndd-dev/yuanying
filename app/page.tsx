@@ -9,6 +9,7 @@ import {
   StreamEntry,
 } from '@/lib/activity-stream';
 import { formatForAI, formatForDev, feedbackTitle } from '@/lib/feedback-format';
+import { FeedbackStatusBadge } from '@/components/FeedbackStatusBadge';
 
 type Message = {
   id?: number;
@@ -420,7 +421,7 @@ export default function Home() {
     }
   }
   function copyForAIEntry(n: NoteEntry) {
-    copyText(formatForAI(n), '已复制（Copy for AI）');
+    copyText(formatForAI(n), '已复制（Copy as Text）');
   }
   async function pushToDevEntry(n: NoteEntry) {
     try {
@@ -708,7 +709,8 @@ export default function Home() {
                       </div>
                     )}
                     {open && e.feedback && (
-                      <div className="ml-[52px] mt-1 flex flex-wrap gap-1">
+                      <div className="ml-[52px] mt-1 flex flex-wrap items-center gap-1">
+                        <FeedbackStatusBadge status={e.status} />
                         {e.issueUrl ? (
                           <a
                             href={e.issueUrl}
@@ -716,22 +718,16 @@ export default function Home() {
                             rel="noreferrer"
                             className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
                           >
-                            Pushed ↗
+                            Issue ↗
                           </a>
-                        ) : (
+                        ) : e.status !== 'resolved' ? (
                           <button
                             onClick={() => pushToDevEntry(e)}
                             className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
                           >
                             Push to GitHub
                           </button>
-                        )}
-                        <button
-                          onClick={() => copyForAIEntry(e)}
-                          className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
-                        >
-                          Copy for AI
-                        </button>
+                        ) : null}
                         {(!e.status || e.status === 'new') && (
                           <button
                             onClick={() => saveToInbox(e.ref)}
@@ -740,6 +736,17 @@ export default function Home() {
                             Save to Inbox
                           </button>
                         )}
+                        <span
+                          className="mx-0.5 h-3 w-px bg-stone-800"
+                          aria-hidden
+                        />
+                        <button
+                          onClick={() => copyForAIEntry(e)}
+                          className="text-[10px] border border-stone-800 text-stone-400 rounded-full px-2 py-0.5"
+                          title="仅复制到剪贴板，不改变状态，也不通知 Dev"
+                        >
+                          Copy as Text
+                        </button>
                       </div>
                     )}
                   </li>

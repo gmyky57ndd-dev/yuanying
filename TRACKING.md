@@ -613,6 +613,30 @@
 
 ---
 
+### [P1-54] Feedback lifecycle & copy/send separation (ES-023, issue #14)
+
+- **Status**: In Progress · **Category**: Bug (UI/Architecture) + Documentation · **Refs**: Issue #14, ES-023, ES-024 (merged) · **Opened**: 2026-10-18
+- **Spec**: `docs/specs/ES-023-feedback-lifecycle.md`. ES-024 overlapped and was merged into ES-023.
+- **Problem**: Copy actions sat next to sending actions with no visual distinction; status was plain `[new]` text; no lifecycle diagram or inbox consumption doc. `Copy for Dev` was already removed in ES-016.
+- **Impl**:
+  - `components/FeedbackStatusBadge.tsx` — shared colored badges: New / Inbox / Pushed / Resolved.
+  - `app/page.tsx` + `app/feedback/page.tsx` — renamed `Copy for AI` to **Copy as Text**, grouped it as a local action, and separated it from sending actions; status badges in both the notes list and Feedback tab.
+  - `app/api/integrations/github/route.ts` — rejects Push for an already-`resolved` note (`409`); `resolved` is terminal.
+  - `docs/feedback-lifecycle.md` — Mermaid state machine, action/effect table, failure behavior, inbox consumption.
+  - `docs/pm/inbox/README.md` — Dev consumption process and `[已处理]`/archive convention.
+  - `core/system-manifest.md` — accurate copy vs send and state-machine description.
+- **Acceptance**:
+  - [ ] No `Copy for Dev` in the UI.
+  - [ ] `Copy as Text` is visually local-only; sending actions are separate.
+  - [ ] Colored status badges in notes and Feedback tab.
+  - [ ] `docs/feedback-lifecycle.md` exists with Mermaid.
+  - [ ] `docs/pm/inbox/README.md` exists with consumption process.
+  - [ ] Manifest matches the implementation.
+  - [ ] `tsc` + lint + build pass; production contains the new labels/docs.
+- **Remaining**: build/deploy, production check, close issue #14.
+
+---
+
 ## To Do
 
 _(ES-008/ES-009 home + history work is in review; no open To Do items.)_
