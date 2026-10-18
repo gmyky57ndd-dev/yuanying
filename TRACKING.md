@@ -663,7 +663,7 @@
 
 ### [P1-56] push_to_dev root cause + observability (issue #16)
 
-- **Status**: In Progress · **Category**: Bug (Diagnostics/Observability) · **Refs**: Issue #16, P1-53 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Bug (Diagnostics/Observability) · **Refs**: Issue #16, P1-53 · **Opened**: 2026-10-18
 - **Timeline (from issue #16)**: first `push_to_dev` returned a URL without `success`/`number`; the owner got 404. The second call returned `success:true`, `number:15`, `already:false` and created a real issue.
 - **Root cause**: the production `GITHUB_TOKEN` was stale, so the GitHub API returned `401 Bad credentials`. The old tool returned `{error}` without `success:false`; the model then fabricated an issue URL. There is no code branch that constructs a URL — success URLs only come from the GitHub API or an existing-issue lookup. The first call created nothing, so the second call's `already:false` was correct.
 - **Idempotency**: exact `title` match (trimmed, max 200 chars) against the most recent 100 issues (`state=all`). No separate key or body hash. `already:true` means that match hit; `already:false` means no match and this call created the issue.
@@ -671,13 +671,13 @@
   - `app/api/chat/route.ts` — `push_to_dev` always returns `{ success, issue_url, number, already, error }`; failures set `success:false`, `issue_url:null`, `number:null`, `already:false`, and a reason. Logs a body-free `tool_result push_to_dev` line.
   - `lib/github.ts` — validates `html_url`/`number` from the API response; logs list failures and create failures with HTTP status and response body (truncated); `already` is now required and always set.
 - **Verified (2026-10-18, local)**: invalid token → `GitHubRequestError 401 Bad credentials` with `github issue create failed` log; dedupe call → issue **#12**, `already:true`; `tsc`, lint, and build pass.
+- **Verified (2026-10-18, prod, commit `ffd719c`, deploy run `39148729304`)**: a dedupe `push_to_dev` call returned `success:true`, `number:12`, `already:true`; production log shows `github issue resolved { number: 12, already: true }` and `tool_result push_to_dev { success: true, number: 12, already: true, error: null }`. No new issue was created.
 - **Acceptance**:
   - [x] Root cause documented.
   - [x] Unified result shape.
   - [x] No constructed-URL branch; failures return `success:false` + reason.
   - [x] Failure logs include status/body (truncated).
-  - [ ] Deploy + production `tool_result` log check; comment/close issue #16.
-- **Remaining**: deploy and post the root-cause reply on issue #16.
+  - [x] Deploy + production `tool_result` log check; comment/close issue #16.
 
 ---
 
@@ -812,6 +812,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 35 — issue #16 push_to_dev root cause)
+- Root cause: stale prod `GITHUB_TOKEN` → `401 Bad credentials`; old tool returned `{error}` without `success:false` and the model fabricated the URL. Unified `push_to_dev` result (`success`, `issue_url`, `number`, `already`, `error`), validated API `html_url`/`number`, and added body-free tool-result + GitHub failure logs. Production dedupe check returned `number:12`, `already:true`, no duplicate. Verified in prod (run `39148729304`); issue #16 closed. → **P1-56 Done**.
 
 ### 2026-10-18 (session 34 — ES-025 steps source debug, issue #8/#15)
 - `/api/steps` now returns the source breakdown and metadata for the row that produced the displayed max. Home steps line opens a debug modal on tap/long-press. Documented `max_per_origin` and the 33-step sync-delay evidence in `docs/specs/ES-025-steps-source-debug.md`; answers posted on issue #8. Verified in prod (run `39148233605`). → **P1-55 Done**.
