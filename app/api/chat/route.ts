@@ -163,8 +163,8 @@ async function runTool(name: string, args: any): Promise<any> {
   if (name === 'push_to_dev') {
     const title = String(args?.title ?? '').trim();
     const body = String(args?.body ?? '').trim();
-    if (!title) return { error: 'title required' };
-    if (!body) return { error: 'body required' };
+    if (!title) return { success: false, error: 'title required' };
+    if (!body) return { success: false, error: 'body required' };
     try {
       const issue = await findOrCreateIssue(title, body);
       return {
@@ -175,6 +175,7 @@ async function runTool(name: string, args: any): Promise<any> {
       };
     } catch (e) {
       return {
+        success: false,
         error: e instanceof Error ? e.message : 'github error',
       };
     }
@@ -363,6 +364,7 @@ export async function POST(req: NextRequest) {
 
     // 5. Call DeepSeek, executing tool calls in a bounded loop.
     let reply = '';
+    let pushToDevResult: any = null;
     for (let step = 0; step < 3; step++) {
       let data: any;
       const controller = new AbortController();
@@ -429,7 +431,10 @@ export async function POST(req: NextRequest) {
             result = await runTool(tc.function?.name, args);
           } catch (e) {
             console.error('tool failed:', e);
-            result = { error: 'tool failed' };
+            result = { success: false, error: 'tool failed' };
+          }
+          if (tc.function?.name === 'push_to_dev') {
+            pushToDevResult = result;
           }
           messages.push({
             role: 'tool',
@@ -445,6 +450,16 @@ export async function POST(req: NextRequest) {
     }
 
     if (!reply) reply = '…';
+
+    // ES-022 guard: if the last push_to_dev attempt failed, never let the model
+    // claim success or invent an issue URL.
+    if (
+      pushToDevResult &&
+      (pushToDevResult.success === false || pushToDevResult.error)
+    ) {
+      const reason = pushToDevResult.error ?? 'unknown error';
+      reply = `没发成功。系统报错：${reason}`;
+    }
 
     // 6. Persist
     const { error: insErr } = await supabase.from('messages').insert([
