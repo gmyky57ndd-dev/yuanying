@@ -561,7 +561,8 @@
 
 - **Status**: In Review · **Category**: Feature (Architecture) · **Refs**: ES-021 · **Opened**: 2026-10-18
 - **Impl**: DeepSeek calls now include `tools` (`get_notes`, `get_conversation_records`, `get_summary`) with a bounded tool loop (3 rounds, 20s/call); the backend executes Supabase/filesystem queries and feeds results back. Manifest gains a **Tools (法术)** section.
-- **Remaining**: owner check of the two acceptance queries.
+- **Verified (2026-10-18, prod)**: "昨天我写了什么笔记？" → `get_notes` returned the 9 Oct-17 notes; "Fenshen 是怎么决定的？" → `get_conversation_records` returned the ES-013 decisions (Core vs Interface, shared memory, no-deploy). (Earlier misses were deploy lag + model anchoring; a forced tool call listed ES-013.)
+- **Remaining**: owner check.
 
 ---
 
