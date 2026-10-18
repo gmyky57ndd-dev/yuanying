@@ -309,6 +309,7 @@
 - **Fix (issue #8, 2026-10-17)**: per-origin data proved double counting — Fit `4054` + HC-phone `4317` = `8371`. Collector now takes **max per origin** (`aggregation: max_per_origin`; `raw_value` = raw sum), so it reports ~`4317`. Collector **v1.0.27 (code 28)**.
 - **Verified (2026-10-17)**: release run green; Play internal `completed` (code 28). Open issues #2/#3/#5/#6/#7/#8 all commented + closed (3/5/6 duplicate/completed; 8 fixed).
 - **Display cutoff (2026-10-17)**: home/summary now prefer rows with `aggregation='max_per_origin'` (then `context.timezone`, then legacy). This stops the old `sum` row (8371) from overriding the corrected `max_per_origin` row (4595) via the max-snapshot rule.
+- **Display verified (2026-10-17, prod)**: `/api/steps` and `/api/summary/today` now return **4595** (max_per_origin row #524), not 8371 (old `sum` row #506).
 - **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
 - **Verified (2026-10-16)**: Play internal `completed` (versionCode 22); GitHub Release `v1.0.21`; web `/api/steps` live. Production still shows the pre-fix value (`2700`) until the phone runs v1.0.21 and posts a corrected row — then the cutoff switches the day value to the local-day reading.
 
@@ -526,6 +527,7 @@
 - **Verified (2026-10-17, prod)**: Save to Inbox on note #490 → `POST /api/integrations/inbox` returned `docs/pm/inbox/2026-10-17-490.md`; repo commit `c551fd0` (332 B); DB `feedback_status='inbox'`, `promoted=true`.
 - **Verified (2026-10-17)**: asked "did you send the feedback about Save to Inbox?" — 元婴 answered from the status (`[inbox]`, dev sees on next pull) and correctly said the new note was not sent.
 - **Duplicate guardrail (2026-10-17)**: `/api/integrations/github` returns the existing issue (`already:true`) if the note already has `github_issue_url`; the UI shows **Pushed** and disables re-send. Save to Inbox remains hidden once status != `new`.
+- **Guardrail verified (2026-10-17, prod)**: re-sending note #490 returns issue #7 with `already:true` and creates no new issue (title-based match also covers legacy notes). Note #490 context corrected to #7. Inbox no longer regresses `pushed/resolved` to `inbox`.
 - **Remaining**: owner device check (chips / Save to Inbox / Mark Resolved).
 
 ---
