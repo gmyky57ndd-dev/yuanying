@@ -552,7 +552,8 @@
 
 - **Status**: In Review · **Category**: Bug (prompt/logic) + Feature · **Refs**: ES-020 · **Opened**: 2026-10-18
 - **Impl**: `SummaryData` gains `conversations`; `generateSummary` reads `core/memory/conversations/<date>-*.md` (Decisions section) and keeps the day's notes. The chat prompt renders **Owner's Notes** + **AI Conversations** first and numbers as secondary context. Base prompt adds a **Daily Summaries** rule (no unsolicited health advice; reflect inner state; "No notes yesterday." when empty).
-- **Remaining**: owner check (ask for a summary and confirm notes/project context are prioritized).
+- **Verified (2026-10-18, prod)**: `/api/summary/generate {date:2026-10-16}` returns `conversations: 1` (AI Capture & Feedback Loop, Decisions excerpt) + notes. Asking "summarize yesterday" led with the owner's notes/project context (feedback flow, Save to Inbox, steps, lost messages), numbers last, no health advice.
+- **Remaining**: owner check.
 
 ---
 
