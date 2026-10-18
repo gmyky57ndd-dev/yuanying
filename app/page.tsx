@@ -167,8 +167,10 @@ export default function Home() {
   async function loadMessages() {
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/history?today=1`, {});
+      // Never wipe the visible chat on a server error (issue #11).
+      if (!r.ok) return;
       const d = await r.json();
-      setMessages(d.messages ?? []);
+      if (Array.isArray(d.messages)) setMessages(d.messages);
     } catch {}
   }
 
