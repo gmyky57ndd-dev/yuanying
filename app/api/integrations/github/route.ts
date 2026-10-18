@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
 
     // Guardrail: if this note already produced an issue, return it instead of
     // creating a duplicate.
+    let noteContext: Record<string, any> = {};
     if (note_id) {
       const { data: existing } = await supabase
         .from('signals')
@@ -29,30 +30,74 @@ export async function POST(req: NextRequest) {
         .eq('id', note_id)
         .eq('name', 'note')
         .maybeSingle();
-      const issueUrl = existing?.context?.github_issue_url;
+      noteContext = existing?.context ?? {};
+      const issueUrl = noteContext.github_issue_url;
       if (issueUrl) {
         return NextResponse.json({
           ok: true,
           issue_url: issueUrl,
-          number: existing?.context?.github_issue_number ?? null,
+          number: noteContext.github_issue_number ?? null,
           already: true,
         });
       }
+    }
+
+    const expectedTitle = (title || 'Yuanying Feedback').trim().slice(0, 200);
+    const headers = {
+      Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'User-Agent': 'yuanying-fenshen',
+    };
+
+    // Guardrail for issues created before we stored the link: match by title
+    // against existing issues (open or closed) so the same note cannot create
+    // a second issue.
+    try {
+      const listRes = await fetch(
+        `https://api.github.com/repos/${process.env.GITHUB_REPO}/issues?state=all&per_page=100&sort=created&direction=desc`,
+        { headers }
+      );
+      if (listRes.ok) {
+        const list = await listRes.json();
+        const hit = Array.isArray(list)
+          ? list.find(
+              (i: any) => !i.pull_request && i.title === expectedTitle
+            )
+          : null;
+        if (hit) {
+          if (note_id) {
+            await supabase
+              .from('signals')
+              .update({
+                feedback_status: 'pushed',
+                context: {
+                  ...noteContext,
+                  github_issue_url: hit.html_url,
+                  github_issue_number: hit.number,
+                },
+              })
+              .eq('id', note_id);
+          }
+          return NextResponse.json({
+            ok: true,
+            issue_url: hit.html_url,
+            number: hit.number,
+            already: true,
+          });
+        }
+      }
+    } catch {
+      // Non-fatal: fall through and create the issue.
     }
 
     const res = await fetch(
       `https://api.github.com/repos/${process.env.GITHUB_REPO}/issues`,
       {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
-          Accept: 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-          // GitHub requires a User-Agent.
-          'User-Agent': 'yuanying-fenshen',
-        },
+        headers,
         body: JSON.stringify({
-          title: title || 'Yuanying Feedback',
+          title: expectedTitle,
           body,
           labels: ['yuanying-feedback'],
         }),

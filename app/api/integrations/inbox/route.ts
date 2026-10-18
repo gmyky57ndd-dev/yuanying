@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 
     const { data: note } = await supabase
       .from('signals')
-      .select('id, value, created_at')
+      .select('id, value, feedback_status, created_at')
       .eq('id', id)
       .eq('name', 'note')
       .maybeSingle();
@@ -95,10 +95,13 @@ _Sent via 元婴 → Inbox._
     const data = await res.json();
 
     // Keep `promoted` for the legacy inbox script; set the new status.
+    // Keep a later status (pushed/resolved) — Save to Inbox must not regress it.
+    const keepStatus =
+      note.feedback_status === 'pushed' || note.feedback_status === 'resolved';
     await supabase
       .from('signals')
       .update({
-        feedback_status: 'inbox',
+        ...(keepStatus ? {} : { feedback_status: 'inbox' }),
         value: { ...value, promoted: true },
       })
       .eq('id', id);
