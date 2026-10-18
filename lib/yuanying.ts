@@ -9,6 +9,8 @@ interface BuildOptions {
   now?: string;
   summary?: SummaryData;
   summaryLabel?: string;
+  timezone?: string;
+  today?: string;
   message?: string;
   steps?: number | null;
   stepsGoal?: number;
@@ -343,7 +345,8 @@ inference as a question or proposal, never as fact. Say
 
 ${now}
 
-Timezone: Asia/Shanghai
+Timezone: ${opts.timezone ?? 'Asia/Shanghai'}
+Today: ${opts.today ?? ''}
 ${signalCtx}${dailyCtx}${summaryLine}${opinionsCtx}
 `;
 }

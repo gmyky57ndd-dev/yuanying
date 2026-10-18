@@ -459,10 +459,10 @@
 
 ---
 
-### [P1-50] Fenshen architecture — Core State + configurable interfaces (ES-013)
+### [P1-51] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
 - **Status**: In Review · **Category**: Refactor + Feature · **Refs**: ES-013 · **Opened**: 2026-10-17
-- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, **P1-46** = ES-017 GitHub integration, **P1-47** = ES-019 message actions, **P1-48** = ES-020 summary context/tone, **P1-49** = ES-018 feedback status, so Fenshen is **P1-50**.
+- **Label note**: Work Order referenced **P1-40** (already the habits bugfix). Renumbered on 2026-10-17 to match the owner's IDs: **P1-41** = notification-action bug, **P1-42** = feedback forwarding, **P1-43** = system self-awareness, **P1-44** = feedback button labels, **P1-45** = ES-016 feedback/manifest fix, **P1-46** = ES-017 GitHub integration, **P1-47** = ES-019 message actions, **P1-48** = ES-020 summary context/tone, **P1-49** = ES-021 agentic tools, **P1-50** = ES-018 feedback status, so Fenshen is **P1-51**.
 - **Impl**: `fenshen` table (`id`, `display_name`, `prompt_md`, `avatar_url`) seeded with `xiaowu` / `kael` / `elara`; `config.active_fenshen` defaults to `"xiaowu"` (migration 013). `getActiveFenshen()` + async `buildSystemPrompt()` fetch the persona from Supabase at runtime (no hardcoded persona strings); core identity / ground rules / voice / habits stay shared. `/fenshen <name>` command intercepts in chat and updates `config.active_fenshen`; `/api/fenshen` GET/PUT; Settings dropdown switches it.
 - **Shared memory**: all Fenshen read the same `messages` / `signals` / `summaries` — switching changes only the persona block.
 - **Verified (2026-10-17, prod)**: table seeded (elara/kael/xiaowu), `active=xiaowu`; `/fenshen kael` → *"Switched to Kael."* and kael replied *"Kael active. What do you need?"*; `/fenshen elara` → elara replied warm (*"Hi. I'm here. 今天怎么样？"*); restored `xiaowu`. Same `messages` table shared across switches.
@@ -527,7 +527,7 @@
 
 ---
 
-### [P1-49] Feedback status & inbox commit (ES-018)
+### [P1-50] Feedback status & inbox commit (ES-018)
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-018 · **Opened**: 2026-10-17
 - **Impl**: `feedback_status` column (`new|inbox|pushed|resolved`, migration 015). `POST /api/integrations/inbox` commits `docs/pm/inbox/YYYY-MM-DD-<id>.md` via the GitHub Contents API and sets `inbox` (stays `new` on failure). Push to GitHub sets `pushed` + stores `github_issue_url`. Feedback tab shows **[status]** chips, **[Save to Inbox]** (real commit), **[Mark Resolved]** (inbox/pushed only). `core/system-manifest.md` explains statuses; the chat prompt receives recent feedback statuses so 元婴 can answer "did you send it?".
@@ -554,6 +554,14 @@
 - **Impl**: `SummaryData` gains `conversations`; `generateSummary` reads `core/memory/conversations/<date>-*.md` (Decisions section) and keeps the day's notes. The chat prompt renders **Owner's Notes** + **AI Conversations** first and numbers as secondary context. Base prompt adds a **Daily Summaries** rule (no unsolicited health advice; reflect inner state; "No notes yesterday." when empty).
 - **Verified (2026-10-18, prod)**: `/api/summary/generate {date:2026-10-16}` returns `conversations: 1` (AI Capture & Feedback Loop, Decisions excerpt) + notes. Asking "summarize yesterday" led with the owner's notes/project context (feedback flow, Save to Inbox, steps, lost messages), numbers last, no health advice.
 - **Remaining**: owner check.
+
+---
+
+### [P1-49] Agentic tools — function calling (ES-021)
+
+- **Status**: In Review · **Category**: Feature (Architecture) · **Refs**: ES-021 · **Opened**: 2026-10-18
+- **Impl**: DeepSeek calls now include `tools` (`get_notes`, `get_conversation_records`, `get_summary`) with a bounded tool loop (3 rounds, 20s/call); the backend executes Supabase/filesystem queries and feeds results back. Manifest gains a **Tools (法术)** section.
+- **Remaining**: owner check of the two acceptance queries.
 
 ---
 
@@ -688,6 +696,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 29 — ES-021 agentic tools)
+- Added DeepSeek function calling (`get_notes`, `get_conversation_records`, `get_summary`) with a bounded tool loop; manifest documents the tools. Renumbered ES-018 to **P1-50**, Fenshen to **P1-51**. → **P1-49**.
 
 ### 2026-10-18 (session 28 — ES-020 summary context & tone)
 - Summary data includes the day's notes + distilled AI conversations; prompt prioritizes them and adds a no-health-coach tone rule ("No notes yesterday."). Renumbered ES-018 to **P1-49**, Fenshen to **P1-50**. → **P1-48**.

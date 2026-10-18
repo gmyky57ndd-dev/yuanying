@@ -1,12 +1,134 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
-import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
-import { getDisplaySummary } from '@/lib/summary-generator';
+import {
+  getTodayRange,
+  getConfigTimezone,
+  getDayRange,
+  getDateInTimezone,
+} from '@/lib/timezone';
+import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
+
+/** ES-021: tools 元婴 can call instead of being blind to the past. */
+const TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'get_notes',
+      description:
+        "Fetch the owner's notes for a specific date (YYYY-MM-DD). Use when the user asks about a specific day or yesterday's thoughts.",
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
+        },
+        required: ['date'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_conversation_records',
+      description:
+        'Search distilled AI conversation records for a keyword. Use to recall past design/architecture decisions.',
+      parameters: {
+        type: 'object',
+        properties: {
+          keyword: { type: 'string', description: 'Topic or keyword to search' },
+        },
+        required: ['keyword'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_summary',
+      description:
+        'Fetch the daily summary for a specific date (YYYY-MM-DD).',
+      parameters: {
+        type: 'object',
+        properties: {
+          date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
+        },
+        required: ['date'],
+      },
+    },
+  },
+];
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+async function runTool(name: string, args: any): Promise<any> {
+  if (name === 'get_notes') {
+    const date = String(args?.date ?? '');
+    if (!DATE_RE.test(date)) return { error: 'date must be YYYY-MM-DD' };
+    const tz = await getConfigTimezone();
+    const { start, end } = getDayRange(date, tz);
+    const { data } = await supabase
+      .from('signals')
+      .select('value, created_at')
+      .eq('name', 'note')
+      .gte('created_at', start.toISOString())
+      .lt('created_at', end.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(50);
+    return {
+      date,
+      notes: (data ?? []).map((r: any) => ({
+        text: r.value?.text ?? '',
+        at: r.created_at,
+      })),
+    };
+  }
+
+  if (name === 'get_conversation_records') {
+    const keyword = String(args?.keyword ?? '').trim();
+    if (!keyword) return { error: 'keyword required' };
+    const dir = path.join(process.cwd(), 'core', 'memory', 'conversations');
+    if (!fs.existsSync(dir)) return { keyword, matches: [] };
+    const needle = keyword.toLowerCase();
+    const matches: Array<Record<string, string>> = [];
+    const files = fs
+      .readdirSync(dir)
+      .filter(f => f.endsWith('.md'))
+      .sort()
+      .reverse();
+    for (const f of files) {
+      const raw = fs.readFileSync(path.join(dir, f), 'utf-8');
+      const lower = raw.toLowerCase();
+      if (!lower.includes(needle)) continue;
+      const title = (raw.match(/^#\s+(.+)$/m)?.[1] ?? f).replace(
+        /^Conversation Record\s*—\s*/,
+        ''
+      );
+      const idx = lower.indexOf(needle);
+      const snippet = raw
+        .slice(Math.max(0, idx - 200), idx + 400)
+        .replace(/\s+/g, ' ')
+        .trim();
+      matches.push({ file: f, title, snippet });
+      if (matches.length >= 5) break;
+    }
+    return { keyword, matches };
+  }
+
+  if (name === 'get_summary') {
+    const date = String(args?.date ?? '');
+    if (!DATE_RE.test(date)) return { error: 'date must be YYYY-MM-DD' };
+    const { data } = await generateSummary({ date });
+    return { date, summary: data };
+  }
+
+  return { error: `unknown tool: ${name}` };
+}
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
@@ -167,60 +289,102 @@ export async function POST(req: NextRequest) {
       })),
       summary: summaryData,
       summaryLabel,
+      timezone: tz,
+      today: getDateInTimezone(tz),
       message,
     });
 
     // 4. Assemble messages
-    const messages = [
+    const messages: any[] = [
       { role: 'system', content: systemPrompt },
       ...((history ?? []).reverse()),
       { role: 'user', content: message },
     ];
 
-    // 5. Call DeepSeek
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+    // 5. Call DeepSeek, executing tool calls in a bounded loop.
+    let reply = '';
+    for (let step = 0; step < 3; step++) {
+      let data: any;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
 
-    let reply: string;
-
-    try {
-      const res = await fetch(
-        'https://api.deepseek.com/v1/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: process.env.DEEPSEEK_MODEL ?? 'deepseek-chat',
-            messages,
-            temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
-            max_tokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
-          }),
-          signal: controller.signal,
-        }
-      );
-
-      if (!res.ok) {
-        const errText = await res.text();
-        console.error('DeepSeek error:', res.status, errText);
-        return NextResponse.json(
-          { error: 'model request failed' },
-          { status: 502 }
+      try {
+        const res = await fetch(
+          'https://api.deepseek.com/v1/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+            },
+            body: JSON.stringify({
+              model: process.env.DEEPSEEK_MODEL ?? 'deepseek-chat',
+              messages,
+              temperature: parseFloat(
+                process.env.DEEPSEEK_TEMPERATURE ?? '0.7'
+              ),
+              max_tokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
+              tools: TOOLS,
+              tool_choice: 'auto',
+            }),
+            signal: controller.signal,
+          }
         );
+
+        if (!res.ok) {
+          const errText = await res.text();
+          console.error('DeepSeek error:', res.status, errText);
+          return NextResponse.json(
+            { error: 'model request failed' },
+            { status: 502 }
+          );
+        }
+
+        data = await res.json();
+      } catch (err: any) {
+        if (err?.name === 'AbortError') {
+          return NextResponse.json({ error: 'model timeout' }, { status: 504 });
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
       }
 
-      const data = await res.json();
-      reply = data.choices?.[0]?.message?.content ?? '…';
-    } catch (err: any) {
-      if (err?.name === 'AbortError') {
-        return NextResponse.json({ error: 'model timeout' }, { status: 504 });
+      const msg = data.choices?.[0]?.message;
+      const toolCalls = msg?.tool_calls;
+
+      if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+        messages.push({
+          role: 'assistant',
+          content: msg.content ?? null,
+          tool_calls: toolCalls,
+        });
+        for (const tc of toolCalls) {
+          let result: any;
+          try {
+            const args = tc.function?.arguments
+              ? JSON.parse(tc.function.arguments)
+              : {};
+            console.log('tool_call', tc.function?.name, args);
+            result = await runTool(tc.function?.name, args);
+          } catch (e) {
+            console.error('tool failed:', e);
+            result = { error: 'tool failed' };
+          }
+          messages.push({
+            role: 'tool',
+            tool_call_id: tc.id,
+            content: JSON.stringify(result),
+          });
+        }
+        continue;
       }
-      throw err;
-    } finally {
-      clearTimeout(timeout);
+
+      reply = msg?.content ?? '…';
+      break;
     }
+
+    if (!reply) reply = '…';
 
     // 6. Persist
     const { error: insErr } = await supabase.from('messages').insert([
