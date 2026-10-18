@@ -536,7 +536,8 @@
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-019 · **Opened**: 2026-10-17
 - **Impl**: assistant message bubbles get a `⋮` menu (hover on desktop, long-press on mobile) with **Push to GitHub**, **Save to Inbox**, **Copy**. `POST /api/integrations/github` and `/api/integrations/inbox` accept `message_id`; pushed messages store `github_issue_url`/`github_issue_number` (migration 016) and show an **Issue #N** badge. Duplicate-safe (existing issue returned). Manifest gains a **Chat Actions** section.
-- **Remaining**: owner device check.
+- **Verified (2026-10-17, prod)**: test assistant message #81 → issue **#10** created and `messages.github_issue_url`/number set; Save to Inbox committed `docs/pm/inbox/2026-10-17-msg-81.md`. Test issue/file/message cleaned up.
+- **Remaining**: owner device check (⋮ menu hover/long-press, badge).
 
 ---
 
