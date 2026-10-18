@@ -64,40 +64,56 @@
 
 ### [P2-06] Phase C — Home restructure (ES-026)
 
-- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
 - **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
 - **Spec**: `docs/specs/ES-026-phase-c-ui-restructure.md`.
 - **Label note**: the handoff requested P2-01..P2-05, but those IDs are the Opinions items; Phase C uses P2-06..P2-10.
 - **Impl**: active Fenshen avatar/name from `/api/fenshen` (tap opens Settings); five core habits in `components/HabitGrid.tsx`; steps debug modal preserved; today-only activity/chat.
-- **Acceptance**: Home today-only; empty state; no new capture surface.
+- **Acceptance**:
+  - [x] Home shows today only; empty state present.
+  - [x] Five habits in one compact grid; no new capture surface.
+  - [x] Fenshen avatar opens Settings; fallback avatar/name works.
 
 ### [P2-07] Phase C — History restructure (ES-026)
 
-- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
 - **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
 - **Impl**: day list now shows water/standup/steps; detail adds full notes + tags and AI conversation excerpts; raw activity and chat log remain.
-- **Acceptance**: list + tap-to-detail; full notes visible.
+- **Acceptance**:
+  - [x] Day list + tap-to-detail.
+  - [x] Full notes and tags visible in detail.
+  - [x] Standup count included in the day aggregation.
 
 ### [P2-08] Phase C — Chat message actions (ES-026)
 
-- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026, ES-019 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026, ES-019 · **Opened**: 2026-10-18
 - **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
 - **Impl**: `⋮` menu keeps Push to GitHub / Save to Inbox / Copy; Push shows a spinner then `Issue #N`; Save persists `metadata.inbox_path` and shows **Saved to Inbox**.
-- **Acceptance**: actions work; badges visible after reload.
+- **Acceptance**:
+  - [x] `⋮` menu actions wired.
+  - [x] Push spinner + issue link.
+  - [x] Save to Inbox badge persists via message metadata.
 
 ### [P2-09] Phase C — Tool-loading state (ES-026)
 
-- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
 - **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
 - **Impl**: chat shows a spinner + context-aware status bubble while a tool-requiring message is in flight. Client-side intent hint, not a server tool trace.
-- **Acceptance**: visible loading state while waiting.
+- **Acceptance**:
+  - [x] Visible loading state while waiting.
+  - [x] Does not claim a tool result before the reply arrives.
 
 ### [P2-10] Phase C — Visual polish (ES-026)
 
-- **Status**: In Progress · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
 - **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
 - **Impl**: subtle `fade-in` for chat messages; breathing Fenshen avatar; `prefers-reduced-motion` fallback; stone/green palette.
-- **Acceptance**: animations subtle and disabled when reduced motion is requested.
+- **Acceptance**:
+  - [x] Fade-in and breathing animations.
+  - [x] Reduced-motion fallback.
+- **Verified (2026-10-18, prod, PR #17, deploy run `39153665136`)**: home bundle contains the five habit labels and Saved-to-Inbox strings; `/api/history/days` returns `standup` (e.g., 2026-10-17: water 4, standup 6); CSS contains `fadeIn`, `breathe`, and the reduced-motion rule.
+
+**Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---
 
@@ -849,6 +865,9 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-18 (session 36 — ES-026 Phase C UI/UX)
+- Home: Fenshen avatar/name (tap → Settings) + five-habit grid; today-only stream/chat preserved. History: day list includes standup; detail adds full notes/tags and AI conversation excerpts. Chat: spinner statuses, Save-to-Inbox badge via `messages.metadata.inbox_path`. Visual: fade-in + breathing avatar with reduced-motion fallback. Added `docs/specs/ES-026-phase-c-ui-restructure.md`; tracking P2-06..P2-10 (P2-01..P2-05 already used by Opinions). PR **#17** merged; deploy run **39153665136** green. → **P2-06..P2-10 Done**.
 
 ### 2026-10-18 (session 35 — issue #16 push_to_dev root cause)
 - Root cause: stale prod `GITHUB_TOKEN` → `401 Bad credentials`; old tool returned `{error}` without `success:false` and the model fabricated the URL. Unified `push_to_dev` result (`success`, `issue_url`, `number`, `already`, `error`), validated API `html_url`/`number`, and added body-free tool-result + GitHub failure logs. Production dedupe check returned `number:12`, `already:true`, no duplicate. Verified in prod (run `39148729304`); issue #16 closed. → **P1-56 Done**.
