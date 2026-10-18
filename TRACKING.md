@@ -569,20 +569,20 @@
 
 ### [P1-52] Force proactive tool use (ES-021b)
 
-- **Status**: In Progress · **Category**: Bug (Prompt/Behavior) · **Refs**: ES-021b, P1-49 · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Bug (Prompt/Behavior) · **Refs**: ES-021b, P1-49 · **Opened**: 2026-10-18
 - **Label note**: Handoff labeled this **P1-50**, but P1-50 is ES-018 feedback status; following the owner-ID convention above, this item is **P1-52**.
 - **Problem**: 元婴 has `get_conversation_records` / `get_notes` but answers shallowly or says it lacks context without querying the DB first.
 - **Impl**: `core/system-manifest.md` gains **Rule: Proactive Tool Use** (must call a tool before answering questions about past notes/events/decisions; never claim missing context before querying; quote the returned section). Runtime prompt in `lib/yuanying.ts` reinforces: call `get_notes` / `get_conversation_records` / `get_summary` before answering, and only say "not in my context" after the tool returns nothing.
+- **Verified (2026-10-18, prod, commit `ff99e64`)**: asked "昨天我写了什么笔记？" without prompting a tool → 元婴 returned the actual note list; asked "我们是怎么决定Fenshen架构的？" → it quoted the ES-013 Core/Interface split, no-deploy rule, and rationale.
 - **Acceptance**:
-  - [ ] User asks about a past decision → 元婴 calls the tool without being prompted.
-  - [ ] 元婴 stops giving shallow answers when deep context exists in the DB.
-- **Remaining**: deploy + owner verification.
+  - [x] User asks about a past decision → 元婴 calls the tool without being prompted.
+  - [x] 元婴 stops giving shallow answers when deep context exists in the DB.
 
 ---
 
 ### [P1-53] Phase 1 agentic tools (ES-022)
 
-- **Status**: In Review · **Category**: Feature (Architecture) · **Refs**: ES-022, ES-021, ES-021b · **Opened**: 2026-10-18
+- **Status**: Done (2026-10-18) · **Category**: Feature (Architecture) · **Refs**: ES-022, ES-021, ES-021b · **Opened**: 2026-10-18
 - **Label note**: Handoff labeled this **P1-51**, but P1-51 is ES-013 Fenshen architecture; following the owner-ID convention above, this item is **P1-53**.
 - **Spec**: `docs/specs/ES-022-phase-1-tools.md`.
 - **Impl**: `app/api/chat/route.ts` tool array now exposes `get_notes`, `get_conversation_records`, `get_summary` (retained from ES-021), and `push_to_dev(title, body)`. The bounded loop already handled `tool_calls` → backend execution → `role: 'tool'` → final answer. `push_to_dev` uses the new shared `lib/github.ts` helper (also used by `/api/integrations/github`); it reuses title-based dedupe and the `yuanying-feedback` label, returning `{ success, issue_url, number, already }` or `{ error }`.
@@ -592,13 +592,18 @@
   - `get_summary` is retained from ES-021 rather than removed, to avoid regressing an approved tool.
   - `push_to_dev` requires explicit owner confirmation before filing (AGENTS §2.2), so it is not fully autonomous on an inferred bug.
   - Forbidden tools (`send_email`, `send_message`, `write_code`, `execute_code`, `access_bank`, `make_payment`, `delete_data`, `drop_table`) were not added.
-- **Verified (2026-10-18, local)**: `npx tsc --noEmit` and `npm run lint` pass. The tool loop itself was verified in production under P1-49 for `get_notes` and `get_conversation_records`.
+- **Verified (2026-10-18, local)**: `npx tsc --noEmit`, `npm run lint`, and `npm run build` pass.
+- **Verified (2026-10-18, prod, commit `ff99e64`)**:
+  - `get_notes` → actual Oct-17 notes.
+  - `get_conversation_records` → ES-013 quotes (Core/Interface, no-deploy, D7 rationale).
+  - `push_to_dev` → created issue **#12** with the requested title/body; closed after verification as test cleanup.
+  - Error path (local dev, invalid `GITHUB_TOKEN`) → 元婴 reported "失败了。原因：Bad credentials…没建成功" instead of claiming success.
+- **Deploy note**: production deployment `dpl_B1FQXQMfAnvB9B9L8ALVQ75yF7wC` is Ready and aliased to `https://yuanying-rust.vercel.app`. The GitHub Actions `Deploy Web (Vercel)` run still fails because the `VERCEL_TOKEN` secret is invalid; the Vercel Git integration deployed the commit instead. Follow-up: rotate/replace `VERCEL_TOKEN`.
 - **Acceptance**:
-  - [x] `get_notes` works (verified in prod under P1-49).
-  - [x] `get_conversation_records` quotes ES-013 (verified in prod under P1-49).
-  - [ ] `push_to_dev` creates a GitHub issue when the owner asks and confirms (prod).
-  - [ ] Tool errors produce "我尝试查了，但系统报错" rather than fabricated success (prod).
-- **Remaining**: deploy + owner verification of `push_to_dev` (and its dedupe/error path).
+  - [x] `get_notes` works when asked "昨天我写了什么笔记？", and the response includes actual note content.
+  - [x] `get_conversation_records` quotes the ES-013 decision when asked "我们是怎么决定Fenshen架构的？".
+  - [x] `push_to_dev` creates a GitHub issue when the owner explicitly asks and confirms.
+  - [x] Tool errors are reported honestly, without fabricated success.
 
 ---
 
@@ -736,6 +741,8 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 ### 2026-10-18 (session 31 — ES-022 Phase 1 tools)
 - Added `push_to_dev(title, body)` to the DeepSeek tool array; extracted shared `lib/github.ts` (title dedupe, `yuanying-feedback` label) used by both the tool and `/api/integrations/github`. Manifest/runtime require owner confirmation before filing and honest tool-error wording. Forbidden tools not added. New item **P1-53** (handoff labeled P1-51, already ES-013). → **P1-53**.
+- **Verified in prod (commit `ff99e64`)**: 元婴 auto-called `get_notes` and `get_conversation_records`; `push_to_dev` created issue **#12** with the requested title/body (closed after test); invalid GitHub credentials produced an honest failure message. → **P1-52 Done**, **P1-53 Done**.
+- **Deploy caveat**: the `Deploy Web (Vercel)` workflow fails because `VERCEL_TOKEN` is invalid; Vercel's Git integration deployed the commit. Rotate `VERCEL_TOKEN`.
 
 ### 2026-10-18 (session 30 — ES-021b proactive tool use)
 - Manifest gains **Rule: Proactive Tool Use**; runtime prompt requires querying `get_notes` / `get_conversation_records` / `get_summary` before answering past-context questions. New item **P1-52** (handoff labeled P1-50, already ES-018).
