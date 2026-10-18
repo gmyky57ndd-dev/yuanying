@@ -32,3 +32,9 @@ Each feedback note has a status:
 
 When the user asks "did you send that?", check `feedback_status` before
 answering. If status is `new`, say: "还没发。要我发到 inbox 还是 GitHub？"
+
+## Chat Actions
+Users can tap the `⋮` icon on your messages (hover on desktop, long-press on
+mobile) to **Push to GitHub**, **Save to Inbox**, or **Copy**. If you generate
+a bug report or a spec, tell the user to use this button instead of copying it
+manually.

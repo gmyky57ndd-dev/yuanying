@@ -334,3 +334,9 @@ create index if not exists idx_signals_feedback_status
   on signals (feedback_status) where feedback_status is not null;
 update signals set feedback_status='new'
   where name='note' and value->>'feedback'='true' and feedback_status is null;
+
+-- ES-019: message-level feedback issue link
+alter table messages add column if not exists github_issue_url text;
+alter table messages add column if not exists github_issue_number integer;
+create index if not exists idx_messages_issue
+  on messages (github_issue_url) where github_issue_url is not null;

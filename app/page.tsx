@@ -10,7 +10,13 @@ import {
 } from '@/lib/activity-stream';
 import { formatForAI, formatForDev, feedbackTitle } from '@/lib/feedback-format';
 
-type Message = { role: 'user' | 'assistant'; content: string };
+type Message = {
+  id?: number;
+  role: 'user' | 'assistant';
+  content: string;
+  github_issue_url?: string | null;
+  github_issue_number?: number | null;
+};
 type Signal = {
   id: number;
   name: string;
@@ -68,6 +74,8 @@ function tzOffsetMinutes(tz: string, at: Date = new Date()): number {
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [msgMenu, setMsgMenu] = useState<number | null>(null);
+  const longPressRef = useRef<any>(null);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [todaySignals, setTodaySignals] = useState<Signal[]>([]);
@@ -95,10 +103,7 @@ export default function Home() {
 
   useEffect(() => {
     // ES-009 §1: chat is scoped to today (never scrolls before 00:00 local).
-    fetchWithTimeout(`${API_BASE}/api/history?today=1`, {})
-      .then(r => r.json())
-      .then(d => setMessages(d.messages ?? []))
-      .catch(() => {});
+    loadMessages();
     loadSignals();
     loadSteps();
     loadNotes();
@@ -157,6 +162,87 @@ export default function Home() {
       const d = await r.json();
       setTodaySignals(d.signals ?? []);
     } catch {}
+  }
+
+  async function loadMessages() {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/history?today=1`, {});
+      const d = await r.json();
+      setMessages(d.messages ?? []);
+    } catch {}
+  }
+
+  // ES-019: per-message feedback actions (assistant messages only).
+  function openMsgMenu(id?: number) {
+    if (!id) return;
+    setMsgMenu(m => (m === id ? null : id));
+  }
+  function startLongPress(id?: number) {
+    if (!id) return;
+    cancelLongPress();
+    longPressRef.current = setTimeout(() => setMsgMenu(id), 500);
+  }
+  function cancelLongPress() {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current);
+      longPressRef.current = null;
+    }
+  }
+  async function pushMessage(m: Message) {
+    if (!m.id || m.github_issue_url) return;
+    const first =
+      m.content.split('\n').find(l => l.trim())?.trim().slice(0, 80) ?? '';
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/integrations/github`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message_id: m.id,
+          title: `[元婴 feedback] ${first}`,
+          body: m.content,
+        }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(`GitHub: ${d.error ?? r.status}`);
+        return;
+      }
+      alert(
+        `${d.already ? 'Already sent!' : 'Issue created!'}${
+          d.issue_url ? `\n${d.issue_url}` : ''
+        }`
+      );
+      setMsgMenu(null);
+      loadMessages();
+    } catch {
+      alert('GitHub 失败');
+    }
+  }
+  async function inboxMessage(m: Message) {
+    if (!m.id) return;
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/integrations/inbox`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: m.id }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(`Inbox: ${d.error ?? r.status}`);
+        return;
+      }
+      alert(`已提交到 inbox\n${d.path ?? ''}`);
+      setMsgMenu(null);
+    } catch {
+      alert('Inbox 提交失败');
+    }
+  }
+  function copyMessage(m: Message) {
+    navigator.clipboard
+      .writeText(m.content)
+      .then(() => alert('已复制'))
+      .catch(() => alert('复制失败'));
+    setMsgMenu(null);
   }
 
   async function loadSteps() {
@@ -247,6 +333,7 @@ export default function Home() {
     } finally {
       setSending(false);
       loadSignals();
+      loadMessages();
     }
   }
 
@@ -721,18 +808,83 @@ export default function Home() {
             说点什么。
           </div>
         )}
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[80%] px-3.5 py-2 rounded-2xl text-[15px] leading-snug whitespace-pre-wrap break-words ${
-              m.role === 'user'
-                ? 'ml-auto bg-stone-700 text-stone-50'
-                : 'mr-auto bg-stone-800 text-stone-100'
-            }`}
-          >
-            {m.content}
-          </div>
-        ))}
+        {messages.map((m, i) => {
+          const isAssistant = m.role === 'assistant';
+          return (
+            <div
+              key={m.id ?? i}
+              className={isAssistant ? 'mr-auto max-w-[85%] group' : 'ml-auto max-w-[80%]'}
+            >
+              <div
+                className={`px-3.5 py-2 rounded-2xl text-[15px] leading-snug whitespace-pre-wrap break-words ${
+                  isAssistant
+                    ? 'mr-auto bg-stone-800 text-stone-100'
+                    : 'ml-auto bg-stone-700 text-stone-50'
+                }`}
+                onContextMenu={
+                  isAssistant
+                    ? e => {
+                        e.preventDefault();
+                        openMsgMenu(m.id);
+                      }
+                    : undefined
+                }
+                onTouchStart={isAssistant ? () => startLongPress(m.id) : undefined}
+                onTouchEnd={isAssistant ? cancelLongPress : undefined}
+                onTouchMove={isAssistant ? cancelLongPress : undefined}
+              >
+                {m.content}
+              </div>
+              {isAssistant && (
+                <div className="flex items-center gap-2 mt-1">
+                  {m.id && (
+                    <button
+                      onClick={() => openMsgMenu(m.id)}
+                      className="text-stone-600 text-xs md:opacity-0 md:group-hover:opacity-100"
+                      aria-label="message actions"
+                    >
+                      ⋮
+                    </button>
+                  )}
+                  {m.github_issue_url && (
+                    <a
+                      href={m.github_issue_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] text-stone-500 underline"
+                    >
+                      Issue #{m.github_issue_number ?? ''}
+                    </a>
+                  )}
+                </div>
+              )}
+              {isAssistant && m.id && msgMenu === m.id && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {!m.github_issue_url && (
+                    <button
+                      onClick={() => pushMessage(m)}
+                      className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                    >
+                      Push to GitHub
+                    </button>
+                  )}
+                  <button
+                    onClick={() => inboxMessage(m)}
+                    className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                  >
+                    Save to Inbox
+                  </button>
+                  <button
+                    onClick={() => copyMessage(m)}
+                    className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                  >
+                    Copy
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
         {sending && (
           <div className="mr-auto bg-stone-800 px-3.5 py-2 rounded-2xl text-stone-500 text-[15px]">
             …

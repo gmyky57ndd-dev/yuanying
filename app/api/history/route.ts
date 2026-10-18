@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
 
   let query = supabase
     .from('messages')
-    .select('role, content, created_at')
+    .select(
+      'id, role, content, created_at, github_issue_url, github_issue_number'
+    )
     .order('created_at', { ascending: true })
     .order('id', { ascending: true })
     .limit(limit);
@@ -37,6 +39,12 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    messages: (data ?? []).map(m => ({ role: m.role, content: m.content })),
+    messages: (data ?? []).map(m => ({
+      id: m.id,
+      role: m.role,
+      content: m.content,
+      github_issue_url: m.github_issue_url ?? null,
+      github_issue_number: m.github_issue_number ?? null,
+    })),
   });
 }
