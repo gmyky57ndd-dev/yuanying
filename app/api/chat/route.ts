@@ -163,19 +163,39 @@ async function runTool(name: string, args: any): Promise<any> {
   if (name === 'push_to_dev') {
     const title = String(args?.title ?? '').trim();
     const body = String(args?.body ?? '').trim();
-    if (!title) return { success: false, error: 'title required' };
-    if (!body) return { success: false, error: 'body required' };
+    if (!title) {
+      return {
+        success: false,
+        issue_url: null,
+        number: null,
+        already: false,
+        error: 'title required',
+      };
+    }
+    if (!body) {
+      return {
+        success: false,
+        issue_url: null,
+        number: null,
+        already: false,
+        error: 'body required',
+      };
+    }
     try {
       const issue = await findOrCreateIssue(title, body);
       return {
         success: true,
         issue_url: issue.issue_url,
         number: issue.number,
-        already: issue.already ?? false,
+        already: issue.already,
+        error: null,
       };
     } catch (e) {
       return {
         success: false,
+        issue_url: null,
+        number: null,
+        already: false,
         error: e instanceof Error ? e.message : 'github error',
       };
     }
@@ -435,6 +455,13 @@ export async function POST(req: NextRequest) {
           }
           if (tc.function?.name === 'push_to_dev') {
             pushToDevResult = result;
+            // Structured, body-free result log for future incident review.
+            console.log('tool_result push_to_dev', {
+              success: result?.success ?? null,
+              number: result?.number ?? null,
+              already: result?.already ?? null,
+              error: result?.error ?? null,
+            });
           }
           messages.push({
             role: 'tool',
