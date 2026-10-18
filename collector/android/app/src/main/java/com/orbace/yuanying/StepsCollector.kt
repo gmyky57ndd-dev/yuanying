@@ -60,25 +60,28 @@ class StepsCollector(private val ctx: Context) {
                 timeRangeFilter = TimeRangeFilter.between(startOfDay, now)
             )
             val response = c.readRecords(request)
-            val total = response.records.sumOf { it.count }
 
-            // P1-23 diagnostic: log the window, the HealthConnect data origins
-            // present, per-origin counts, and the aggregation mode, so we can
-            // tell whether one source (e.g. phone vs watch) is the outlier.
-            val byOrigin = response.records
-                .groupBy { it.metadata.dataOrigin.packageName }
-                .map { (pkg, recs) ->
-                    JSONObject().apply {
-                        put("package", pkg)
-                        put("steps", recs.sumOf { it.count })
-                        put("count", recs.size)
-                    }
+            // P1-23 / issue #8: the phone and Fit (and a watch) can each write
+            // steps into HealthConnect. Summing origins double-counts (e.g.
+            // 4054 + 4317 = 8371). Take the MAX per origin instead; keep the
+            // raw sum for audit.
+            val grouped = response.records.groupBy { it.metadata.dataOrigin.packageName }
+            val originSums = grouped.mapValues { (_, recs) -> recs.sumOf { it.count } }
+            val rawTotal = originSums.values.sum()
+            val total = originSums.values.maxOrNull() ?: 0
+
+            val byOrigin = originSums.map { (pkg, steps) ->
+                JSONObject().apply {
+                    put("package", pkg)
+                    put("steps", steps)
+                    put("count", grouped[pkg]?.size ?: 0)
                 }
+            }
             val sources = JSONArray().apply { byOrigin.forEach { put(it) } }
             Log.i(
                 TAG,
-                "collected steps: $total from ${byOrigin.size} origins " +
-                    "(window $startOfDay..$now, tz $zone): $byOrigin"
+                "collected steps: $total (max per origin; raw sum $rawTotal) " +
+                    "from ${byOrigin.size} origins (window $startOfDay..$now, tz $zone): $byOrigin"
             )
 
             JSONObject().apply {
@@ -89,8 +92,8 @@ class StepsCollector(private val ctx: Context) {
                 put("platform", "android")
                 // ES-011 §3 provenance: enough for 元婴 to explain the value.
                 put("source", "merged")
-                put("aggregation", "sum")
-                put("raw_value", total)
+                put("aggregation", "max_per_origin")
+                put("raw_value", rawTotal)
                 put("sources", sources)
                 put("sources_count", byOrigin.size)
             }

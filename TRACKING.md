@@ -306,6 +306,7 @@
 - **Fix (2026-10-16)**: `StepsCollector` now anchors the window to **local midnight** in the device timezone (`LocalDate.now(zone).atStartOfDay(zone)`), not `Instant.now().truncatedTo(DAYS)` (UTC). This stops ~4h of the previous local evening leaking into the day. **Aggregation is unchanged** (owner: the problem is *not* summation across sources). Collector **v1.0.21 (code 22)**.
 - **Display cutoff (2026-10-16)**: the day value is the **max** snapshot, so an already-stored inflated reading would persist. `pickDailySteps` + `GET /api/steps` now **prefer rows tagged `context.timezone`** (collector v1.0.21+ = corrected local window); legacy UTC-window rows are preserved for audit but excluded once a corrected row exists (clean-data cutoff, AGENTS §3).
 - **ES-011 §3 provenance (2026-10-16)**: steps `context` now also carries `source` (`merged`), `aggregation` (`sum`), and `raw_value`, alongside `window_start`/`window_end`/`timezone`/`sources`. Collector **v1.0.22 (code 23)**.
+- **Fix (issue #8, 2026-10-17)**: per-origin data proved double counting — Fit `4054` + HC-phone `4317` = `8371`. Collector now takes **max per origin** (`aggregation: max_per_origin`; `raw_value` = raw sum), so it reports ~`4317`. Collector **v1.0.27 (code 28)**.
 - **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
 - **Verified (2026-10-16)**: Play internal `completed` (versionCode 22); GitHub Release `v1.0.21`; web `/api/steps` live. Production still shows the pre-fix value (`2700`) until the phone runs v1.0.21 and posts a corrected row — then the cutoff switches the day value to the local-day reading.
 
@@ -657,6 +658,10 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 ---
 
 ## Changelog
+
+### 2026-10-17 (session 24 — issue triage + steps max-per-origin)
+- Issue #8: HealthConnect origins were summed (Fit 4054 + phone 4317 = 8371). Steps now use **max per origin** (`max_per_origin`), raw sum kept for audit. Collector **v1.0.27 (code 28)**.
+- Closed GitHub issues #2/#3/#5/#6/#7/#8 with explanations after the fixes.
 
 ### 2026-10-17 (session 23 — ES-018 feedback status & inbox commit)
 - Added `feedback_status` (new/inbox/pushed/resolved); `POST /api/integrations/inbox` commits the inbox file via GitHub Contents API; Push to GitHub sets `pushed` + issue URL; status chips + Mark Resolved; manifest + prompt status awareness. Renumbered Fenshen to **P1-48**. → **P1-47**.
