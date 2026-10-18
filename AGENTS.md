@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.7  
+**Version:** 1.8
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -10,7 +10,7 @@
 
 ## 1. Project context
 
-元婴 is a phone-first AI companion that captures signals (wake, sleep, water, steps, and activity), offers reminders, and retains memory over time.
+元婴 is a phone-first AI companion that captures signals (wake, sleep, water, steps, and activity), offers reminders, and retains memory over time. It is architected as a Core State (memory/signals) that manifests through configurable Interfaces (Fenshen), and uses Agentic Tools to fetch data and take owner-confirmed actions.
 
 **One sentence:** *Not a chatbot. Not an assistant. Your second self, growing with you.*
 
@@ -42,6 +42,16 @@ Keep identity, values, voice, memory, and configuration in human-readable, versi
 5. **Act** — only use confirmed patterns for proactive behavior, and only within the scope the owner approved.
 
 Do not let a pattern-driven behavior skip the proposal and confirmation steps. This loop is a product design constraint, not a requirement to create specific files or storage tables that do not yet exist. Use the repository's current implementation or approved equivalent; do not assume pattern files or a summary subsystem exist.
+
+### 2.5 Self-awareness and tool use
+
+元婴 is an agent, not a passive chatbot waiting for context to be pasted into each exchange. Its runtime instructions include `core/system-manifest.md`, which describes the available interface and capabilities. Keep that manifest accurate; 元婴 must not guess which buttons, routes, or actions exist.
+
+- **Self-awareness:** When answering questions about its UI or capabilities, rely on the system manifest and current implementation. Do not claim a capability that is not documented and implemented.
+- **Tools (function calling):** Use available retrieval tools (such as `get_notes`, `get_conversation_records`, and `get_summary`) when a question requires stored history or data that is not present in the current context. Query the appropriate tool before saying the information is unknown or unavailable. Treat tool results as evidence and report lookup failures honestly.
+- **External actions:** Tools that send communications, create public issues, make payments, execute code in external environments, or otherwise cause consequential external changes require explicit owner confirmation before execution. Drafting is allowed; inferred intent is not confirmation. Destructive actions must be explicitly scoped and confirmed.
+
+Agents must update `core/system-manifest.md` whenever they add or change a user-facing UI surface, tool, or capability described there.
 
 ---
 
@@ -168,6 +178,11 @@ ask rather than guess.
   text to the clipboard instead."
 - **Verifiable acceptance.** State the observable result (a DB row, a created
   issue, a copied clipboard, a rendered label), not a vague intention.
+- **Tool Contracts.** When writing a tool for an AI agent, the return payload
+  must be strict and predictable. If an operation can fail, it must return an
+  explicit `success: false` and an `error` string. Never return an ambiguous
+  payload that allows the AI to guess or hallucinate the result. When a tool
+  fails, the AI must be told it failed so it can report the truth to the user.
 
 Agents cannot act on intent that is not written down. Paths and fallbacks are
 part of the requirement, not implementation details.
@@ -184,7 +199,8 @@ part of the requirement, not implementation details.
 4. Surface errors and blockers; distinguish observed facts from hypotheses.
 5. Prefer human-readable, portable formats for durable project information.
 6. Ask when a product decision, approval, or missing requirement blocks safe progress.
-7. **Log signal provenance (ES-011 §3).** Every signal the collector
+7. **Implement explicit tools for context retrieval.** When a feature needs to retrieve stored data not already available in its bounded runtime context, prefer a scoped, permission-appropriate tool/API over injecting an unbounded history into every prompt. Document the tool's purpose and limits, and update `core/system-manifest.md` when a tool or user-facing surface is added or changed.
+8. **Log signal provenance (ES-011 §3).** Every signal the collector
    sends must include enough metadata for 元婴 to explain it to the
    owner: the value, its source, the collection window, and (where the
    value is aggregated) the aggregation mode. A signal that 元婴 cannot
@@ -207,6 +223,7 @@ part of the requirement, not implementation details.
    any input UI, ask: can this ride on chat, a single button, or voice?
    If yes, do that. New surfaces exist only when no existing surface
    can carry the input.
+10. **Do not give the AI autonomous external actions.** Do not build tools that send communications, make payments, execute code in external environments, or make destructive changes without an explicit human confirmation step. Read-only retrieval tools do not need confirmation.
 
 ### Stop and ask when
 
@@ -266,6 +283,8 @@ If code is complete but a required check or owner verification is pending, use *
   existing surfaces (chat, one button, voice). If a new surface is truly
   necessary, it must justify why no existing surface can carry the input
   — and the justification goes in the spec, not assumed.
+- **Passive AI:** waiting for the owner to paste historical context instead of using an available retrieval tool. When the question requires stored history and an appropriate tool exists, use it before claiming the information is unknown.
+- **Blind AI:** adding or changing a UI surface or tool without updating `core/system-manifest.md`. If the runtime manifest does not describe a capability, 元婴 may not know it exists.
 
 ---
 
@@ -274,7 +293,7 @@ If code is complete but a required check or owner verification is pending, use *
 1. `AGENTS.md` — rules and current changelog
 2. `TRACKING.md` — current status, acceptance criteria, and project history
 3. Current requirements/specification for the task (check the repository, including `docs/`, for actual filenames)
-4. `core/identity.md`, `core/voice.md`, and `core/values.md` when present and relevant
+4. `core/identity.md`, `core/voice.md`, `core/values.md`, and `core/system-manifest.md` when present and relevant
 5. Pattern files such as `core/inferred-patterns.md`, `core/confirmed-patterns.md`, or `core/rejected-patterns.md`, if they exist and are relevant
 6. The schema and routes that implement the relevant data flow (inspect actual files; do not assume a `/api/summary/*` route or a summaries table exists)
 7. Relevant code, tests, migrations, and workflows
@@ -299,6 +318,16 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.8 — 2026-10-18
+- Updated §1 to describe the Core State, configurable Fenshen interfaces, and agentic tools architecture.
+- Added §2.5 on runtime self-awareness, retrieval tools, and confirmation before external side effects.
+- Updated §5 to prefer scoped retrieval tools and forbid autonomous external actions.
+- Added Passive AI and Blind AI failure modes to §8.
+- Added `core/system-manifest.md` to the §9 reading order.
+- Added the §4.8 **Tool Contracts** rule: tools must return an explicit
+  `success: false` and `error` on failure so the AI can report the truth.
+- Context: Fenshen, system-manifest self-awareness, and function-calling retrieval tools are now implemented; the manifest is loaded into the runtime prompt.
 
 ### v1.7 — 2026-10-17
 - Added §4.8: specs written for AI agents require **explicit file paths**,
