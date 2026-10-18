@@ -94,7 +94,7 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!keyword) return { error: 'keyword required' };
     const needle = keyword.toLowerCase();
 
-    const searchDir = (rel: string, limit: number) => {
+    const searchDir = (rel: string, limit: number, fullExcerpt = false) => {
       const dir = path.join(process.cwd(), rel);
       if (!fs.existsSync(dir)) return [];
       const out: Array<Record<string, string>> = [];
@@ -111,11 +111,18 @@ async function runTool(name: string, args: any): Promise<any> {
           /^Conversation Record\s*—\s*/,
           ''
         );
-        const idx = lower.indexOf(needle);
-        const snippet = raw
-          .slice(Math.max(0, idx - 200), idx + 400)
-          .replace(/\s+/g, ' ')
-          .trim();
+        let snippet: string;
+        if (fullExcerpt) {
+          // Specs are short; return the distilled decisions, not a keyword
+          // window, so the model can answer design questions.
+          snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 1800);
+        } else {
+          const idx = lower.indexOf(needle);
+          snippet = raw
+            .slice(Math.max(0, idx - 200), idx + 400)
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
         out.push({ file: f, title, snippet });
         if (out.length >= limit) break;
       }
@@ -131,7 +138,7 @@ async function runTool(name: string, args: any): Promise<any> {
     return {
       keyword,
       source: 'specs',
-      matches: searchDir('docs/specs', 5),
+      matches: searchDir('docs/specs', 5, true),
     };
   }
 
