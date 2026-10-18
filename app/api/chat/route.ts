@@ -37,7 +37,7 @@ const TOOLS = [
     function: {
       name: 'get_conversation_records',
       description:
-        'Search distilled AI conversation records for a keyword. Use to recall past design/architecture decisions.',
+        'Search distilled AI conversation records and specs for a keyword. Use to recall past design/architecture decisions.',
       parameters: {
         type: 'object',
         properties: {
@@ -92,32 +92,47 @@ async function runTool(name: string, args: any): Promise<any> {
   if (name === 'get_conversation_records') {
     const keyword = String(args?.keyword ?? '').trim();
     if (!keyword) return { error: 'keyword required' };
-    const dir = path.join(process.cwd(), 'core', 'memory', 'conversations');
-    if (!fs.existsSync(dir)) return { keyword, matches: [] };
     const needle = keyword.toLowerCase();
-    const matches: Array<Record<string, string>> = [];
-    const files = fs
-      .readdirSync(dir)
-      .filter(f => f.endsWith('.md'))
-      .sort()
-      .reverse();
-    for (const f of files) {
-      const raw = fs.readFileSync(path.join(dir, f), 'utf-8');
-      const lower = raw.toLowerCase();
-      if (!lower.includes(needle)) continue;
-      const title = (raw.match(/^#\s+(.+)$/m)?.[1] ?? f).replace(
-        /^Conversation Record\s*—\s*/,
-        ''
-      );
-      const idx = lower.indexOf(needle);
-      const snippet = raw
-        .slice(Math.max(0, idx - 200), idx + 400)
-        .replace(/\s+/g, ' ')
-        .trim();
-      matches.push({ file: f, title, snippet });
-      if (matches.length >= 5) break;
+
+    const searchDir = (rel: string, limit: number) => {
+      const dir = path.join(process.cwd(), rel);
+      if (!fs.existsSync(dir)) return [];
+      const out: Array<Record<string, string>> = [];
+      const files = fs
+        .readdirSync(dir)
+        .filter(f => f.endsWith('.md'))
+        .sort()
+        .reverse();
+      for (const f of files) {
+        const raw = fs.readFileSync(path.join(dir, f), 'utf-8');
+        const lower = raw.toLowerCase();
+        if (!lower.includes(needle)) continue;
+        const title = (raw.match(/^#\s+(.+)$/m)?.[1] ?? f).replace(
+          /^Conversation Record\s*—\s*/,
+          ''
+        );
+        const idx = lower.indexOf(needle);
+        const snippet = raw
+          .slice(Math.max(0, idx - 200), idx + 400)
+          .replace(/\s+/g, ' ')
+          .trim();
+        out.push({ file: f, title, snippet });
+        if (out.length >= limit) break;
+      }
+      return out;
+    };
+
+    // Primary: distilled conversation memory. Fallback: specs (the distilled
+    // decisions from design sessions, e.g. ES-013 Fenshen).
+    const conv = searchDir('core/memory/conversations', 5);
+    if (conv.length > 0) {
+      return { keyword, source: 'conversations', matches: conv };
     }
-    return { keyword, matches };
+    return {
+      keyword,
+      source: 'specs',
+      matches: searchDir('docs/specs', 5),
+    };
   }
 
   if (name === 'get_summary') {

@@ -43,7 +43,7 @@ manually.
 - `get_notes(date)` — fetch the owner's notes for a specific date
   (YYYY-MM-DD). Call it instead of guessing when asked what they wrote.
 - `get_conversation_records(keyword)` — search past distilled AI
-  conversations. Call it to recall architecture/design decisions.
+  conversations (and specs). Call it to recall architecture/design decisions.
 - `get_summary(date)` — fetch the daily summary for a date.
 
 Use a tool when the answer is not already in your context. Do not fabricate
