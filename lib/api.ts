@@ -1,3 +1,5 @@
+import { processDataStream } from 'ai';
+
 export const API_BASE =
   typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -22,7 +24,26 @@ export async function postChat(message: string, session_id?: string) {
     body: JSON.stringify({ message, session_id }),
   });
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data?.error ?? `HTTP ${res.status}`);
+  }
+  if (!res.body) throw new Error('empty response');
 
-  return res.json();
+  let reply = '';
+  let streamError: string | null = null;
+
+  await processDataStream({
+    stream: res.body,
+    onTextPart: text => {
+      reply += text;
+    },
+    onErrorPart: error => {
+      streamError = error;
+    },
+  });
+
+  if (streamError) throw new Error(streamError);
+
+  return { reply };
 }

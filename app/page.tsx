@@ -398,11 +398,12 @@ export default function Home() {
           { role: 'assistant', content: '…（信号中断）' },
         ]);
       }
-    } catch {
-      setError('连接失败');
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : '连接失败';
+      setError(reason);
       setMessages(m => [
         ...m,
-        { role: 'assistant', content: '…（连接失败）' },
+        { role: 'assistant', content: `…（${reason}）` },
       ]);
     } finally {
       setSending(false);
