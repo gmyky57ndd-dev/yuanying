@@ -117,6 +117,7 @@
 
 - **Status**: In Review (2026-10-19) · **Category**: Prompt Update · **Refs**: ES-027 · **Opened**: 2026-10-19
 - **Label note**: the handoff labeled this **P2-06**, but P2-06 is the completed Phase C / ES-026 item; renumbered to **P2-11**.
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
 - **Impl**: `lib/summary-generator.ts` exports `SUMMARY_TONE_RULES`; `lib/yuanying.ts` injects them into `## Daily Summaries`. Rules: describe what the work means (not a QA log), use "we"/"I" (元婴), and draft the summary then ask "要我存下来吗？" instead of offering an empty menu.
 - **Acceptance**:
   - [x] Prompt contains the meaning / first-person-plural / no-empty-menu rules.
@@ -125,6 +126,7 @@
 ### [P2-12] Model router & provider abstraction (ES-029)
 
 - **Status**: In Review (2026-10-19) · **Category**: Feature (Architecture) · **Refs**: ES-029 · **Opened**: 2026-10-19
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
 - **Label note**: the handoff labeled this **P2-07**, but P2-07 is the completed Phase C / ES-026 history item; renumbered to **P2-12**.
 - **Impl**:
   - `supabase/migrations/017_models.sql` + `supabase/schema.sql` — `models` table and `config.active_model_id` (seeded `deepseek-chat`). Applied to the configured Supabase.
@@ -774,6 +776,7 @@
 ### [P1-58] Prevent false behavioral judgments from missing data (ES-028)
 
 - **Status**: In Review (2026-10-19) · **Category**: Bug (Prompt/Logic) · **Refs**: ES-028 · **Opened**: 2026-10-19
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
 - **Report**: phone steps dropped to 600 while charging; Xiaowu said "you barely moved today", ignoring 4120 watch steps.
 - **Impl**: added `## Rule: Context before Judgment` to `core/fenshen/xiaowu/profile.md` and `core/system-manifest.md`. `lib/yuanying.ts` now loads an optional `core/fenshen/<id>/profile.md` for the active Fenshen, so the rule reaches the runtime prompt.
 - **Acceptance**:
