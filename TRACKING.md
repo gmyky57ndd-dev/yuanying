@@ -113,6 +113,43 @@
   - [x] Reduced-motion fallback.
 - **Verified (2026-10-18, prod, PR #17, deploy run `39153665136`)**: home bundle contains the five habit labels and Saved-to-Inbox strings; `/api/history/days` returns `standup` (e.g., 2026-10-17: water 4, standup 6); CSS contains `fadeIn`, `breathe`, and the reduced-motion rule.
 
+### [P2-11] Elevate summary tone — partner vs QA (ES-027)
+
+- **Status**: In Review (2026-10-19) · **Category**: Prompt Update · **Refs**: ES-027 · **Opened**: 2026-10-19
+- **Label note**: the handoff labeled this **P2-06**, but P2-06 is the completed Phase C / ES-026 item; renumbered to **P2-11**.
+- **Impl**: `lib/summary-generator.ts` exports `SUMMARY_TONE_RULES`; `lib/yuanying.ts` injects them into `## Daily Summaries`. Rules: describe what the work means (not a QA log), use "we"/"I" (元婴), and draft the summary then ask "要我存下来吗？" instead of offering an empty menu.
+- **Acceptance**:
+  - [x] Prompt contains the meaning / first-person-plural / no-empty-menu rules.
+  - [ ] Owner verifies a real summary reads as a reflection, not a QA log, and ends with a draft confirmation.
+
+### [P2-12] Model router & provider abstraction (ES-029)
+
+- **Status**: In Review (2026-10-19) · **Category**: Feature (Architecture) · **Refs**: ES-029 · **Opened**: 2026-10-19
+- **Label note**: the handoff labeled this **P2-07**, but P2-07 is the completed Phase C / ES-026 history item; renumbered to **P2-12**.
+- **Impl**:
+  - `supabase/migrations/017_models.sql` + `supabase/schema.sql` — `models` table and `config.active_model_id` (seeded `deepseek-chat`). Applied to the configured Supabase.
+  - `lib/llm-router.ts` — DB-driven router for `deepseek`, `openai`, `anthropic`, and `custom` (OpenAI-compatible base URL); DB key first, env key fallback; explicit errors for missing model/key/base URL/unsupported provider.
+  - `app/api/models/route.ts` — list/add/activate/delete; list never returns `api_key`; active model cannot be deleted.
+  - `app/api/models/test/route.ts` — sends a small ping through the selected model.
+  - `app/settings/page.tsx` — Models list, provider/name/key/base-URL form, active radio, test button.
+  - `app/api/chat/route.ts` — replaced the hardcoded DeepSeek fetch loop with AI SDK `streamText` + `maxSteps` tools; persists via `onFinish`; model-router failures return `{ success: false, error }`.
+  - `lib/api.ts` — consumes the AI SDK data stream and preserves the existing chat UI contract.
+  - `core/system-manifest.md` — documents Settings → 模型 and model-failure truthfulness.
+- **Dependencies**: `ai@4.3.19`, `@ai-sdk/openai@1.3.24`, `@ai-sdk/anthropic@1.2.12`, `zod@3.25.76` (AI SDK peer).
+- **Verified (2026-10-19, local dev + configured Supabase)**:
+  - `GET /api/models` returns `deepseek-chat` with `has_api_key:false` (env key fallback).
+  - `POST /api/models/test {id:"deepseek-chat"}` → `{success:true, reply:"ok"}`.
+  - `POST /api/chat` returns an AI SDK data stream (`0:"..."`) and persists both messages; test messages were removed afterwards.
+  - CRUD: added a temporary custom model, activated it, confirmed deletion of the active model is blocked, restored `deepseek-chat`, deleted the temporary model.
+  - `tsc`, lint, and production build pass.
+- **Acceptance**:
+  - [x] User can add a model via Settings (API/UI wired).
+  - [x] User can switch the active model.
+  - [x] Chat API uses the active model.
+  - [x] Missing model / bad key / unsupported provider returns `success:false`; the chat UI surfaces the error.
+  - [x] DeepSeek continues to work through the router.
+  - [ ] Owner verifies the Settings form and a real chat message on the deployed PWA.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---
@@ -731,6 +768,19 @@
   - [x] No constructed-URL branch; failures return `success:false` + reason.
   - [x] Failure logs include status/body (truncated).
   - [x] Deploy + production `tool_result` log check; comment/close issue #16.
+
+---
+
+### [P1-58] Prevent false behavioral judgments from missing data (ES-028)
+
+- **Status**: In Review (2026-10-19) · **Category**: Bug (Prompt/Logic) · **Refs**: ES-028 · **Opened**: 2026-10-19
+- **Report**: phone steps dropped to 600 while charging; Xiaowu said "you barely moved today", ignoring 4120 watch steps.
+- **Impl**: added `## Rule: Context before Judgment` to `core/fenshen/xiaowu/profile.md` and `core/system-manifest.md`. `lib/yuanying.ts` now loads an optional `core/fenshen/<id>/profile.md` for the active Fenshen, so the rule reaches the runtime prompt.
+- **Acceptance**:
+  - [x] Rule requires checking source/window before any behavioral judgment.
+  - [x] Rule requires "I see [number] from [source]" instead of judging.
+  - [ ] Owner verifies Xiaowu does not say "you barely moved" / "you need to walk more" with partial data.
+- **Note**: `core/voice.md` still has the example `Steps: 0/5000 → 今天还没动。`, which conflicts with this rule. Left unchanged because ES-028 does not include `voice.md` in its scope; recommend a follow-up.
 
 ---
 

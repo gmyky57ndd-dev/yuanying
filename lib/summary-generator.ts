@@ -15,6 +15,11 @@ const WATER_TARGET_DEFAULT = 6;
 const STEPS_GOAL_DEFAULT = 5000;
 const TOP_APPS_LIMIT = 5;
 
+/** ES-027: tone rules injected into the daily-summary prompt. */
+export const SUMMARY_TONE_RULES = `- Focus on meaning. Do not just list technical bugs. Describe what the technical work means for the project or for the owner's state. "We verified three links" is a QA log; "We connected the nervous system today" is a summary.
+- Use "we" or "I" (元婴), not only "you" (Owner). The day belongs to both of you.
+- No empty menus. Do not ask the owner to choose what to summarize. Draft the summary yourself, then ask "Shall I save this?" (要我存下来吗？).`;
+
 async function loadConfig() {
   const { data } = await supabase.from('config').select('key, value');
   const config = Object.fromEntries(

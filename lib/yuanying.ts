@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { SummaryData } from './summary-types';
+import { SUMMARY_TONE_RULES } from './summary-generator';
 import { readConfirmed, relevantHeld, Opinion } from './opinions';
 import { supabase } from './db';
 
@@ -109,6 +110,23 @@ function loadCore(): string {
   coreCacheMtime = newest;
 
   return coreCache;
+}
+
+function loadFenshenProfile(id: string): string {
+  const profilePath = path.join(
+    process.cwd(),
+    'core',
+    'fenshen',
+    id,
+    'profile.md'
+  );
+  try {
+    if (!fs.existsSync(profilePath)) return '';
+    return fs.readFileSync(profilePath, 'utf-8').trim();
+  } catch (e) {
+    console.warn(`failed to load fenshen profile: ${id}`, e);
+    return '';
+  }
 }
 
 const TZ = 'Asia/Shanghai';
@@ -283,8 +301,9 @@ export async function buildSystemPrompt(
   const opinionsCtx = buildOpinions(opts.message);
   const now = opts.now ?? new Date().toISOString();
 
+  const fenshenProfile = fenshen ? loadFenshenProfile(fenshen.id) : '';
   const fenshenBlock = fenshen
-    ? `\n\n# Active Fenshen (分身)\n\nYou are currently manifesting as: ${fenshen.display_name}\n\n${fenshen.prompt_md}`
+    ? `\n\n# Active Fenshen (分身)\n\nYou are currently manifesting as: ${fenshen.display_name}\n\n${fenshen.prompt_md}${fenshenProfile ? `\n\n${fenshenProfile}` : ''}`
     : '';
 
   return `${core}${fenshenBlock}
@@ -349,6 +368,7 @@ below. Only claim it was sent if the status is inbox/pushed/resolved. If it is
   the proposal. It was a heavy day.").
 - If there are no notes, say "No notes yesterday." rather than just reporting
   steps.
+${SUMMARY_TONE_RULES}
 
 Observe, don't diagnose: state what the data shows; present any
 inference as a question or proposal, never as fact. Say
