@@ -78,3 +78,21 @@ context = { file_id, file_url, mime_type, file_size, format,
   was verified with the real legacy CSV inside the zip and a representative
   JSON object. ZIP was verified end-to-end through the production tool.
 - PDFs, Sheets, and images remain unsupported by design.
+
+## 8. Issue #31 — `*/*` MIME fallback
+
+Some Drive uploads return `mimeType: "*/*"` (for example
+`stalio_export_csv_1792519528276.zip`, file id
+`1o5WgYgzSmtjq9sU-eQHIWR8Nt0gAjXvQ`). The file was a ZIP, not a CSV, and the
+strict MIME classifier rejected it.
+
+Fix:
+
+- If `mimeType` is empty, `*/*`, or `application/octet-stream`, infer the type
+  from the filename extension (`.csv` / `.json` / `.zip` / `.md` / `.txt`).
+- Log `drive file { id, name, mimeType, size }` for diagnosis (no content).
+- Store both `context.mime_type` (raw) and `context.effective_mime_type`.
+- Unsupported-format errors include the raw MIME and filename.
+
+Verified: the file above now classifies as `zip`, lists `entries.csv` /
+`routines.csv`, and returns CSV content.

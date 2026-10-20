@@ -3,6 +3,7 @@ import JSZip from 'jszip';
 import { supabase } from './db';
 import {
   classifyDriveMime,
+  inferMimeFromName,
   isSafeZipPath,
   parseCsv,
   parseJsonText,
@@ -378,7 +379,11 @@ async function exportContent(
   file: DriveFile,
   accessToken: string
 ): Promise<DriveContent> {
-  const mime = file.mimeType;
+  const rawMime = file.mimeType;
+  const mime =
+    !rawMime || rawMime === '*/*' || rawMime === 'application/octet-stream'
+      ? inferMimeFromName(file.name) || rawMime
+      : rawMime;
 
   if (mime === 'application/vnd.google-apps.document') {
     const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(
@@ -403,7 +408,7 @@ async function exportContent(
   const kind = classifyDriveMime(mime);
   if (!kind) {
     throw new Error(
-      `Unsupported Drive file type (${mime}). Supported: Google Docs, txt, md, csv, json, zip.`
+      `Unsupported Drive file type (${rawMime || 'unknown'}, name=${file.name}). Supported: Google Docs, txt, md, csv, json, zip.`
     );
   }
 
@@ -527,6 +532,12 @@ export async function importDriveDoc(
   }
 
   const file = await fetchMetadata(fileId, accessToken);
+  console.log('drive file', {
+    id: file.id,
+    name: file.name,
+    mimeType: file.mimeType,
+    size: file.size ?? null,
+  });
   const content = await exportContent(file, accessToken);
   const storedText = content.storeText.trim();
   if (!storedText) throw new Error('The Drive document is empty.');
@@ -558,6 +569,12 @@ export async function importDriveDoc(
         file_id: fileId,
         file_url: fileUrl,
         mime_type: file.mimeType,
+        effective_mime_type:
+          !file.mimeType ||
+          file.mimeType === '*/*' ||
+          file.mimeType === 'application/octet-stream'
+            ? inferMimeFromName(file.name) || file.mimeType
+            : file.mimeType,
         file_size: file.size ? Number(file.size) : null,
         format: content.format,
         imported_at: importedAt,

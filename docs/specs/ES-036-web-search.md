@@ -117,3 +117,19 @@ Rules:
   the Jina Reader/DDG fallback is used. If all fail, return an explicit error.
 - No raw HTML is passed to the model.
 - No autonomous external actions: search is read-only.
+
+## 8. Issue #33 — all backends failed
+
+DuckDuckGo can return HTTP 403 from serverless IPs and Tavily may be
+unconfigured. The search now reports every backend failure instead of
+returning an empty result:
+
+```text
+All web search backends failed: tavily: not configured;
+duckduckgo: DuckDuckGo search failed (HTTP 403);
+jina/duckduckgo: Jina/DDG search failed (HTTP 403)
+```
+
+- Tavily → DuckDuckGo → Jina Reader/DDG.
+- The Jina fallback fixes the serverless 403 path in production.
+- If all fail, the model must say search is unavailable and must not guess.

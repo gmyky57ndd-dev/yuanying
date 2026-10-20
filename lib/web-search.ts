@@ -181,21 +181,28 @@ async function jinaDuckDuckGoSearch(query: string): Promise<WebSearchResult[]> {
   return results;
 }
 
-/** ES-036: read-only web search, Tavily first then DuckDuckGo HTML. */
+/** ES-036: read-only web search, Tavily → DuckDuckGo → Jina/DDG. */
 export async function webSearch(query: string): Promise<WebSearchResponse> {
   const q = query.trim();
   if (!q) throw new Error('search query is required');
 
+  const failures: string[] = [];
   const tavilyKey = process.env.TAVILY_API_KEY ?? '';
+
   if (tavilyKey) {
     try {
       const results = await tavilySearch(q, tavilyKey);
       if (results.length > 0) {
         return { provider: 'tavily', results };
       }
+      failures.push('tavily: no results');
     } catch (e) {
-      console.warn('Tavily search failed; falling back to DuckDuckGo', e);
+      const msg = e instanceof Error ? e.message : 'failed';
+      failures.push(`tavily: ${msg}`);
+      console.warn('Tavily search failed; falling back', msg);
     }
+  } else {
+    failures.push('tavily: not configured');
   }
 
   try {
@@ -203,13 +210,23 @@ export async function webSearch(query: string): Promise<WebSearchResponse> {
     if (results.length > 0) {
       return { provider: 'duckduckgo', results };
     }
+    failures.push('duckduckgo: no results');
   } catch (e) {
-    console.warn('DuckDuckGo search failed; trying Jina reader', e);
+    const msg = e instanceof Error ? e.message : 'failed';
+    failures.push(`duckduckgo: ${msg}`);
+    console.warn('DuckDuckGo search failed; trying Jina reader', msg);
   }
 
-  const results = await jinaDuckDuckGoSearch(q);
-  if (results.length === 0) {
-    throw new Error('No web search results found.');
+  try {
+    const results = await jinaDuckDuckGoSearch(q);
+    if (results.length > 0) {
+      return { provider: 'duckduckgo', results };
+    }
+    failures.push('jina/duckduckgo: no results');
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'failed';
+    failures.push(`jina/duckduckgo: ${msg}`);
   }
-  return { provider: 'duckduckgo', results };
+
+  throw new Error(`All web search backends failed: ${failures.join('; ')}`);
 }
