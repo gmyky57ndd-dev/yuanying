@@ -189,7 +189,7 @@ function clip(value: string, max: number): string {
   return chars.length <= max ? value : chars.slice(0, max).join('');
 }
 
-/** ES-036: read an issue + its comments so 元婴 can verify delivery. */
+/** ES-038: read an issue + its comments so 元婴 can verify delivery. */
 export async function getIssue(issueNumber: number): Promise<IssueDetails> {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO;

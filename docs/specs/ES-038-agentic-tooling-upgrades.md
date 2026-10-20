@@ -1,4 +1,4 @@
-# ES-036 — Agentic Tooling Upgrades (Feedback from Yuanying)
+# ES-038 — Agentic Tooling Upgrades (Feedback from Yuanying)
 
 **Status**: Approved
 **Category**: Bug + Feature (Tooling)
@@ -8,8 +8,9 @@
 > **Tracking note**: the handoff requested **P2-12**, but P2-12 is the completed
 > ES-029 model-router item. This work is recorded as **P2-20**.
 >
-> **Number note**: the earlier web-search/Markdown delivery is in
-> `ES-036-web-search.md`. This file is the follow-up tooling-upgrade spec.
+> **Number note**: this file was originally created as a duplicate ES-036 and
+> renumbered to **ES-038** on 2026-10-20. The web-search/Markdown delivery is
+> ES-036 in `ES-036-web-search.md`.
 
 ## 1. Background
 

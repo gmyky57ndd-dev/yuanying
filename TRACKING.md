@@ -253,10 +253,10 @@
   - [x] The chat triggers `web_search` and answers with cited snippets.
   - [x] Production: asked “How to use the Vercel AI SDK with tools?” → `web_search` called, answer cited `ai-sdk.dev` / `vercel.com` URLs.
 
-### [P2-20] Agentic tooling upgrades — ZIPs, truncation, filters, get_issue (ES-036, #35)
+### [P2-20] Agentic tooling upgrades — ZIPs, truncation, filters, get_issue (ES-038, #35)
 
-- **Status**: In Review (2026-10-20) · **Category**: Bug + Feature (Tooling) · **Refs**: Issue #35, ES-036 · **Opened**: 2026-10-20
-- **Spec**: `docs/specs/ES-036-agentic-tooling-upgrades.md`.
+- **Status**: In Review (2026-10-20) · **Category**: Bug + Feature (Tooling) · **Refs**: Issue #35, ES-038 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-038-agentic-tooling-upgrades.md`.
 - **Label note**: the handoff requested **P2-12**, but P2-12 is the completed ES-029 model-router item; renumbered to **P2-20**.
 - **Impl**:
   - ZIP entries are returned separately with per-file `data` + `meta`; `entry` selects one file.
@@ -306,7 +306,7 @@
 
 ### [P2-22] ZIP top-level truncation semantics (#39)
 
-- **Status**: Done (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issue #39, ES-036 · **Opened**: 2026-10-20
+- **Status**: Done (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issue #39, ES-038 · **Opened**: 2026-10-20
 - **Fix**: top-level ZIP `truncated` now means "at least one entry was truncated or skipped", with explicit `truncated_entries` and `skipped_entries` arrays. Per-file `meta.truncated` remains authoritative.
 - **Verified (2026-10-20, production)**: ZIP with truncated `entries.csv` + complete `routines.csv` returns top-level `truncated:true`, `truncated_entries:["entries.csv"]`, `skipped_entries:[]`, while `routines.csv` has `truncated:false` (56/56).
 
