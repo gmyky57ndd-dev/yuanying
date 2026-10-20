@@ -165,3 +165,95 @@ export async function findOrCreateIssue(
     already: false,
   };
 }
+
+export type IssueComment = {
+  author: string;
+  body: string;
+  created_at: string;
+};
+
+export type IssueDetails = {
+  number: number;
+  title: string;
+  state: string;
+  labels: string[];
+  url: string;
+  body: string;
+  comments: IssueComment[];
+  comments_truncated: boolean;
+  comments_error: string | null;
+};
+
+function clip(value: string, max: number): string {
+  const chars = Array.from(value);
+  return chars.length <= max ? value : chars.slice(0, max).join('');
+}
+
+/** ES-036: read an issue + its comments so 元婴 can verify delivery. */
+export async function getIssue(issueNumber: number): Promise<IssueDetails> {
+  const token = process.env.GITHUB_TOKEN;
+  const repo = process.env.GITHUB_REPO;
+  if (!token || !repo) throw new GitHubConfigError();
+  if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+    throw new GitHubRequestError('issue_number must be a positive integer', 400);
+  }
+
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github.v3+json',
+    'Content-Type': 'application/json',
+    'User-Agent': 'yuanying-fenshen',
+  };
+
+  const res = await fetch(
+    `https://api.github.com/repos/${repo}/issues/${issueNumber}`,
+    { headers, cache: 'no-store' }
+  );
+  if (!res.ok) {
+    if (res.status === 404) {
+      throw new GitHubRequestError(`Issue #${issueNumber} not found`, 404);
+    }
+    throw new GitHubRequestError(
+      `github issue lookup failed (HTTP ${res.status})`,
+      res.status
+    );
+  }
+
+  const issue = await res.json();
+  let comments: any[] = [];
+  let commentsError: string | null = null;
+  try {
+    const commentsRes = await fetch(
+      `https://api.github.com/repos/${repo}/issues/${issueNumber}/comments?per_page=20`,
+      { headers, cache: 'no-store' }
+    );
+    if (commentsRes.ok) {
+      const data = await commentsRes.json();
+      comments = Array.isArray(data) ? data : [];
+    } else {
+      commentsError = `comments lookup failed (HTTP ${commentsRes.status})`;
+    }
+  } catch (e) {
+    commentsError = e instanceof Error ? e.message : 'comments lookup failed';
+  }
+
+  return {
+    number: issue.number,
+    title: issue.title,
+    state: issue.state,
+    labels: Array.isArray(issue.labels)
+      ? issue.labels.map((label: any) =>
+          typeof label === 'string' ? label : label?.name ?? ''
+        )
+      : [],
+    url: issue.html_url,
+    body: clip(String(issue.body ?? ''), 4000),
+    comments: comments.slice(0, 20).map((comment: any) => ({
+      author: comment?.user?.login ?? 'unknown',
+      body: clip(String(comment?.body ?? ''), 2000),
+      created_at: comment?.created_at ?? '',
+    })),
+    comments_truncated: comments.length >= 20,
+    comments_error: commentsError,
+  };
+}

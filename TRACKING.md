@@ -253,6 +253,32 @@
   - [x] The chat triggers `web_search` and answers with cited snippets.
   - [x] Production: asked “How to use the Vercel AI SDK with tools?” → `web_search` called, answer cited `ai-sdk.dev` / `vercel.com` URLs.
 
+### [P2-20] Agentic tooling upgrades — ZIPs, truncation, filters, get_issue (ES-036, #35)
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug + Feature (Tooling) · **Refs**: Issue #35, ES-036 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-036-agentic-tooling-upgrades.md`.
+- **Label note**: the handoff requested **P2-12**, but P2-12 is the completed ES-029 model-router item; renumbered to **P2-20**.
+- **Impl**:
+  - ZIP entries are returned separately with per-file `data` + `meta`; `entry` selects one file.
+  - Per-file truncation metadata: `total_records`, `returned_records`, `truncated`, `truncated_at`, `message`.
+  - CSV filters: `start_date`, `end_date`, `filter_column`, `filter_value` (`<`, `<=`, `>`, `>=`, `!=`, exact).
+  - All tools now return `{ success, data, meta, error }`; empty results are `success:true, data:[], message`.
+  - `get_issue(issue_number)` returns state/labels/body + up to 20 comments.
+  - Filtered/entry-specific Drive reads are views: `saved:false`, no duplicate note.
+- **Verified (2026-10-20, local)**:
+  - ZIP `entries.csv`: 602 rows, 50 returned, `truncated:true`, `truncated_at:"2026-07-26"`; `routines.csv`: 16/16, `truncated:false`.
+  - October ZIP + `entries.csv` date filter `2026-10-08`→`2026-10-16`: 30/30 rows, no truncation.
+  - `get_issue(16)`: closed, label `yuanying-feedback`, comments returned and summarized.
+  - Search all-backend 403: `{ success:false, error:"All web search backends failed: ..." }`.
+  - `tsc`, lint, build pass.
+- **Acceptance**:
+  - [x] ZIP multi-file content is not lost.
+  - [x] Truncation metadata is accurate.
+  - [x] Search failures are errors, not empty success.
+  - [x] CSV date/column filters work.
+  - [x] Issue status/comments can be queried.
+  - [ ] Deploy + owner retest on the phone.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---

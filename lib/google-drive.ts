@@ -3,23 +3,26 @@ import JSZip from 'jszip';
 import { supabase } from './db';
 import {
   classifyDriveMime,
+  filterCsvRows,
   inferMimeFromName,
   isSafeZipPath,
-  parseCsv,
+  parseCsvAll,
   parseJsonText,
+  rowDate,
   stripBom,
   truncateText,
+  type CsvFilter,
 } from './drive-parsers';
 
 const TOKEN_ROW_ID = 'default';
 const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const MAX_STORE_CHARS = 200_000;
-const MAX_MODEL_CHARS = 12_000;
+const MAX_MODEL_CHARS = 20_000;
 const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
-const MAX_ZIP_ENTRIES = 50;
 const MAX_ZIP_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ZIP_TOTAL_BYTES = 15 * 1024 * 1024;
 const MAX_CSV_ROWS = 50;
+const MAX_ZIP_FILES_WITH_CONTENT = 3;
 
 type TokenRow = {
   access_token: string;
@@ -38,11 +41,28 @@ type DriveFile = {
   webViewLink?: string;
 };
 
+type FileMeta = {
+  total_records: number | null;
+  returned_records: number | null;
+  total_chars: number;
+  returned_chars: number;
+  truncated: boolean;
+  truncated_at: string | null;
+  message: string;
+};
+
+type FileResult = {
+  name: string;
+  format: 'text' | 'csv' | 'json';
+  data: string;
+  meta: FileMeta;
+};
+
 type DriveContent = {
   format: 'text' | 'csv' | 'json' | 'zip' | 'gdoc';
   storeText: string;
-  displayText: string;
-  truncated: boolean;
+  data: string | FileResult[];
+  meta: FileMeta & { total_files?: number; returned_files?: number };
   details?: Record<string, unknown>;
 };
 
@@ -285,99 +305,233 @@ async function fetchMetadata(
   return (await res.json()) as DriveFile;
 }
 
-async function readZipContent(buffer: Buffer): Promise<DriveContent> {
+function buildCsvPreview(
+  raw: string,
+  filter: CsvFilter
+): { data: string; meta: FileMeta } {
+  const parsed = parseCsvAll(raw);
+  const { rows, dateIndex } = filterCsvRows(parsed.headers, parsed.rows, filter);
+  const header = `CSV · ${parsed.headers.length} columns · ${rows.length} matching rows\n\n`;
+  const returned: string[][] = [];
+  let size = header.length + 200;
+
+  for (const row of rows) {
+    if (returned.length >= MAX_CSV_ROWS) break;
+    const rowSize = JSON.stringify(row).length;
+    if (size + rowSize > MAX_MODEL_CHARS - 200) break;
+    returned.push(row);
+    size += rowSize;
+  }
+
+  const data = `${header}${JSON.stringify(
+    { headers: parsed.headers, rows: returned },
+    null,
+    2
+  )}`;
+  const truncated = returned.length < rows.length;
+  const truncatedAt =
+    truncated && returned.length > 0 && dateIndex >= 0
+      ? rowDate(returned[returned.length - 1], dateIndex)
+      : null;
+
+  return {
+    data,
+    meta: {
+      total_records: rows.length,
+      returned_records: returned.length,
+      total_chars: raw.length,
+      returned_chars: data.length,
+      truncated,
+      truncated_at: truncatedAt,
+      message: truncated
+        ? `Data truncated: returned ${returned.length} of ${rows.length} matching rows (limit ${MAX_CSV_ROWS} rows / ${MAX_MODEL_CHARS} chars).`
+        : `All ${rows.length} matching rows returned.`,
+    },
+  };
+}
+
+function buildTextPreview(
+  raw: string,
+  format: 'text' | 'json'
+): { data: string; meta: FileMeta } {
+  const pretty = format === 'json' ? parseJsonText(raw) : raw;
+  const data = truncateText(pretty, MAX_MODEL_CHARS);
+  const truncated = data.length < pretty.length;
+  const totalLines = raw.split('\n').length;
+  const returnedLines = data.split('\n').length;
+
+  let totalRecords: number | null = totalLines;
+  if (format === 'json') {
+    try {
+      const parsed = JSON.parse(raw);
+      totalRecords = Array.isArray(parsed) ? parsed.length : 1;
+    } catch {
+      totalRecords = null;
+    }
+  }
+
+  return {
+    data,
+    meta: {
+      total_records: totalRecords,
+      returned_records: format === 'json' ? totalRecords : returnedLines,
+      total_chars: raw.length,
+      returned_chars: data.length,
+      truncated,
+      truncated_at: null,
+      message: truncated
+        ? `Data truncated at ${MAX_MODEL_CHARS} characters.`
+        : 'Complete content returned.',
+    },
+  };
+}
+
+async function readZipEntry(
+  zip: JSZip,
+  entryName: string
+): Promise<{ entry: JSZip.JSZipObject; data: Uint8Array }> {
+  const entry =
+    zip.file(entryName) ??
+    Object.values(zip.files).find(
+      item => !item.dir && item.name.endsWith(`/${entryName}`)
+    );
+  if (!entry || entry.dir) {
+    const available = Object.values(zip.files)
+      .filter(item => !item.dir)
+      .map(item => item.name)
+      .join(', ');
+    throw new Error(`ZIP entry not found: ${entryName}. Available: ${available}`);
+  }
+  const data = await entry.async('uint8array');
+  return { entry, data };
+}
+
+async function readZipContent(
+  buffer: Buffer,
+  options: { entry?: string; filter: CsvFilter }
+): Promise<DriveContent> {
   const zip = await JSZip.loadAsync(buffer);
   const entries = Object.values(zip.files).filter(entry => !entry.dir);
-  const files: Array<{
-    name: string;
-    size: number | null;
-    readable: boolean;
-    skipped?: string;
-  }> = [];
+  const readable = entries.filter(
+    entry =>
+      /\.(txt|md|csv|json)$/i.test(entry.name) && isSafeZipPath(entry.name)
+  );
 
-  let text = `ZIP archive · ${entries.length} file(s)\n`;
+  if (options.entry) {
+    const { entry, data } = await readZipEntry(zip, options.entry);
+    if (data.byteLength > MAX_ZIP_FILE_BYTES) {
+      throw new Error(
+        `ZIP entry is too large (${data.byteLength} bytes; limit ${MAX_ZIP_FILE_BYTES}).`
+      );
+    }
+    const raw = stripBom(new TextDecoder('utf-8').decode(data));
+    const mime = inferMimeFromName(entry.name);
+    const kind = classifyDriveMime(mime) ?? 'text';
+    const preview =
+      kind === 'csv'
+        ? buildCsvPreview(raw, options.filter)
+        : buildTextPreview(raw, kind === 'json' ? 'json' : 'text');
+    return {
+      format: kind === 'csv' ? 'csv' : kind === 'json' ? 'json' : 'text',
+      storeText: truncateText(raw, MAX_STORE_CHARS),
+      data: preview.data,
+      meta: preview.meta,
+      details: {
+        zip_entry: entry.name,
+        available: entries.map(item => item.name),
+      },
+    };
+  }
+
+  const selected = readable.slice(0, MAX_ZIP_FILES_WITH_CONTENT);
+  const files: FileResult[] = [];
+  const storeParts: string[] = [];
+  const skipped = readable
+    .slice(MAX_ZIP_FILES_WITH_CONTENT)
+    .map(item => item.name);
   let totalRead = 0;
-  let truncated = false;
-  let readableCount = 0;
+  let perFileTruncated = false;
 
-  for (const entry of entries) {
-    const lower = entry.name.toLowerCase();
-    const readable = /\.(txt|md|csv|json)$/.test(lower);
+  for (const entry of selected) {
     const rawSize = (entry as any)._data?.uncompressedSize;
     const size = typeof rawSize === 'number' ? rawSize : null;
-    const info: { name: string; size: number | null; readable: boolean; skipped?: string } = {
-      name: entry.name,
-      size,
-      readable,
-    };
-    files.push(info);
-
-    if (!isSafeZipPath(entry.name)) {
-      info.skipped = 'unsafe path';
-      continue;
-    }
-    if (!readable) continue;
-
-    readableCount++;
-    if (readableCount > MAX_ZIP_ENTRIES) {
-      info.skipped = 'entry limit';
-      truncated = true;
-      continue;
-    }
     if (size !== null && size > MAX_ZIP_FILE_BYTES) {
-      info.skipped = 'file too large';
-      truncated = true;
+      skipped.push(`${entry.name} (too large)`);
       continue;
     }
     if (totalRead >= MAX_ZIP_TOTAL_BYTES) {
-      info.skipped = 'total size limit';
-      truncated = true;
+      skipped.push(`${entry.name} (total size limit)`);
       continue;
     }
 
     const data = await entry.async('uint8array');
     if (data.byteLength > MAX_ZIP_FILE_BYTES) {
-      info.skipped = 'file too large';
-      truncated = true;
+      skipped.push(`${entry.name} (too large)`);
       continue;
     }
     if (totalRead + data.byteLength > MAX_ZIP_TOTAL_BYTES) {
-      info.skipped = 'total size limit';
-      truncated = true;
+      skipped.push(`${entry.name} (total size limit)`);
       continue;
     }
     totalRead += data.byteLength;
 
-    const content = stripBom(new TextDecoder('utf-8').decode(data));
-    const remaining = MAX_STORE_CHARS - text.length;
-    if (remaining <= 0) {
-      info.skipped = 'text limit';
-      truncated = true;
-      continue;
-    }
-    const chunk = truncateText(content, remaining);
-    text += `\n--- ${entry.name} (${data.byteLength} bytes) ---\n${chunk}\n`;
-    if (chunk.length < content.length) truncated = true;
-  }
+    const raw = stripBom(new TextDecoder('utf-8').decode(data));
+    const mime = inferMimeFromName(entry.name);
+    const kind = classifyDriveMime(mime) ?? 'text';
+    const format = kind === 'csv' ? 'csv' : kind === 'json' ? 'json' : 'text';
+    const preview =
+      format === 'csv'
+        ? buildCsvPreview(raw, options.filter)
+        : buildTextPreview(raw, format === 'json' ? 'json' : 'text');
 
-  if (entries.length > MAX_ZIP_ENTRIES) truncated = true;
+    files.push({
+      name: entry.name,
+      format,
+      data: preview.data,
+      meta: preview.meta,
+    });
+    perFileTruncated = perFileTruncated || preview.meta.truncated;
+    storeParts.push(
+      `## ${entry.name}\n\n${truncateText(raw, MAX_STORE_CHARS)}`
+    );
+  }
 
   return {
     format: 'zip',
-    storeText: truncateText(text, MAX_STORE_CHARS),
-    displayText: truncateText(text, MAX_MODEL_CHARS),
-    truncated,
-    details: {
-      files: files.slice(0, MAX_ZIP_ENTRIES),
+    storeText: storeParts.join('\n\n'),
+    data: files,
+    meta: {
+      total_records: readable.length,
+      returned_records: files.length,
+      total_chars: 0,
+      returned_chars: files.reduce((sum, file) => sum + file.data.length, 0),
+      truncated: skipped.length > 0 || perFileTruncated,
+      truncated_at: null,
+      message:
+        skipped.length > 0
+          ? `Returned ${files.length} of ${readable.length} readable files; ${skipped.length} not read (limit ${MAX_ZIP_FILES_WITH_CONTENT} files).`
+          : `Returned all ${files.length} readable files.`,
       total_files: entries.length,
-      total_read_bytes: totalRead,
+      returned_files: files.length,
+    },
+    details: {
+      files: entries.map(entry => ({
+        name: entry.name,
+        size:
+          typeof (entry as any)._data?.uncompressedSize === 'number'
+            ? (entry as any)._data.uncompressedSize
+            : null,
+        readable: /\.(txt|md|csv|json)$/i.test(entry.name),
+      })),
+      skipped,
     },
   };
 }
 
 async function exportContent(
   file: DriveFile,
-  accessToken: string
+  accessToken: string,
+  options: { entry?: string; filter: CsvFilter }
 ): Promise<DriveContent> {
   const rawMime = file.mimeType;
   const mime =
@@ -397,11 +551,12 @@ async function exportContent(
       throw new Error(await googleError(res, 'Google Drive export failed'));
     }
     const raw = stripBom(await res.text());
+    const preview = buildTextPreview(raw, 'text');
     return {
       format: 'gdoc',
       storeText: truncateText(raw, MAX_STORE_CHARS),
-      displayText: truncateText(raw, MAX_MODEL_CHARS),
-      truncated: raw.length > MAX_MODEL_CHARS,
+      data: preview.data,
+      meta: preview.meta,
     };
   }
 
@@ -437,65 +592,63 @@ async function exportContent(
         `Drive file is too large (${buffer.byteLength} bytes; limit ${MAX_DOWNLOAD_BYTES}).`
       );
     }
-    return readZipContent(buffer);
+    return readZipContent(buffer, options);
   }
 
   const raw = stripBom(await res.text());
 
   if (kind === 'csv') {
-    const parsed = parseCsv(raw, MAX_CSV_ROWS);
-    const display = `CSV · ${parsed.headers.length} columns · ${
-      parsed.total_rows
-    } rows${
-      parsed.truncated ? ` (showing first ${MAX_CSV_ROWS})` : ''
-    }\n\n${JSON.stringify(parsed, null, 2)}`;
+    const preview = buildCsvPreview(raw, options.filter);
     return {
       format: 'csv',
       storeText: truncateText(raw, MAX_STORE_CHARS),
-      displayText: truncateText(display, MAX_MODEL_CHARS),
-      truncated: parsed.truncated || raw.length > MAX_STORE_CHARS,
-      details: {
-        headers: parsed.headers,
-        total_rows: parsed.total_rows,
-        preview_rows: parsed.rows.length,
-      },
+      data: preview.data,
+      meta: preview.meta,
     };
   }
 
   if (kind === 'json') {
-    const pretty = parseJsonText(raw);
+    const preview = buildTextPreview(raw, 'json');
     return {
       format: 'json',
       storeText: truncateText(raw, MAX_STORE_CHARS),
-      displayText: truncateText(pretty, MAX_MODEL_CHARS),
-      truncated:
-        pretty.length > MAX_MODEL_CHARS || raw.length > MAX_STORE_CHARS,
-      details: { valid_json: true },
+      data: preview.data,
+      meta: preview.meta,
     };
   }
 
+  const preview = buildTextPreview(raw, 'text');
   return {
     format: 'text',
     storeText: truncateText(raw, MAX_STORE_CHARS),
-    displayText: truncateText(raw, MAX_MODEL_CHARS),
-    truncated: raw.length > MAX_MODEL_CHARS,
+    data: preview.data,
+    meta: preview.meta,
   };
 }
 
+export type DriveImportOptions = {
+  entry?: string;
+  start_date?: string;
+  end_date?: string;
+  filter_column?: string;
+  filter_value?: string;
+};
+
 export type DriveImportResult = {
   success: true;
-  note_id: number;
+  note_id: number | null;
   file_id: string;
   title: string | null;
   format: string | null;
-  text: string;
-  truncated: boolean;
+  data: string | FileResult[];
+  meta: Record<string, unknown>;
   already: boolean;
-  details?: Record<string, unknown> | null;
+  saved: boolean;
 };
 
 export async function importDriveDoc(
-  fileIdOrUrl: string
+  fileIdOrUrl: string,
+  options: DriveImportOptions = {}
 ): Promise<DriveImportResult> {
   const fileId = extractDriveFileId(fileIdOrUrl);
   const accessToken = await getValidAccessToken();
@@ -505,6 +658,14 @@ export async function importDriveDoc(
       'Google Drive is not connected. Authorize it in Settings first.'
     );
   }
+
+  const hasOptions = !!(
+    options.entry ||
+    options.start_date ||
+    options.end_date ||
+    options.filter_column ||
+    options.filter_value
+  );
 
   const { data: existing } = await supabase
     .from('signals')
@@ -516,7 +677,9 @@ export async function importDriveDoc(
     .limit(1)
     .maybeSingle();
 
-  if (existing) {
+  // A filtered/entry-specific read is a view, not a new memory. Do not return
+  // the old full-note text and do not save a duplicate note.
+  if (existing && !hasOptions) {
     const text = String((existing as any).value?.text ?? '');
     return {
       success: true,
@@ -524,10 +687,12 @@ export async function importDriveDoc(
       file_id: fileId,
       title: (existing as any).value?.drive_title ?? null,
       format: (existing as any).value?.drive_format ?? null,
-      text: truncateText(text, MAX_MODEL_CHARS),
-      truncated: text.length > MAX_MODEL_CHARS,
+      data: truncateText(text, MAX_MODEL_CHARS),
+      meta: (existing as any).value?.drive_meta ?? {
+        message: 'Existing note returned.',
+      },
       already: true,
-      details: (existing as any).value?.drive_details ?? null,
+      saved: true,
     };
   }
 
@@ -538,66 +703,80 @@ export async function importDriveDoc(
     mimeType: file.mimeType,
     size: file.size ?? null,
   });
-  const content = await exportContent(file, accessToken);
+
+  const filter: CsvFilter = {
+    start_date: options.start_date,
+    end_date: options.end_date,
+    filter_column: options.filter_column,
+    filter_value: options.filter_value,
+  };
+  const content = await exportContent(file, accessToken, {
+    entry: options.entry,
+    filter,
+  });
   const storedText = content.storeText.trim();
   if (!storedText) throw new Error('The Drive document is empty.');
 
   const fileUrl =
     file.webViewLink ?? `https://drive.google.com/file/d/${fileId}/view`;
   const importedAt = new Date().toISOString();
-  const truncated =
-    content.truncated || storedText.length < content.storeText.length;
+  const effectiveMime =
+    !file.mimeType ||
+    file.mimeType === '*/*' ||
+    file.mimeType === 'application/octet-stream'
+      ? inferMimeFromName(file.name) || file.mimeType
+      : file.mimeType;
 
-  const { data, error } = await supabase
-    .from('signals')
-    .insert({
-      name: 'note',
-      type: 'note',
-      value: {
-        text: truncateText(storedText, MAX_STORE_CHARS),
-        tags: [],
-        feedbackSuggested: false,
-        imported: true,
-        drive_title: file.name,
-        drive_url: fileUrl,
-        drive_format: content.format,
-        drive_details: content.details ?? null,
-      },
-      source: 'google_drive',
-      context: {
-        provider: 'google_drive',
-        file_id: fileId,
-        file_url: fileUrl,
-        mime_type: file.mimeType,
-        effective_mime_type:
-          !file.mimeType ||
-          file.mimeType === '*/*' ||
-          file.mimeType === 'application/octet-stream'
-            ? inferMimeFromName(file.name) || file.mimeType
-            : file.mimeType,
-        file_size: file.size ? Number(file.size) : null,
-        format: content.format,
-        imported_at: importedAt,
-        truncated,
-      },
-    })
-    .select('id')
-    .single();
+  let noteId: number | null = (existing as any)?.id ?? null;
 
-  if (error) {
-    throw new Error(`Failed to save the Drive note: ${error.message}`);
+  if (!hasOptions) {
+    const { data, error } = await supabase
+      .from('signals')
+      .insert({
+        name: 'note',
+        type: 'note',
+        value: {
+          text: truncateText(storedText, MAX_STORE_CHARS),
+          tags: [],
+          feedbackSuggested: false,
+          imported: true,
+          drive_title: file.name,
+          drive_url: fileUrl,
+          drive_format: content.format,
+          drive_meta: content.meta,
+          drive_details: content.details ?? null,
+        },
+        source: 'google_drive',
+        context: {
+          provider: 'google_drive',
+          file_id: fileId,
+          file_url: fileUrl,
+          mime_type: file.mimeType,
+          effective_mime_type: effectiveMime,
+          file_size: file.size ? Number(file.size) : null,
+          format: content.format,
+          imported_at: importedAt,
+          truncated: content.meta.truncated,
+        },
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to save the Drive note: ${error.message}`);
+    }
+    noteId = data.id;
   }
 
   return {
     success: true,
-    note_id: data.id,
+    note_id: noteId,
     file_id: fileId,
     title: file.name,
     format: content.format,
-    text: truncateText(content.displayText, MAX_MODEL_CHARS),
-    truncated:
-      content.truncated || content.displayText.length > MAX_MODEL_CHARS,
-    already: false,
-    details: content.details ?? null,
+    data: content.data,
+    meta: content.meta,
+    already: !!existing,
+    saved: !hasOptions,
   };
 }

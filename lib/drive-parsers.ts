@@ -93,6 +93,136 @@ export function parseCsv(text: string, maxRows: number) {
   };
 }
 
+export type CsvFilter = {
+  start_date?: string;
+  end_date?: string;
+  filter_column?: string;
+  filter_value?: string;
+};
+
+export function parseCsvAll(text: string): {
+  headers: string[];
+  rows: string[][];
+  total_rows: number;
+} {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let inQuotes = false;
+  const src = stripBom(text);
+
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ',') {
+      row.push(field);
+      field = '';
+    } else if (c === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else if (c !== '\r') {
+      field += c;
+    }
+  }
+
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+
+  const nonEmpty = rows.filter(r => r.some(cell => cell.trim() !== ''));
+  const headers = nonEmpty.shift() ?? [];
+  return { headers, rows: nonEmpty, total_rows: nonEmpty.length };
+}
+
+export function findDateColumn(headers: string[]): number {
+  return headers.findIndex(header => /date|time|created|updated/i.test(header));
+}
+
+export function rowDate(row: string[], index: number): string | null {
+  if (index < 0) return null;
+  const raw = String(row[index] ?? '').trim();
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  const match = raw.match(/^\d{4}-\d{2}-\d{2}/);
+  return match ? match[0] : null;
+}
+
+export function filterCsvRows(
+  headers: string[],
+  rows: string[][],
+  filter: CsvFilter
+): { rows: string[][]; dateIndex: number } {
+  let filtered = rows;
+  const dateIndex = findDateColumn(headers);
+
+  if (filter.start_date || filter.end_date) {
+    if (dateIndex < 0) {
+      throw new Error(
+        `No date column found for date filtering. Columns: ${headers.join(', ')}`
+      );
+    }
+    const start = filter.start_date || '';
+    const end = filter.end_date || '';
+    filtered = filtered.filter(row => {
+      const date = rowDate(row, dateIndex);
+      if (!date) return false;
+      return (!start || date >= start) && (!end || date <= end);
+    });
+  }
+
+  if (filter.filter_column) {
+    const columnIndex = headers.indexOf(filter.filter_column);
+    if (columnIndex < 0) {
+      throw new Error(
+        `filter_column not found: ${filter.filter_column}. Columns: ${headers.join(', ')}`
+      );
+    }
+    const raw = (filter.filter_value ?? '').trim();
+    const match = raw.match(/^(<=|>=|!=|<|>|=)?\s*(.+)$/);
+    const op = match?.[1] || '=';
+    const target = match?.[2] ?? raw;
+    const targetNumber = Number(target);
+
+    filtered = filtered.filter(row => {
+      const cell = String(row[columnIndex] ?? '').trim();
+      if (op === '=') return cell.toLowerCase() === target.toLowerCase();
+      if (op === '!=') return cell.toLowerCase() !== target.toLowerCase();
+      const cellNumber = Number(cell);
+      if (Number.isNaN(cellNumber) || Number.isNaN(targetNumber)) return false;
+      switch (op) {
+        case '<':
+          return cellNumber < targetNumber;
+        case '>':
+          return cellNumber > targetNumber;
+        case '<=':
+          return cellNumber <= targetNumber;
+        case '>=':
+          return cellNumber >= targetNumber;
+        default:
+          return false;
+      }
+    });
+  }
+
+  return { rows: filtered, dateIndex };
+}
+
 export function parseJsonText(text: string): string {
   const raw = stripBom(text);
   try {
