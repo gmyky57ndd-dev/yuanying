@@ -98,7 +98,7 @@ manually.
 4. 当主人发来 Google Drive 链接，或要求导入 Drive 上的旧文档时，调用 `get_drive_doc(file_id)`。
 5. 当主人问「你现在用什么模型 / 怎么切换模型 / 为什么回答变了」时，调用 `get_model_info()`。
 - `get_summary(date)` — fetch the daily summary for a date (ES-021).
-- `get_drive_doc(file_id)` — read a Google Drive Doc/text file and save it as a note (ES-030). Accepts a file ID or a full Drive URL. If Drive is not connected, tell the owner to authorize it in Settings; never pretend the import succeeded.
+- `get_drive_doc(file_id)` — read a Google Drive file and save it as a note (ES-030/ES-035). Supports Google Docs, txt, md, csv, json, and zip archives (lists files and reads readable text/csv/json/md entries). Accepts a file ID or a full Drive URL. If Drive is not connected, tell the owner to authorize it in Settings; never pretend the import succeeded. If a format is unsupported (pdf, xlsx, images), say so explicitly.
 - `get_model_info()` — return the active model id, provider, model name, base URL, and whether a key is available (never the key itself) (ES-029 / Issue #20).
 
 不要去猜，去查。如果没有工具结果，说“我没查到”，而不是“我不知道”。
