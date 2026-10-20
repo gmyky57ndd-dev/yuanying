@@ -677,25 +677,6 @@ export async function importDriveDoc(
     .limit(1)
     .maybeSingle();
 
-  // A filtered/entry-specific read is a view, not a new memory. Do not return
-  // the old full-note text and do not save a duplicate note.
-  if (existing && !hasOptions) {
-    const text = String((existing as any).value?.text ?? '');
-    return {
-      success: true,
-      note_id: (existing as any).id,
-      file_id: fileId,
-      title: (existing as any).value?.drive_title ?? null,
-      format: (existing as any).value?.drive_format ?? null,
-      data: truncateText(text, MAX_MODEL_CHARS),
-      meta: (existing as any).value?.drive_meta ?? {
-        message: 'Existing note returned.',
-      },
-      already: true,
-      saved: true,
-    };
-  }
-
   const file = await fetchMetadata(fileId, accessToken);
   console.log('drive file', {
     id: file.id,
@@ -730,42 +711,53 @@ export async function importDriveDoc(
   let noteId: number | null = (existing as any)?.id ?? null;
 
   if (!hasOptions) {
-    const { data, error } = await supabase
-      .from('signals')
-      .insert({
-        name: 'note',
-        type: 'note',
-        value: {
-          text: truncateText(storedText, MAX_STORE_CHARS),
-          tags: [],
-          feedbackSuggested: false,
-          imported: true,
-          drive_title: file.name,
-          drive_url: fileUrl,
-          drive_format: content.format,
-          drive_meta: content.meta,
-          drive_details: content.details ?? null,
-        },
-        source: 'google_drive',
-        context: {
-          provider: 'google_drive',
-          file_id: fileId,
-          file_url: fileUrl,
-          mime_type: file.mimeType,
-          effective_mime_type: effectiveMime,
-          file_size: file.size ? Number(file.size) : null,
-          format: content.format,
-          imported_at: importedAt,
-          truncated: content.meta.truncated,
-        },
-      })
-      .select('id')
-      .single();
+    const payload = {
+      name: 'note',
+      type: 'note',
+      value: {
+        text: truncateText(storedText, MAX_STORE_CHARS),
+        tags: [],
+        feedbackSuggested: false,
+        imported: true,
+        drive_title: file.name,
+        drive_url: fileUrl,
+        drive_format: content.format,
+        drive_meta: content.meta,
+        drive_details: content.details ?? null,
+      },
+      source: 'google_drive',
+      context: {
+        provider: 'google_drive',
+        file_id: fileId,
+        file_url: fileUrl,
+        mime_type: file.mimeType,
+        effective_mime_type: effectiveMime,
+        file_size: file.size ? Number(file.size) : null,
+        format: content.format,
+        imported_at: importedAt,
+        truncated: content.meta.truncated,
+      },
+    };
 
-    if (error) {
-      throw new Error(`Failed to save the Drive note: ${error.message}`);
+    if (noteId !== null) {
+      const { error } = await supabase
+        .from('signals')
+        .update(payload)
+        .eq('id', noteId);
+      if (error) {
+        throw new Error(`Failed to update the Drive note: ${error.message}`);
+      }
+    } else {
+      const { data, error } = await supabase
+        .from('signals')
+        .insert(payload)
+        .select('id')
+        .single();
+      if (error) {
+        throw new Error(`Failed to save the Drive note: ${error.message}`);
+      }
+      noteId = data.id;
     }
-    noteId = data.id;
   }
 
   return {

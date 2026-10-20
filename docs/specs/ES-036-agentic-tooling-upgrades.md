@@ -87,7 +87,9 @@ Returns state, labels, URL, body, and up to 20 comments. This lets 元婴 verify
 ## 4. Implementation
 
 - `lib/google-drive.ts` — per-entry ZIP results, per-file truncation metadata,
-  CSV filters, empty-vs-error behavior.
+  CSV filters, empty-vs-error behavior. Full reads update the existing note in
+  place; filtered/entry reads return a view (`saved:false`) without duplicate
+  notes.
 - `lib/drive-parsers.ts` — `parseCsvAll`, date-column detection, row dates, CSV
   filtering.
 - `lib/github.ts` — `getIssue(number)` with issue + comments.
