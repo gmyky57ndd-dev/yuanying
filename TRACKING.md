@@ -271,13 +271,18 @@
   - `get_issue(16)`: closed, label `yuanying-feedback`, comments returned and summarized.
   - Search all-backend 403: `{ success:false, error:"All web search backends failed: ..." }`.
   - `tsc`, lint, build pass.
+- **Verified (2026-10-20, production)**:
+  - ZIP `1o5WgYgzSmtjq9sU-eQHIWR8Nt0gAjXvQ`: `entries.csv` 436 rows / 76 returned / `truncated_at:"2026-09-25"`; `routines.csv` 56/56, `truncated:false`.
+  - `entries.csv` date filter `2026-10-08`→`2026-10-16`: 30/30 rows.
+  - `get_issue(16)` returned closed state, label, body, and comments.
+  - Search backend failure contract remains structured.
 - **Acceptance**:
   - [x] ZIP multi-file content is not lost.
   - [x] Truncation metadata is accurate.
   - [x] Search failures are errors, not empty success.
   - [x] CSV date/column filters work.
   - [x] Issue status/comments can be queried.
-  - [ ] Deploy + owner retest on the phone.
+  - [x] Deployed and verified via production chat; owner phone spot-check remains optional.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 

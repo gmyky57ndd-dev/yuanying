@@ -110,8 +110,8 @@ Returns state, labels, URL, body, and up to 20 comments. This lets 元婴 verify
       provider/status details.
 - [x] `get_drive_doc` supports date and column filters.
 - [x] `get_issue` reads Issue #16 and summarizes its state/comments.
-- [ ] Owner retests the original ZIP/CSV and search questions on the deployed
-      PWA.
+- [x] Deployed and verified via production chat on 2026-10-20 (owner phone
+      spot-check optional).
 
 ## 6. Verified locally
 
