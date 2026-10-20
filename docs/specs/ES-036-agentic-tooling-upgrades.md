@@ -126,3 +126,18 @@ Returns state, labels, URL, body, and up to 20 comments. This lets 元婴 verify
 - Search with all backends forced to 403:
   `All web search backends failed: tavily: not configured; duckduckgo: ...403;
   jina/duckduckgo: ...403`.
+
+## 7. ZIP top-level truncation semantics (Issue #39)
+
+The top-level ZIP `truncated` is an aggregate signal, not a replacement for
+per-file metadata:
+
+- `truncated: true` means at least one entry was truncated **or** skipped.
+- `truncated_entries: ["entries.csv"]` names the files whose content was cut.
+- `skipped_entries: []` names files not read due to limits.
+- Each entry still has its own `meta.truncated`, `total_records`, and
+  `returned_records`.
+
+Verified with `stalio_export_csv_1792519528276.zip`:
+`entries.csv` is truncated, `routines.csv` is complete, and the top level
+reports `truncated:true` + `truncated_entries:["entries.csv"]`.

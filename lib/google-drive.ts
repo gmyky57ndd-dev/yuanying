@@ -62,7 +62,12 @@ type DriveContent = {
   format: 'text' | 'csv' | 'json' | 'zip' | 'gdoc';
   storeText: string;
   data: string | FileResult[];
-  meta: FileMeta & { total_files?: number; returned_files?: number };
+  meta: FileMeta & {
+    total_files?: number;
+    returned_files?: number;
+    truncated_entries?: string[];
+    skipped_entries?: string[];
+  };
   details?: Record<string, unknown>;
 };
 
@@ -496,6 +501,11 @@ async function readZipContent(
     );
   }
 
+  const truncatedEntries = files
+    .filter(file => file.meta.truncated)
+    .map(file => file.name);
+  const truncated = truncatedEntries.length > 0 || skipped.length > 0;
+
   return {
     format: 'zip',
     storeText: storeParts.join('\n\n'),
@@ -505,14 +515,15 @@ async function readZipContent(
       returned_records: files.length,
       total_chars: 0,
       returned_chars: files.reduce((sum, file) => sum + file.data.length, 0),
-      truncated: skipped.length > 0 || perFileTruncated,
+      truncated,
       truncated_at: null,
-      message:
-        skipped.length > 0
-          ? `Returned ${files.length} of ${readable.length} readable files; ${skipped.length} not read (limit ${MAX_ZIP_FILES_WITH_CONTENT} files).`
-          : `Returned all ${files.length} readable files.`,
+      message: `Returned ${files.length} of ${readable.length} readable files. Truncated entries: ${
+        truncatedEntries.length > 0 ? truncatedEntries.join(', ') : 'none'
+      }. Skipped entries: ${skipped.length > 0 ? skipped.join(', ') : 'none'}.`,
       total_files: entries.length,
       returned_files: files.length,
+      truncated_entries: truncatedEntries,
+      skipped_entries: skipped,
     },
     details: {
       files: entries.map(entry => ({

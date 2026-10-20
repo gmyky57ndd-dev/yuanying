@@ -68,6 +68,8 @@ const EVENT_LABEL: Record<string, string> = {
   vitamin: '维生素',
   brief_wake: '短暂唤醒',
   reminder_acted: '提醒响应',
+  manual_work: '动手',
+  body_flag: '身体/情绪',
 };
 
 // B-19: timezone offset helper for the PWA exception writer.
@@ -118,6 +120,15 @@ export default function Home() {
   const [noteText, setNoteText] = useState('');
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteListening, setNoteListening] = useState(false);
+  const [workOpen, setWorkOpen] = useState(false);
+  const [workCategory, setWorkCategory] = useState('园艺');
+  const [workNote, setWorkNote] = useState('');
+  const [workSaving, setWorkSaving] = useState(false);
+  const [bodyOpen, setBodyOpen] = useState(false);
+  const [bodyDomain, setBodyDomain] = useState('身体');
+  const [bodyPolarity, setBodyPolarity] = useState('不适');
+  const [bodyDescription, setBodyDescription] = useState('');
+  const [bodySaving, setBodySaving] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const noteRecRef = useRef<any>(null);
@@ -146,6 +157,17 @@ export default function Home() {
         (window as any).webkitSpeechRecognition
       )
     );
+  }, []);
+
+  // ES-037: the 21:30 notification can deep-link to the note or work panel.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const panel = params.get('panel');
+    if (params.get('note') === '1' || panel === 'note') setNoteOpen(true);
+    if (panel === 'work') setWorkOpen(true);
+    if (params.get('note') || panel) {
+      window.history.replaceState({}, '', '/');
+    }
   }, []);
 
   useEffect(() => {
@@ -344,6 +366,65 @@ export default function Home() {
       alert('保存失败');
     } finally {
       setNoteSaving(false);
+    }
+  }
+
+  async function saveManualWork() {
+    if (workSaving) return;
+    setWorkSaving(true);
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/signal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'manual_work',
+          value: 1,
+          context: {
+            category: workCategory,
+            ...(workNote.trim() ? { note: workNote.trim() } : {}),
+          },
+        }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(`动手打卡失败：${d.error ?? r.status}`);
+        return;
+      }
+      setWorkOpen(false);
+      setWorkNote('');
+      await loadSignals();
+    } catch {
+      alert('动手打卡失败');
+    } finally {
+      setWorkSaving(false);
+    }
+  }
+
+  async function saveBodyFlag() {
+    const description = bodyDescription.trim();
+    if (!description || bodySaving) return;
+    setBodySaving(true);
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/signal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'body_flag',
+          value: { domain: bodyDomain, polarity: bodyPolarity, description },
+        }),
+      });
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        alert(`状态记录失败：${d.error ?? r.status}`);
+        return;
+      }
+      setBodyOpen(false);
+      setBodyDescription('');
+      await loadSignals();
+    } catch {
+      alert('状态记录失败');
+    } finally {
+      setBodySaving(false);
     }
   }
 
@@ -631,14 +712,38 @@ export default function Home() {
 
       {/* Notes — capture rides on the existing 记一笔 button (no new surface) */}
       <div className="px-4 pb-2 shrink-0">
-        <div className="flex items-center justify-between text-[11px] text-stone-500">
+        <div className="flex items-center gap-3 text-[11px] text-stone-500">
           <button
-            onClick={() => setNoteOpen(o => !o)}
+            onClick={() => {
+              setNoteOpen(o => !o);
+              setWorkOpen(false);
+              setBodyOpen(false);
+            }}
             className="text-stone-400"
           >
             记一笔
           </button>
-          <span>笔记 {notes.length}</span>
+          <button
+            onClick={() => {
+              setWorkOpen(o => !o);
+              setNoteOpen(false);
+              setBodyOpen(false);
+            }}
+            className={workOpen ? 'text-emerald-400' : 'text-stone-400'}
+          >
+            动手
+          </button>
+          <button
+            onClick={() => {
+              setBodyOpen(o => !o);
+              setNoteOpen(false);
+              setWorkOpen(false);
+            }}
+            className={bodyOpen ? 'text-emerald-400' : 'text-stone-400'}
+          >
+            状态
+          </button>
+          <span className="ml-auto">笔记 {notes.length}</span>
         </div>
         {noteOpen && (
           <div className="mt-2 space-y-2">
@@ -684,6 +789,110 @@ export default function Home() {
                 className="bg-stone-700 disabled:opacity-40 rounded-full px-4 py-1.5 text-xs"
               >
                 {noteSaving ? '保存中…' : '保存'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {workOpen && (
+          <div className="mt-2 space-y-2 rounded-xl border border-stone-800 bg-stone-900/40 p-3">
+            <div className="flex flex-wrap gap-2">
+              {['园艺', '做饭', '家务', '修理'].map(category => (
+                <button
+                  key={category}
+                  onClick={() => setWorkCategory(category)}
+                  className={`text-xs px-2.5 py-1 rounded-full border ${
+                    workCategory === category
+                      ? 'bg-emerald-800 border-emerald-700 text-white'
+                      : 'bg-stone-900 border-stone-700 text-stone-400'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+            <input
+              value={workNote}
+              onChange={e => setWorkNote(e.target.value)}
+              placeholder="备注（可选）"
+              className="w-full bg-stone-900 border border-stone-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-stone-600"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setWorkOpen(false);
+                  setWorkNote('');
+                }}
+                className="text-xs text-stone-500 px-2"
+              >
+                取消
+              </button>
+              <button
+                onClick={saveManualWork}
+                disabled={workSaving}
+                className="bg-stone-700 disabled:opacity-40 rounded-full px-4 py-1.5 text-xs"
+              >
+                {workSaving ? '保存中…' : '打卡'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {bodyOpen && (
+          <div className="mt-2 space-y-2 rounded-xl border border-stone-800 bg-stone-900/40 p-3">
+            <div className="flex items-center gap-2">
+              <select
+                value={bodyDomain}
+                onChange={e => setBodyDomain(e.target.value)}
+                className="bg-stone-900 border border-stone-800 rounded-xl px-2 py-1.5 text-xs"
+              >
+                {['身体', '情绪', '睡眠'].map(domain => (
+                  <option key={domain} value={domain}>
+                    {domain}
+                  </option>
+                ))}
+              </select>
+              <div className="flex gap-1">
+                {['不适', '良好'].map(polarity => (
+                  <button
+                    key={polarity}
+                    onClick={() => setBodyPolarity(polarity)}
+                    className={`text-xs px-2.5 py-1 rounded-full border ${
+                      bodyPolarity === polarity
+                        ? polarity === '不适'
+                          ? 'bg-amber-900 border-amber-700 text-amber-100'
+                          : 'bg-emerald-800 border-emerald-700 text-white'
+                        : 'bg-stone-900 border-stone-700 text-stone-400'
+                    }`}
+                  >
+                    {polarity}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <textarea
+              value={bodyDescription}
+              onChange={e => setBodyDescription(e.target.value)}
+              rows={2}
+              placeholder="一句话描述…"
+              className="w-full bg-stone-900 border border-stone-800 rounded-xl px-3 py-2 text-sm outline-none focus:border-stone-600"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setBodyOpen(false);
+                  setBodyDescription('');
+                }}
+                className="text-xs text-stone-500 px-2"
+              >
+                取消
+              </button>
+              <button
+                onClick={saveBodyFlag}
+                disabled={bodySaving || !bodyDescription.trim()}
+                className="bg-stone-700 disabled:opacity-40 rounded-full px-4 py-1.5 text-xs"
+              >
+                {bodySaving ? '保存中…' : '记录'}
               </button>
             </div>
           </div>
@@ -848,7 +1057,12 @@ export default function Home() {
               return (
                 <li key={e.id} className="flex gap-2">
                   <span className="text-stone-600 w-11 shrink-0">{hm(e.at)}</span>
-                  <span>{EVENT_LABEL[e.name] ?? e.name}</span>
+                  <span>
+                    {EVENT_LABEL[e.name] ?? e.name}
+                    {e.detail && (
+                      <span className="text-stone-600"> · {e.detail}</span>
+                    )}
+                  </span>
                 </li>
               );
             })}

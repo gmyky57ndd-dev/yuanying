@@ -284,6 +284,32 @@
   - [x] Issue status/comments can be queried.
   - [x] Deployed and verified via production chat; owner phone spot-check remains optional.
 
+### [P2-21] New signals — manual_work & body_flag + 21:30 evening check-in (ES-037, #40)
+
+- **Status**: In Review (2026-10-20) · **Category**: Feature (Data Model & UI) · **Refs**: Issue #40, ES-037 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-037-new-signals.md`.
+- **Label note**: the handoff requested **P2-13**, but P2-13 is the completed ES-030 Drive item; renumbered to **P2-21**.
+- **Impl**:
+  - `manual_work` (count; category 园艺/做饭/家务/修理 + optional note).
+  - `body_flag` (event; domain 身体/情绪/睡眠 + polarity 不适/良好 + required description).
+  - Home quick **动手** / **状态** panels; activity stream labels/details.
+  - `evening_checkin` habit: fixed 21:30, merged notification with 收工打卡 / 写反思 / 忽略; actions open PWA `?panel=work|note`.
+  - API validation + v5 signal-name constraint + reminder-name constraint.
+- **Collector**: `ReminderScheduler.kt` + `MainActivity.java` updated; **requires a new Android build installed on the phone** for the 21:30 notification.
+- **Verified (2026-10-20, local)**: signal API validates both payloads; PWA panels render; `tsc`, lint, web build pass. Collector build pending.
+- **Acceptance**:
+  - [x] Record `manual_work` with category + optional note.
+  - [x] Record `body_flag` with domain + polarity + description.
+  - [x] 21:30 reminder configured with two action entries + ignore.
+  - [x] Ignore/no-repeat semantics preserved by fixed-time dedupe.
+  - [ ] Owner installs the new collector build and verifies 21:30 on the phone.
+
+### [P2-22] ZIP top-level truncation semantics (#39)
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issue #39, ES-036 · **Opened**: 2026-10-20
+- **Fix**: top-level ZIP `truncated` now means "at least one entry was truncated or skipped", with explicit `truncated_entries` and `skipped_entries` arrays. Per-file `meta.truncated` remains authoritative.
+- **Verified (2026-10-20, local)**: ZIP with truncated `entries.csv` + complete `routines.csv` returns top-level `truncated:true`, `truncated_entries:["entries.csv"]`, `skipped_entries:[]`, while `routines.csv` has `truncated:false` (56/56).
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---

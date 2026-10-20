@@ -4,7 +4,7 @@ import { supabase } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const NAMES = ['water', 'standup', 'vitamin'];
+const NAMES = ['water', 'standup', 'vitamin', 'evening_checkin'];
 
 /**
  * Collector-side reminder creation (P1-09). The Android collector decides a

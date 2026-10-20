@@ -85,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        handleOpenPanel(getIntent());
         schedulePeriodicWork();
         refreshStatus();
         refreshStepsStatus();
@@ -118,6 +119,30 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Toast.makeText(this, "无法打开浏览器", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    /** ES-037: the evening notification opens the PWA work/note panel. */
+    private void handleOpenPanel(Intent intent) {
+        if (intent == null) return;
+        String panel = intent.getStringExtra("open_panel");
+        if (panel == null || panel.isEmpty()) return;
+        try {
+            Intent open = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse(PWA_URL + "?panel=" + panel)
+            );
+            open.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(open);
+        } catch (Exception e) {
+            Toast.makeText(this, "无法打开浏览器", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleOpenPanel(intent);
     }
 
     /** Opens the Play internal-testing page to pull the latest build. */

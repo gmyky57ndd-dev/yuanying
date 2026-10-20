@@ -61,6 +61,26 @@ every signal (AGENTS §5.1 / ES-011 §3).
   stored UTC timestamp, `config.timezone`, and the device timezone before
   concluding the data is wrong.
 
+## manual_work — 动手
+- Signal: `name=manual_work`, `type=count`, +1 per check-in.
+- Context: `category` = 园艺 / 做饭 / 家务 / 修理; optional `note`.
+- Does not include typing, phone scrolling, or walking. No duration required.
+- Where to see it: home 今天 stream, history day detail.
+- Reminder: none directly; the 21:30 evening check-in links to this panel.
+
+## body_flag — 身体 / 情绪 / 睡眠
+- Signal: `name=body_flag`, `type=event`.
+- Value: `{ domain: 身体|情绪|睡眠, polarity: 不适|良好, description }`.
+- Description is required; it is the main content, not a preset symptom tag.
+- Where to see it: home 今天 stream, history day detail.
+
+## evening_checkin — 晚间收工
+- Reminder only: fixed **21:30** local, one merged notification with
+  **收工打卡** and **写反思** actions.
+- 22:00 后不推，不补发；忽略后当日不再重复。
+- The actions open the PWA `manual_work` / note panels; they do not auto-write
+  a signal without the owner's input.
+
 ## Notification behaviour (all habits)
 - Fired only during **wake time** (outside the quiet window, default 22:00–07:00).
 - Two buttons: the habit action (**喝了 / 起身了 / 吃了**) and **忽略**.

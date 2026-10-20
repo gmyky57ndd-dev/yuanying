@@ -40,6 +40,7 @@ object ReminderScheduler {
         "water" to ("水。" to "该喝水了。"),
         "standup" to ("站。" to "站起来走走。"),
         "vitamin" to ("维生素。" to "吃维生素了吗？"),
+        "evening_checkin" to ("收工打卡 · 写一句今日反思" to "今天收工了吗？写一句反思。"),
     )
 
     fun checkAndFire(context: Context) {
@@ -261,6 +262,7 @@ object ReminderScheduler {
         "water" to "喝了",
         "standup" to "起身了",
         "vitamin" to "吃了",
+        "evening_checkin" to "收工打卡",
     )
 
     private fun notify(context: Context, id: Int, name: String, message: String) {
@@ -271,6 +273,53 @@ object ReminderScheduler {
             context, id, openIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+
+        if (name == "evening_checkin") {
+            val workIntent = Intent(context, MainActivity::class.java).apply {
+                putExtra("open_panel", "work")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val workPi = PendingIntent.getActivity(
+                context, id + 300000, workIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val noteIntent = Intent(context, MainActivity::class.java).apply {
+                putExtra("open_panel", "note")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val notePi = PendingIntent.getActivity(
+                context, id + 400000, noteIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val ignoredIntent = Intent(context, ReminderActionReceiver::class.java).apply {
+                action = ReminderActionReceiver.ACTION_IGNORED
+                putExtra("reminder_id", id)
+                putExtra("habit", name)
+                putExtra("notif_id", 1000 + id)
+            }
+            val ignoredPi = PendingIntent.getBroadcast(
+                context, id + 200000, ignoredIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+
+            val evening = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.mipmap.ic_launcher)
+                .setContentTitle("元婴")
+                .setContentText(message)
+                .setAutoCancel(true)
+                .setContentIntent(openPi)
+                .addAction(0, "收工打卡", workPi)
+                .addAction(0, "写反思", notePi)
+                .addAction(0, "忽略", ignoredPi)
+                .build()
+
+            try {
+                NotificationManagerCompat.from(context).notify(1000 + id, evening)
+            } catch (e: SecurityException) {
+                Log.w(TAG, "notification permission not granted")
+            }
+            return
+        }
 
         val actedIntent = Intent(context, ReminderActionReceiver::class.java).apply {
             action = ReminderActionReceiver.ACTION_ACTED
