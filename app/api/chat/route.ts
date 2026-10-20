@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { streamText, tool } from 'ai';
+import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
 import {
@@ -12,78 +14,11 @@ import {
 } from '@/lib/timezone';
 import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 import { findOrCreateIssue } from '@/lib/github';
+import { getActiveModelInfo, getModel } from '@/lib/llm-router';
+import { importDriveDoc } from '@/lib/google-drive';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
-
-/** ES-021: tools 元婴 can call instead of being blind to the past. */
-const TOOLS = [
-  {
-    type: 'function',
-    function: {
-      name: 'get_notes',
-      description:
-        "Fetch the owner's notes for a specific date (YYYY-MM-DD). Use when the user asks about a specific day or yesterday's thoughts.",
-      parameters: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
-        },
-        required: ['date'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_conversation_records',
-      description:
-        'Search distilled AI conversation records and specs for a keyword. Use to recall past design/architecture decisions.',
-      parameters: {
-        type: 'object',
-        properties: {
-          keyword: { type: 'string', description: 'Topic or keyword to search' },
-        },
-        required: ['keyword'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'get_summary',
-      description:
-        'Fetch the daily summary for a specific date (YYYY-MM-DD).',
-      parameters: {
-        type: 'object',
-        properties: {
-          date: { type: 'string', description: 'Date in YYYY-MM-DD format' },
-        },
-        required: ['date'],
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'push_to_dev',
-      description:
-        'Create a GitHub issue for the dev team. Use only when the owner explicitly asks to send a bug report or feedback to dev, after they confirm the title and body.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string', description: 'Short, descriptive title' },
-          body: {
-            type: 'string',
-            description:
-              'Detailed issue description including problem, findings, and suggestions.',
-          },
-        },
-        required: ['title', 'body'],
-      },
-    },
-  },
-];
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -208,7 +143,33 @@ async function runTool(name: string, args: any): Promise<any> {
     return { date, summary: data };
   }
 
+  if (name === 'get_drive_doc') {
+    const file = String(args?.file_id ?? '').trim();
+    if (!file) return { success: false, error: 'file_id required' };
+    return importDriveDoc(file);
+  }
+
+  if (name === 'get_model_info') {
+    const info = await getActiveModelInfo();
+    if (!info) {
+      return { success: false, error: 'active model not found' };
+    }
+    return { success: true, model: info };
+  }
+
   return { error: `unknown tool: ${name}` };
+}
+
+async function runToolSafely(name: string, args: Record<string, unknown>) {
+  try {
+    return await runTool(name, args);
+  } catch (e) {
+    console.error(`tool failed: ${name}`, e);
+    return {
+      success: false,
+      error: e instanceof Error ? e.message : 'tool failed',
+    };
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -376,131 +337,137 @@ export async function POST(req: NextRequest) {
     });
 
     // 4. Assemble messages
-    const messages: any[] = [
-      { role: 'system', content: systemPrompt },
-      ...((history ?? []).reverse()),
-      { role: 'user', content: message },
+    const messages = [
+      ...((history ?? []).slice().reverse() as Array<{
+        role: 'user' | 'assistant';
+        content: string;
+      }>),
+      { role: 'user' as const, content: message },
     ];
 
-    // 5. Call DeepSeek, executing tool calls in a bounded loop.
-    let reply = '';
+    // 5. Route through the configured model and stream the reply.
+    let model;
+    try {
+      model = await getModel();
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : 'model unavailable';
+      console.error('model router failed:', reason);
+      return NextResponse.json(
+        { success: false, error: reason },
+        { status: 502 }
+      );
+    }
+
     let pushToDevResult: any = null;
-    for (let step = 0; step < 3; step++) {
-      let data: any;
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
 
-      try {
-        const res = await fetch(
-          'https://api.deepseek.com/v1/chat/completions',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}`,
-            },
-            body: JSON.stringify({
-              model: process.env.DEEPSEEK_MODEL ?? 'deepseek-chat',
-              messages,
-              temperature: parseFloat(
-                process.env.DEEPSEEK_TEMPERATURE ?? '0.7'
-              ),
-              max_tokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
-              tools: TOOLS,
-              tool_choice: 'auto',
-            }),
-            signal: controller.signal,
-          }
-        );
-
-        if (!res.ok) {
-          const errText = await res.text();
-          console.error('DeepSeek error:', res.status, errText);
-          return NextResponse.json(
-            { error: 'model request failed' },
-            { status: 502 }
-          );
-        }
-
-        data = await res.json();
-      } catch (err: any) {
-        if (err?.name === 'AbortError') {
-          return NextResponse.json({ error: 'model timeout' }, { status: 504 });
-        }
-        throw err;
-      } finally {
-        clearTimeout(timeout);
-      }
-
-      const msg = data.choices?.[0]?.message;
-      const toolCalls = msg?.tool_calls;
-
-      if (Array.isArray(toolCalls) && toolCalls.length > 0) {
-        messages.push({
-          role: 'assistant',
-          content: msg.content ?? null,
-          tool_calls: toolCalls,
-        });
-        for (const tc of toolCalls) {
-          let result: any;
-          try {
-            const args = tc.function?.arguments
-              ? JSON.parse(tc.function.arguments)
-              : {};
-            console.log('tool_call', tc.function?.name, args);
-            result = await runTool(tc.function?.name, args);
-          } catch (e) {
-            console.error('tool failed:', e);
-            result = { success: false, error: 'tool failed' };
-          }
-          if (tc.function?.name === 'push_to_dev') {
-            pushToDevResult = result;
-            // Structured, body-free result log for future incident review.
-            console.log('tool_result push_to_dev', {
-              success: result?.success ?? null,
-              number: result?.number ?? null,
-              already: result?.already ?? null,
-              error: result?.error ?? null,
-            });
-          }
-          messages.push({
-            role: 'tool',
-            tool_call_id: tc.id,
-            content: JSON.stringify(result),
+    const tools = {
+      get_notes: tool({
+        description:
+          "Fetch the owner's notes for a specific date (YYYY-MM-DD). Use when the user asks about a specific day or yesterday's thoughts.",
+        parameters: z.object({
+          date: z.string().describe('Date in YYYY-MM-DD format'),
+        }),
+        execute: async ({ date }) => runToolSafely('get_notes', { date }),
+      }),
+      get_conversation_records: tool({
+        description:
+          'Search distilled AI conversation records and specs for a keyword. Use to recall past design/architecture decisions.',
+        parameters: z.object({
+          keyword: z.string().describe('Topic or keyword to search'),
+        }),
+        execute: async ({ keyword }) =>
+          runToolSafely('get_conversation_records', { keyword }),
+      }),
+      get_summary: tool({
+        description:
+          'Fetch the daily summary for a specific date (YYYY-MM-DD).',
+        parameters: z.object({
+          date: z.string().describe('Date in YYYY-MM-DD format'),
+        }),
+        execute: async ({ date }) => runToolSafely('get_summary', { date }),
+      }),
+      get_drive_doc: tool({
+        description:
+          'Read a Google Drive document by file ID or URL (Google Docs or a text file) and save it as a note. Use when the owner shares a Drive link or asks to import a legacy document. If Drive is not connected, tell the owner to authorize it in Settings.',
+        parameters: z.object({
+          file_id: z
+            .string()
+            .describe('Google Drive file ID or a full Drive URL'),
+        }),
+        execute: async ({ file_id }) =>
+          runToolSafely('get_drive_doc', { file_id }),
+      }),
+      get_model_info: tool({
+        description:
+          'Return the active chat model (id, provider, model name, base URL, whether a key is available). Use when the owner asks which model is active, how model switching works, or why behavior changed. Never reveal API keys.',
+        parameters: z.object({}),
+        execute: async () => runToolSafely('get_model_info', {}),
+      }),
+      push_to_dev: tool({
+        description:
+          'Create a GitHub issue for the dev team. Use only when the owner explicitly asks to send a bug report or feedback to dev, after they confirm the title and body.',
+        parameters: z.object({
+          title: z.string().describe('Short, descriptive title'),
+          body: z
+            .string()
+            .describe(
+              'Detailed issue description including problem, findings, and suggestions.'
+            ),
+        }),
+        execute: async ({ title, body }) => {
+          const result = await runToolSafely('push_to_dev', { title, body });
+          pushToDevResult = result;
+          // Structured, body-free result log for future incident review.
+          console.log('tool_result push_to_dev', {
+            success: result?.success ?? null,
+            number: result?.number ?? null,
+            already: result?.already ?? null,
+            error: result?.error ?? null,
           });
+          return result;
+        },
+      }),
+    };
+
+    const result = streamText({
+      model,
+      system: systemPrompt,
+      messages,
+      tools,
+      maxSteps: 3,
+      temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
+      maxTokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
+      onError: ({ error }) => {
+        console.error('model stream error:', error);
+      },
+      onFinish: async ({ text }) => {
+        let reply = text.trim() || '…';
+
+        // ES-022 guard: if the last push_to_dev attempt failed, never let the
+        // persisted message claim success or invent an issue URL.
+        if (
+          pushToDevResult &&
+          (pushToDevResult.success === false || pushToDevResult.error)
+        ) {
+          const reason = pushToDevResult.error ?? 'unknown error';
+          reply = `没发成功。系统报错：${reason}`;
         }
-        continue;
-      }
 
-      reply = msg?.content ?? '…';
-      break;
-    }
+        const { error: insErr } = await supabase.from('messages').insert([
+          { role: 'user', content: message, session_id },
+          { role: 'assistant', content: reply, session_id },
+        ]);
 
-    if (!reply) reply = '…';
+        if (insErr) console.error('insert failed:', insErr);
 
-    // ES-022 guard: if the last push_to_dev attempt failed, never let the model
-    // claim success or invent an issue URL.
-    if (
-      pushToDevResult &&
-      (pushToDevResult.success === false || pushToDevResult.error)
-    ) {
-      const reason = pushToDevResult.error ?? 'unknown error';
-      reply = `没发成功。系统报错：${reason}`;
-    }
+        console.log(`chat ok in ${Date.now() - startTime}ms`);
+      },
+    });
 
-    // 6. Persist
-    const { error: insErr } = await supabase.from('messages').insert([
-      { role: 'user', content: message, session_id },
-      { role: 'assistant', content: reply, session_id },
-    ]);
-
-    if (insErr) {
-      console.error('insert failed:', insErr);
-      // Non-fatal: still return reply
-    }
-
-    console.log(`chat ok in ${Date.now() - startTime}ms`);
-    return NextResponse.json({ reply, session_id });
+    return result.toDataStreamResponse({
+      getErrorMessage: e =>
+        e instanceof Error ? e.message : 'model request failed',
+    });
   } catch (err) {
     console.error('chat route error:', err);
     return NextResponse.json({ error: 'internal error' }, { status: 500 });

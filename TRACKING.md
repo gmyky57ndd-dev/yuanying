@@ -113,6 +113,100 @@
   - [x] Reduced-motion fallback.
 - **Verified (2026-10-18, prod, PR #17, deploy run `39153665136`)**: home bundle contains the five habit labels and Saved-to-Inbox strings; `/api/history/days` returns `standup` (e.g., 2026-10-17: water 4, standup 6); CSS contains `fadeIn`, `breathe`, and the reduced-motion rule.
 
+### [P2-11] Elevate summary tone — partner vs QA (ES-027)
+
+- **Status**: In Review (2026-10-19) · **Category**: Prompt Update · **Refs**: ES-027 · **Opened**: 2026-10-19
+- **Label note**: the handoff labeled this **P2-06**, but P2-06 is the completed Phase C / ES-026 item; renumbered to **P2-11**.
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
+- **Impl**: `lib/summary-generator.ts` exports `SUMMARY_TONE_RULES`; `lib/yuanying.ts` injects them into `## Daily Summaries`. Rules: describe what the work means (not a QA log), use "we"/"I" (元婴), and draft the summary then ask "要我存下来吗？" instead of offering an empty menu.
+- **Acceptance**:
+  - [x] Prompt contains the meaning / first-person-plural / no-empty-menu rules.
+  - [ ] Owner verifies a real summary reads as a reflection, not a QA log, and ends with a draft confirmation.
+
+### [P2-12] Model router & provider abstraction (ES-029)
+
+- **Status**: In Review (2026-10-19) · **Category**: Feature (Architecture) · **Refs**: ES-029 · **Opened**: 2026-10-19
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
+- **Label note**: the handoff labeled this **P2-07**, but P2-07 is the completed Phase C / ES-026 history item; renumbered to **P2-12**.
+- **Impl**:
+  - `supabase/migrations/017_models.sql` + `supabase/schema.sql` — `models` table and `config.active_model_id` (seeded `deepseek-chat`). Applied to the configured Supabase.
+  - `lib/llm-router.ts` — DB-driven router for `deepseek`, `openai`, `anthropic`, and `custom` (OpenAI-compatible base URL); DB key first, env key fallback; explicit errors for missing model/key/base URL/unsupported provider.
+  - `app/api/models/route.ts` — list/add/activate/delete; list never returns `api_key`; active model cannot be deleted.
+  - `app/api/models/test/route.ts` — sends a small ping through the selected model.
+  - `app/settings/page.tsx` — Models list, provider/name/key/base-URL form, active radio, test button.
+  - `app/api/chat/route.ts` — replaced the hardcoded DeepSeek fetch loop with AI SDK `streamText` + `maxSteps` tools; persists via `onFinish`; model-router failures return `{ success: false, error }`.
+  - `lib/api.ts` — consumes the AI SDK data stream and preserves the existing chat UI contract.
+  - `core/system-manifest.md` — documents Settings → 模型 and model-failure truthfulness.
+  - `docs/help/model-router.md` — owner + 元婴 guide (Issue #20).
+  - `get_model_info()` tool — returns active model id/provider/name/base URL/key availability, never the key (Issue #20).
+- **Dependencies**: `ai@4.3.19`, `@ai-sdk/openai@1.3.24`, `@ai-sdk/anthropic@1.2.12`, `zod@3.25.76` (AI SDK peer).
+- **Verified (2026-10-19, local dev + configured Supabase)**:
+  - `GET /api/models` returns `deepseek-chat` with `has_api_key:false` (env key fallback).
+  - `POST /api/models/test {id:"deepseek-chat"}` → `{success:true, reply:"ok"}`.
+  - `POST /api/chat` returns an AI SDK data stream (`0:"..."`) and persists both messages; test messages were removed afterwards.
+  - CRUD: added a temporary custom model, activated it, confirmed deletion of the active model is blocked, restored `deepseek-chat`, deleted the temporary model.
+  - `tsc`, lint, and production build pass.
+- **Acceptance**:
+  - [x] User can add a model via Settings (API/UI wired).
+  - [x] User can switch the active model.
+  - [x] Chat API uses the active model.
+  - [x] Missing model / bad key / unsupported provider returns `success:false`; the chat UI surfaces the error.
+  - [x] DeepSeek continues to work through the router.
+  - [ ] Owner verifies the Settings form and a real chat message on the deployed PWA.
+
+### [P2-13] Google Drive read-only import (ES-030)
+
+- **Status**: In Review (2026-10-19) · **Category**: Feature (Integration / Tool) · **Refs**: Issue #18, ES-030 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-030-google-drive-read-tool.md`.
+- **Intake**: Issue #18 requests a read-only Drive tool with `drive.readonly`, explicit provenance, and no write/delete/share permissions.
+- **Impl**:
+  - `supabase/migrations/018_google_drive.sql` — adds `google_drive` to the signals source constraint and creates `google_oauth_tokens` (server-side singleton).
+  - `lib/google-drive.ts` — OAuth URL/state, code exchange, refresh, status/disconnect, file-id parsing, `files.export` text/plain, duplicate guard, and note insert.
+  - `app/api/integrations/google-drive/{route,authorize,callback}` — status/disconnect, Google consent redirect, and CSRF-checked callback.
+  - `app/api/chat/route.ts` — `get_drive_doc(file_id)` tool.
+  - `app/settings/page.tsx` — Google Drive authorization/status/disconnect UI.
+  - `core/system-manifest.md` — documents the tool and the Settings authorization.
+  - `middleware.ts` — callback is public; OAuth `state` cookie is the guard.
+- **Storage**: notes are stored in `signals` (`name='note'`), with `source='google_drive'` and `context.file_id` + `file_url` + `imported_at`.
+- **Known boundary**: only Google Docs and `text/*` files are supported in this pass; Sheets/PDF/binary return an explicit error.
+- **Verified (2026-10-19, local)**:
+  - Migration applied to the configured Supabase.
+  - `GET /api/integrations/google-drive` returns status without tokens.
+  - `get_drive_doc` returns an explicit "not connected" error instead of a fake import.
+  - `tsc`, lint, and build pass.
+- **Blocked verification**: end-to-end OAuth/import needs `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and an authorized redirect URI in Google Cloud. Owner must configure these on the phone/PWA deployment.
+- **Acceptance**:
+  - [ ] Owner can authorize Google Drive via Settings on the phone.
+  - [ ] 元婴 reads a Drive link and summarizes its contents in chat.
+  - [ ] Imported text is saved with `source='google_drive'` and `context.file_id`.
+  - [ ] Read-only boundary confirmed (no write/delete/share).
+
+### [P2-14] Data sovereignty & backup (ES-031)
+
+- **Status**: In Review (2026-10-19) · **Category**: Feature (Infrastructure) · **Refs**: ES-031, AGENTS §12 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-031-data-sovereignty.md`.
+- **Label note**: the handoff requested **P2-09**, but P2-09 is the completed Phase C tool-loading item; renumbered to **P2-14**.
+- **Impl**:
+  - `AGENTS.md` — added §12 Data Sovereignty & Backup; version 1.9.
+  - `.github/workflows/db-backup.yml` — weekly Sunday 00:00 UTC `pg_dump` via `postgres:17`, writes `backups/db/YYYY-MM-DD.sql`, commits and pushes.
+  - `app/api/export/route.ts` — authenticated ZIP export of all user tables + `core/` Markdown; paginated 1000 rows/page; excludes `models.api_key` and `google_oauth_tokens`.
+  - `app/settings/page.tsx` — **导出我的元婴** button.
+  - `jszip@3.10.1` dependency.
+- **Required secret**: `SUPABASE_DB_URL` in GitHub Actions. The workflow fails loudly if it is missing.
+- **Verified (2026-10-19, local)**:
+  - `GET /api/export` without auth → `401`; with `Authorization: Bearer <API_TOKEN>` → `200 application/zip`.
+  - ZIP contains `yuanying-data-export.json` (531 KB) + `core/**` Markdown; manifest counts: messages 196, signals 682, summaries 10, reminders 98, habits 3, config 7, fenshen 3, models 1.
+  - `models` export has no `api_key`; `google_oauth_tokens` is absent.
+  - `tsc`, lint, and production build pass.
+- **Acceptance**:
+  - [x] Weekly backup workflow exists.
+  - [x] Export endpoint returns a ZIP with DB tables + core Markdown.
+  - [x] Secrets are excluded from the export.
+  - [x] `tsc`, lint, and build pass.
+  - [ ] First scheduled workflow run verified in GitHub Actions.
+  - [ ] Owner downloads the ZIP on the phone.
+- **Restore**: see `docs/specs/ES-031-data-sovereignty.md` §6.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---
@@ -734,9 +828,49 @@
 
 ---
 
+### [P1-58] Prevent false behavioral judgments from missing data (ES-028)
+
+- **Status**: In Review (2026-10-19) · **Category**: Bug (Prompt/Logic) · **Refs**: ES-028 · **Opened**: 2026-10-19
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
+- **Report**: phone steps dropped to 600 while charging; Xiaowu said "you barely moved today", ignoring 4120 watch steps.
+- **Impl**: added `## Rule: Context before Judgment` to `core/fenshen/xiaowu/profile.md` and `core/system-manifest.md`. `lib/yuanying.ts` now loads an optional `core/fenshen/<id>/profile.md` for the active Fenshen, so the rule reaches the runtime prompt.
+- **Acceptance**:
+  - [x] Rule requires checking source/window before any behavioral judgment.
+  - [x] Rule requires "I see [number] from [source]" instead of judging.
+  - [ ] Owner verifies Xiaowu does not say "you barely moved" / "you need to walk more" with partial data.
+- **Note**: `core/voice.md` still has the example `Steps: 0/5000 → 今天还没动。`, which conflicts with this rule. Left unchanged because ES-028 does not include `voice.md` in its scope; recommend a follow-up.
+
+---
+
 ## To Do
 
 _(ES-008/ES-009 home + history work is in review; no open To Do items.)_
+
+### [P2-15] Data portability dry run (ES-034)
+
+- **Status**: To Do (2026-10-19) · **Category**: Chore (Infrastructure Verification) · **Refs**: ES-034, ES-031 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-034-data-portability-dry-run.md`.
+- **Label note**: the handoff requested **P2-10**, but P2-10 is the completed Phase C visual-polish item; renumbered to **P2-15**.
+- **Depends on**: P2-14 (weekly SQL snapshot).
+- **Acceptance**:
+  - [ ] SQL dump imports into local Docker/Neon Postgres.
+  - [ ] App reads/writes without Supabase when `DATABASE_URL` is set.
+  - [ ] Migration completes in under 1 hour.
+
+### [P2-16] Capability expansion — commitments, drafts, deep memory, external reader (ES-032)
+
+- **Status**: To Do (2026-10-19) · **Category**: Feature (Tooling & Background Tasks) · **Refs**: ES-032 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-032-capability-expansion.md`.
+- **Priority**: Medium; schedule after Phase C UI.
+- **Boundary**: confirm before sending; no autonomous external actions.
+- **Depends on**: P1-09 (collector notifications), ES-030 (external reader), an embedding model for pgvector.
+
+### [P2-17] Legacy data ingestion — Stalio & Blinking Notes (ES-033)
+
+- **Status**: To Do (2026-10-19) · **Category**: Feature (Data Migration) · **Refs**: ES-033, ES-030, ES-002 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-033-legacy-data-ingestion.md`.
+- **Boundary**: no new UI; use `scripts/` with `npm run import:legacy`, idempotent batches, provenance in `context`.
+- **Depends on**: owner-provided export formats/samples.
 
 ### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
 
