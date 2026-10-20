@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
       }),
       get_drive_doc: tool({
         description:
-          'Read a Google Drive document by file ID or URL (Google Docs or a text file) and save it as a note. Use when the owner shares a Drive link or asks to import a legacy document. If Drive is not connected, tell the owner to authorize it in Settings.',
+          'Read a Google Drive file by ID or URL and save it as a note. Supports Google Docs, txt, md, csv, json, and zip archives (lists files and reads readable text/csv/json/md entries). Use when the owner shares a Drive link or asks to import a legacy document. If Drive is not connected, tell the owner to authorize it in Settings.',
         parameters: z.object({
           file_id: z
             .string()

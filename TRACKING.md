@@ -207,6 +207,28 @@
   - [ ] Owner downloads the ZIP on the phone.
 - **Restore**: see `docs/specs/ES-031-data-sovereignty.md` §6.
 
+### [P2-18] Google Drive formats — txt / csv / json / zip (ES-035)
+
+- **Status**: In Review (2026-10-20) · **Category**: Feature (Tool) · **Refs**: Issue #28, ES-035, ES-030 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-035-drive-file-formats.md`.
+- **Impl**:
+  - `lib/drive-parsers.ts` — CSV parser (quoted fields/newlines), JSON parser, MIME classifier, ZIP path guard.
+  - `lib/google-drive.ts` — 20 MB download cap, CSV preview (50 rows), JSON pretty-print, ZIP listing + text extraction, 50-entry/5 MB/15 MB limits, truncation metadata.
+  - `app/api/chat/route.ts` — updated `get_drive_doc` description.
+  - `core/system-manifest.md` — documents supported formats.
+- **Verified (2026-10-20, local)**:
+  - Real legacy CSV (`entries.csv` from the Drive zip): 12 headers, 602 rows, 50-row preview, `truncated:true`.
+  - JSON sample: parsed and pretty-printed; invalid JSON has an explicit error.
+  - Real Drive ZIP (`Blinking Habit & Entries Export (CSV)`, 2 entries): tool listed `entries.csv`/`routines.csv` and returned content; test note removed afterward.
+  - ZIP path guard rejects `..`, absolute, drive-letter, and NUL paths.
+  - `tsc`, lint, and production build pass.
+- **Acceptance**:
+  - [x] CSV parsing with headers/rows and truncation.
+  - [x] JSON parsing with structure preserved.
+  - [x] ZIP listing and readable text-file extraction.
+  - [x] Size limits, truncation reporting, and path-traversal guard.
+  - [ ] Owner tests their own CSV/JSON/ZIP on the phone after deploy.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---
