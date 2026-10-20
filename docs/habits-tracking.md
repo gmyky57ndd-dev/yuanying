@@ -25,6 +25,7 @@ every signal (AGENTS §5.1 / ES-011 §3).
 
 ## standup — 起身
 - Signal: `name=standup`, `type=count`, +1 per action. Source: manual tap **or** the 起身了 button on a standup reminder.
+- Provenance: `signals.source` is `manual` for a direct tap and `reminder` for a notification action. The separate `reminder_acted` row is bookkeeping; do not double count it.
 - Day count = `standup` signals (+ accepted standup reminders, deduped).
 - Reminder: **interval 60 min**, window **09:00–18:00** local, fires while the
   owner is around. (Changed from 120 min on 2026-10-16 — owner wanted hourly.)
@@ -37,6 +38,28 @@ every signal (AGENTS §5.1 / ES-011 §3).
 - Reminder: **hourly** during wake time (07:00–22:00 local) **until confirmed** —
   once a `vitamin` signal exists today, it stops for the day.
 - Where to see it: home 维生素 ✓/--, home 今天 stream, history day detail.
+
+## app_usage — 前台应用
+- Signal: `name=app_usage`, type `duration`. It measures **foreground** time from
+  Android `ACTIVITY_RESUMED` / `ACTIVITY_PAUSED` events, in 60-minute windows.
+- It does **not** measure background sync, push, polling, or screen-off activity.
+  A burst of events can be app switching or system churn; it is not proof that
+  the owner was awake.
+- Use it as evidence of phone foreground activity, never as a sleep diagnosis.
+  For sleep/wake, use the `sleep` and `wake` signals and ask if ambiguous.
+
+## Interpretation boundaries
+- **standup** is a check-in, not proof of physical movement. A reminder-driven
+  tap (especially on a lock screen) can be accidental. Say "N 次起身打卡
+  (M 次手动, K 次提醒)" rather than "you exercised".
+- **app_usage** only proves foreground activity. Do not infer "awake" or
+  "didn't sleep" from a single burst or gap.
+- **vitamin** is a one-time confirmation. A timestamp is the moment it was
+  acted on, not medical proof of ingestion.
+- All displayed times use `config.timezone` (the owner's device timezone), not
+  a fixed Beijing time. If the owner reports a time mismatch, compare the
+  stored UTC timestamp, `config.timezone`, and the device timezone before
+  concluding the data is wrong.
 
 ## Notification behaviour (all habits)
 - Fired only during **wake time** (outside the quiet window, default 22:00–07:00).

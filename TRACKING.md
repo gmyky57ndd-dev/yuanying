@@ -842,6 +842,27 @@
 
 ---
 
+### [P1-59] Open issue triage — push_to_dev, signal semantics, timezone, IME (#21–#25)
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling/Data/Voice) · **Refs**: Issues #21, #22, #23, #24, #25
+- **#21 / #24 — push_to_dev false success**:
+  - `lib/github.ts` now reads the created issue back with `GET /repos/{repo}/issues/{number}` before returning success; a missing/mismatched issue throws.
+  - `app/api/chat/route.ts` persists a deterministic success/failure message from the verified tool result, not a model-composed URL.
+  - `core/system-manifest.md` says a read-back-verified success is authoritative even after past failures.
+  - Verified locally: created test issue **#26** via `push_to_dev`, read-back matched, issue closed, test chat messages removed.
+- **#22 — app_usage / standup semantics**:
+  - `core/habits.md` + `docs/habits-tracking.md` now state: `app_usage` is foreground-only and not proof of being awake; `standup.source` distinguishes `manual` vs `reminder`; `reminder_acted` is bookkeeping, not a second count; standup is a check-in, not proof of physical movement.
+- **#23 — vitamin time mismatch**:
+  - RCA: signal `id=715` is `2026-10-20T11:51:02Z` = 07:51 America/New_York (UI) and 19:51 Asia/Shanghai (old prompt formatter). The reminder row was scheduled/shown/acted at 11:50:58–11:51:03Z; there was no hidden 07:51 record and no backfill code.
+  - Fix: `lib/yuanying.ts` now formats signal/reminder times in `config.timezone` instead of hardcoded `Asia/Shanghai`.
+- **#24 — input language / IME**:
+  - Chat input now ignores Enter while composing (`composition` + `isComposing` + keyCode 229) and no longer forces `lang="zh-CN"`; same forced-language removal in note/import inputs.
+- **#25 — comment tool**:
+  - Manual comparison comment added to #24; no new autonomous comment tool was added.
+- **Verification**: `tsc`, lint, build pass. Remaining: deploy and owner confirmation on the phone.
+
+---
+
 ## To Do
 
 _(ES-008/ES-009 home + history work is in review; no open To Do items.)_

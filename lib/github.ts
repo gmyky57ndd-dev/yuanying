@@ -48,7 +48,7 @@ export async function findOrCreateIssue(
   try {
     const listRes = await fetch(
       `https://api.github.com/repos/${repo}/issues?state=all&per_page=100&sort=created&direction=desc`,
-      { headers }
+      { headers, cache: 'no-store' }
     );
     if (listRes.ok) {
       const list = await listRes.json();
@@ -83,6 +83,7 @@ export async function findOrCreateIssue(
 
   const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
     method: 'POST',
+    cache: 'no-store',
     headers,
     body: JSON.stringify({
       title: expectedTitle,
@@ -122,9 +123,45 @@ export async function findOrCreateIssue(
     );
   }
 
-  console.log('github issue created', {
-    number: data.number,
+  // Issue #21/#24: read the issue back from GitHub before reporting success.
+  // The returned number/URL must come from a real GET, not just the POST body.
+  const verifyRes = await fetch(
+    `https://api.github.com/repos/${repo}/issues/${data.number}`,
+    { headers, cache: 'no-store' }
+  );
+  if (!verifyRes.ok) {
+    console.error('github issue readback failed', {
+      status: verifyRes.status,
+      number: data.number,
+      repo,
+    });
+    throw new GitHubRequestError(
+      `github issue readback failed (HTTP ${verifyRes.status})`,
+      502
+    );
+  }
+
+  const verified = await verifyRes.json();
+  if (
+    typeof verified?.number !== 'number' ||
+    typeof verified?.html_url !== 'string' ||
+    verified.number !== data.number ||
+    verified.html_url !== data.html_url
+  ) {
+    console.error('github issue readback mismatch', {
+      number: data.number,
+      repo,
+    });
+    throw new GitHubRequestError('github issue readback mismatch', 502);
+  }
+
+  console.log('github issue created and verified', {
+    number: verified.number,
     repo,
   });
-  return { issue_url: data.html_url, number: data.number, already: false };
+  return {
+    issue_url: verified.html_url,
+    number: verified.number,
+    already: false,
+  };
 }

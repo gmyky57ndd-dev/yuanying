@@ -102,6 +102,7 @@ export default function Home() {
   const [msgMenu, setMsgMenu] = useState<number | null>(null);
   const longPressRef = useRef<any>(null);
   const [input, setInput] = useState('');
+  const [composing, setComposing] = useState(false);
   const [sending, setSending] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [pushingMsg, setPushingMsg] = useState<number | null>(null);
@@ -647,7 +648,6 @@ export default function Home() {
               onCompositionEnd={e => setNoteText((e.target as HTMLTextAreaElement).value)}
               rows={3}
               placeholder="记点什么…"
-              lang="zh-CN"
               inputMode="text"
               autoComplete="off"
               autoCorrect="off"
@@ -997,9 +997,22 @@ export default function Home() {
         <input
           value={input}
           onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && send()}
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={e => {
+            setComposing(false);
+            setInput((e.target as HTMLInputElement).value);
+          }}
+          onKeyDown={e => {
+            if (
+              e.key === 'Enter' &&
+              !composing &&
+              !e.nativeEvent.isComposing &&
+              e.keyCode !== 229
+            ) {
+              send();
+            }
+          }}
           placeholder="…"
-          lang="zh-CN"
           inputMode="text"
           autoComplete="off"
           autoCorrect="off"

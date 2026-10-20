@@ -129,28 +129,30 @@ function loadFenshenProfile(id: string): string {
   }
 }
 
-const TZ = 'Asia/Shanghai';
-
-function beijingTime(iso: string): string {
+function formatTime(iso: string, timeZone: string): string {
   return new Date(iso).toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: TZ,
+    timeZone,
   });
 }
 
 function buildSignalContext(
-  signals: Array<{ name: string; created_at: string }>
+  signals: Array<{ name: string; created_at: string }>,
+  timeZone: string
 ): string {
   if (!signals || signals.length === 0) {
     return "\n\n# Today's signals\n\nNone yet.";
   }
 
-  const lines = signals.map(s => `- ${s.name} at ${beijingTime(s.created_at)}`);
+  const lines = signals.map(
+    s => `- ${s.name} at ${formatTime(s.created_at, timeZone)}`
+  );
   return `\n\n# Today's signals\n\n${lines.join('\n')}`;
 }
 
 function buildDailyContext(opts: BuildOptions): string {
+  const timeZone = opts.timezone ?? 'Asia/Shanghai';
   const lines: string[] = [];
 
   if (opts.steps !== undefined) {
@@ -173,7 +175,7 @@ function buildDailyContext(opts: BuildOptions): string {
   }
   if (opts.recentReminders && opts.recentReminders.length > 0) {
     const r = opts.recentReminders
-      .map(x => `${x.name} at ${beijingTime(x.scheduled_at)}`)
+      .map(x => `${x.name} at ${formatTime(x.scheduled_at, timeZone)}`)
       .join(', ');
     lines.push(`- Reminders (last 2h): ${r}`);
   }
@@ -293,7 +295,10 @@ export async function buildSystemPrompt(
 ): Promise<string> {
   const core = loadCore();
   const fenshen = await getActiveFenshen();
-  const signalCtx = buildSignalContext(opts.signals ?? []);
+  const signalCtx = buildSignalContext(
+    opts.signals ?? [],
+    opts.timezone ?? 'Asia/Shanghai'
+  );
   const dailyCtx = buildDailyContext(opts);
   const summaryLine = opts.summary
     ? buildSummaryLine(opts.summary, opts.summaryLabel)
