@@ -108,6 +108,7 @@ Rules:
 - [x] `read_markdown` can read an allowlisted Markdown file.
 - [x] Path traversal and non-allowlisted paths are rejected.
 - [x] `tsc`, lint, and build pass.
+- [x] Production: `web_search` triggered and the answer cited search URLs.
 
 ## 7. Limits and fallback
 

@@ -251,7 +251,7 @@
   - [x] DuckDuckGo fallback works without an API key.
   - [x] `read_markdown` reads allowlisted Markdown and rejects unsafe paths.
   - [x] The chat triggers `web_search` and answers with cited snippets.
-  - [ ] Owner asks the same question on production after deploy.
+  - [x] Production: asked “How to use the Vercel AI SDK with tools?” → `web_search` called, answer cited `ai-sdk.dev` / `vercel.com` URLs.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
