@@ -888,6 +888,32 @@
 
 ---
 
+### [P1-60] Drive MIME fallback + web search backend errors (#31/#33)
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issues #31, #33, ES-035, ES-036
+- **#31 — `get_drive_doc` rejected `*/*`**:
+  - RCA: file `1o5WgYgzSmtjq9sU-eQHIWR8Nt0gAjXvQ` is
+    `stalio_export_csv_1792519528276.zip`; Drive returned `mimeType:"*/*"` and
+    the strict MIME classifier rejected it. It is a ZIP, not a CSV.
+  - Fix: infer MIME from `.csv/.json/.zip/.md/.txt` when MIME is empty,
+    `*/*`, or `application/octet-stream`; log raw `{id,name,mimeType,size}`;
+    store `effective_mime_type`; include raw MIME/name in unsupported errors.
+  - Verified locally: the file now classifies as `zip`, lists `entries.csv` /
+    `routines.csv`, and returns content.
+- **#33 — web_search all backends failed**:
+  - RCA: direct DuckDuckGo returns 403 from Vercel; Tavily had no key.
+  - Fix: Jina Reader/DDG fallback (already deployed) + aggregated structured
+    error listing every backend and status.
+  - Verified locally: simulated all-403 → `All web search backends failed:
+    tavily: not configured; duckduckgo: ...403; jina/duckduckgo: ...403`.
+  - Production: `web_search` returns results and cited URLs.
+- **Acceptance**:
+  - [x] `*/*` CSV/ZIP file imports via extension fallback.
+  - [x] Raw MIME/name logging is present.
+  - [x] Web search has a working serverless fallback.
+  - [x] All-failure error names each backend and status.
+  - [ ] Deploy + owner retest of the two original files/questions.
+
 ### [P1-59] Open issue triage — push_to_dev, signal semantics, timezone, IME (#21–#25)
 
 - **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling/Data/Voice) · **Refs**: Issues #21, #22, #23, #24, #25

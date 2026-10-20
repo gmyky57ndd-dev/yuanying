@@ -28,6 +28,16 @@ export function classifyDriveMime(mime: string): Exclude<DriveFormat, null> | nu
   return null;
 }
 
+export function inferMimeFromName(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.endsWith('.csv')) return 'text/csv';
+  if (lower.endsWith('.json')) return 'application/json';
+  if (lower.endsWith('.zip')) return 'application/zip';
+  if (lower.endsWith('.md')) return 'text/markdown';
+  if (lower.endsWith('.txt')) return 'text/plain';
+  return '';
+}
+
 export function parseCsv(text: string, maxRows: number) {
   const rows: string[][] = [];
   let row: string[] = [];
