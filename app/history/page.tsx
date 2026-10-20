@@ -54,6 +54,8 @@ const EVENT_LABEL: Record<string, string> = {
   vitamin: '维生素',
   brief_wake: '短暂唤醒',
   reminder_acted: '提醒响应',
+  manual_work: '动手',
+  body_flag: '身体/情绪',
 };
 
 function hm(iso: string | null): string {
@@ -270,7 +272,12 @@ export default function HistoryPage() {
                     <span className="text-stone-600 w-12 shrink-0">
                       {hm(e.at)}
                     </span>
-                    <span>{EVENT_LABEL[e.name] ?? e.name}</span>
+                    <span>
+                      {EVENT_LABEL[e.name] ?? e.name}
+                      {e.detail && (
+                        <span className="text-stone-600"> · {e.detail}</span>
+                      )}
+                    </span>
                   </li>
                 );
               })}

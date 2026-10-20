@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ACTIONS = ['acted', 'dismissed', 'snoozed'];
-const HABITS = ['water', 'standup', 'vitamin'];
+const HABITS = ['water', 'standup', 'vitamin', 'evening_checkin'];
 
 export async function POST(req: NextRequest) {
   try {

@@ -18,7 +18,7 @@ export type RawSignal = {
 export type StreamApp = { package: string; name: string; minutes: number };
 
 export type StreamEntry =
-  | { kind: 'event'; id: string; at: string; name: string }
+  | { kind: 'event'; id: string; at: string; name: string; detail?: string }
   | {
       kind: 'note';
       id: string;
@@ -49,6 +49,8 @@ const EVENT_NAMES = new Set([
   'vitamin',
   'brief_wake',
   'reminder_acted',
+  'manual_work',
+  'body_flag',
 ]);
 
 // Merge app_usage windows into one session when the gap is under this.
@@ -67,7 +69,23 @@ export function buildActivityStream(signals: RawSignal[]): StreamEntry[] {
 
   for (const s of signals) {
     if (EVENT_NAMES.has(s.name)) {
-      entries.push({ kind: 'event', id: `e${s.id}`, at: s.created_at, name: s.name });
+      let detail: string | undefined;
+      if (s.name === 'manual_work') {
+        detail = [s.context?.category, s.context?.note]
+          .filter(Boolean)
+          .join(' · ');
+      } else if (s.name === 'body_flag') {
+        detail = [s.value?.domain, s.value?.polarity, s.value?.description]
+          .filter(Boolean)
+          .join(' · ');
+      }
+      entries.push({
+        kind: 'event',
+        id: `e${s.id}`,
+        at: s.created_at,
+        name: s.name,
+        detail: detail || undefined,
+      });
     } else if (s.name === 'note') {
       entries.push({
         kind: 'note',

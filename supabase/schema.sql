@@ -97,7 +97,7 @@ create table if not exists config (
 insert into config (key, value) values
   ('activity_collection_enabled', 'true'::jsonb),
   ('timezone', '"Asia/Shanghai"'::jsonb),
-  ('reminders_enabled', '{"water":true,"standup":true,"vitamin":true}'::jsonb),
+  ('reminders_enabled', '{"water":true,"standup":true,"vitamin":true,"evening_checkin":true}'::jsonb),
   ('steps_goal', '5000'::jsonb)
 on conflict (key) do nothing;
 
@@ -107,7 +107,7 @@ on conflict (key) do nothing;
 create table if not exists reminders (
   id            bigserial primary key,
   created_at    timestamptz not null default now(),
-  name          text not null check (name in ('water', 'standup', 'vitamin')),
+  name          text not null check (name in ('water', 'standup', 'vitamin', 'evening_checkin')),
   scheduled_at  timestamptz not null,
   shown_at      timestamptz,
   acted_at      timestamptz,
@@ -220,6 +220,9 @@ insert into habits (name, display_name, type, reminder, capture_config, target, 
    '{"method":"manual"}'::jsonb, null, true),
   ('vitamin', '维生素', 'boolean',
    '{"mode":"fixed","times":["08:30"],"days":"daily","text_override":null,"voice_override":null}'::jsonb,
+   '{"method":"manual"}'::jsonb, null, true),
+  ('evening_checkin', '收工', 'event',
+   '{"mode":"fixed","times":["21:30"],"days":"daily","text_override":"收工打卡 · 写一句今日反思","voice_override":"今天收工了吗？写一句反思。"}'::jsonb,
    '{"method":"manual"}'::jsonb, null, true)
 on conflict (name) do nothing;
 
@@ -280,8 +283,9 @@ alter table signals add constraint v3_signal_name check (
 -- ES-013/habits bugfix: manual standup + vitamin signals
 alter table signals drop constraint if exists v3_signal_name;
 alter table signals drop constraint if exists v4_signal_name;
-alter table signals add constraint v4_signal_name check (
-  name in ('wake','sleep','water','steps','app_usage','phone_unlock','brief_wake','note','reminder_shown','reminder_acted','standup','vitamin','session')
+alter table signals drop constraint if exists v5_signal_name;
+alter table signals add constraint v5_signal_name check (
+  name in ('wake','sleep','water','steps','app_usage','phone_unlock','brief_wake','note','reminder_shown','reminder_acted','standup','vitamin','session','manual_work','body_flag')
 ) not valid;
 
 -- Standup: hourly, 09:00–18:00, no idle gate

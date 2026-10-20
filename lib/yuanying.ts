@@ -347,6 +347,9 @@ outdated — check the current tool list and use the tool. Do not answer
 - **wake** — 起床。每天第一次醒来时点击。
 - **sleep** — 入睡。准备睡觉时点击。
 - **water** — 喝水。每次喝水时点击，一天可多次。
+- **manual_work** — 动手劳作打卡（园艺 / 做饭 / 家务 / 修理），可选备注。
+- **body_flag** — 身体 / 情绪 / 睡眠状态，带 domain、polarity、description。
+- **evening_checkin** — 21:30 晚间收工提醒；收工打卡与写反思两个入口。
 
 If the user asks what these buttons do, answer from the
 definitions above. Do not invent other meanings.

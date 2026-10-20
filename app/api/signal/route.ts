@@ -5,8 +5,8 @@ import { getDayRange, getTodayRange, getConfigTimezone } from '@/lib/timezone';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const VALID_NAMES = ['wake', 'sleep', 'water', 'standup', 'vitamin', 'brief_wake'] as const;
-const COUNT_NAMES: readonly string[] = ['water', 'standup'];
+const VALID_NAMES = ['wake', 'sleep', 'water', 'standup', 'vitamin', 'brief_wake', 'manual_work', 'body_flag'] as const;
+const COUNT_NAMES: readonly string[] = ['water', 'standup', 'manual_work'];
 const IDEMPOTENT: readonly string[] = ['wake', 'sleep'];
 const SOURCES: readonly string[] = ['manual', 'reminder', 'passive'];
 
@@ -21,6 +21,40 @@ export async function POST(req: NextRequest) {
         { error: `invalid name: ${name}` },
         { status: 400 }
       );
+    }
+
+    if (name === 'manual_work') {
+      const category = String(context?.category ?? '').trim();
+      if (!['园艺', '做饭', '家务', '修理'].includes(category)) {
+        return NextResponse.json(
+          { error: 'manual_work requires category: 园艺|做饭|家务|修理' },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (name === 'body_flag') {
+      const domain = String(value?.domain ?? '').trim();
+      const polarity = String(value?.polarity ?? '').trim();
+      const description = String(value?.description ?? '').trim();
+      if (!['身体', '情绪', '睡眠'].includes(domain)) {
+        return NextResponse.json(
+          { error: 'body_flag requires domain: 身体|情绪|睡眠' },
+          { status: 400 }
+        );
+      }
+      if (!['不适', '良好'].includes(polarity)) {
+        return NextResponse.json(
+          { error: 'body_flag requires polarity: 不适|良好' },
+          { status: 400 }
+        );
+      }
+      if (!description) {
+        return NextResponse.json(
+          { error: 'body_flag requires description' },
+          { status: 400 }
+        );
+      }
     }
 
     // 幂等检查：wake/sleep 当日不重复（按用户本地日）
