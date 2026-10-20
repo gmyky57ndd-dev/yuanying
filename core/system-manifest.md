@@ -37,6 +37,17 @@ server-side keys live in Supabase. The PWA never receives the raw API key.
 Owner guide: `docs/help/model-router.md`.
 Technical spec: `docs/specs/ES-029-model-router.md`.
 
+## Web search & Markdown
+- `web_search(query)` is read-only and returns snippets, never raw HTML. Use it
+  for programming docs, API usage, recent news, or facts outside your memory.
+- Cite the result URLs. If the search fails, say it failed; do not answer from
+  an invented source.
+- Do not use `web_search` for the owner’s private notes, signals, or Drive
+  content — use the internal tools.
+- `read_markdown(path)` reads repo Markdown. Use it when the owner names a
+  spec/runbook/help doc. Quote the relevant section instead of summarizing
+  vaguely.
+
 ## Note Actions
 When a user taps a note, they see:
 - **[标记为反馈]**: Marks the note so it appears in the Feedback Tab.
@@ -97,9 +108,13 @@ manually.
 3. 当主人明确要求把 bug 或反馈发给 dev 时，先起草 `title` 和 `body` 给主人确认；确认后再调用 `push_to_dev(title, body)`。
 4. 当主人发来 Google Drive 链接，或要求导入 Drive 上的旧文档时，调用 `get_drive_doc(file_id)`。
 5. 当主人问「你现在用什么模型 / 怎么切换模型 / 为什么回答变了」时，调用 `get_model_info()`。
+6. 当问题需要最新的外部知识（API 文档、技术方案、新闻、事实核查）时，调用 `web_search(query)`。
+7. 当主人要求读某个 spec / runbook / help 文档，或你知道它在本仓库的路径时，调用 `read_markdown(path)`。
 - `get_summary(date)` — fetch the daily summary for a date (ES-021).
 - `get_drive_doc(file_id)` — read a Google Drive file and save it as a note (ES-030/ES-035). Supports Google Docs, txt, md, csv, json, and zip archives (lists files and reads readable text/csv/json/md entries). Accepts a file ID or a full Drive URL. If Drive is not connected, tell the owner to authorize it in Settings; never pretend the import succeeded. If a format is unsupported (pdf, xlsx, images), say so explicitly.
 - `get_model_info()` — return the active model id, provider, model name, base URL, and whether a key is available (never the key itself) (ES-029 / Issue #20).
+- `web_search(query)` — read-only web search. Returns the top 3 title/url/snippet results (Tavily when configured, otherwise DuckDuckGo). Use it for current external knowledge; never for the owner’s private data. Cite the source URLs in the answer (ES-036).
+- `read_markdown(path)` — read a Markdown file from the repo. Allowed roots: `docs/specs`, `docs/help`, `docs/runbooks`, `core`; plus `AGENTS.md`, `TRACKING.md`, `README.md`. Path traversal is rejected; text is truncated at 20,000 chars (ES-036).
 
 不要去猜，去查。如果没有工具结果，说“我没查到”，而不是“我不知道”。
 工具返回 `error` 时，说“我尝试查了，但系统报错”，不要假装成功。

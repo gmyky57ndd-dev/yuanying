@@ -16,6 +16,8 @@ import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 import { findOrCreateIssue } from '@/lib/github';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
+import { webSearch } from '@/lib/web-search';
+import { readMarkdown } from '@/lib/read-markdown';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -155,6 +157,18 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: false, error: 'active model not found' };
     }
     return { success: true, model: info };
+  }
+
+  if (name === 'web_search') {
+    const query = String(args?.query ?? '').trim();
+    if (!query) return { success: false, error: 'query required' };
+    return webSearch(query);
+  }
+
+  if (name === 'read_markdown') {
+    const filePath = String(args?.path ?? '').trim();
+    if (!filePath) return { success: false, error: 'path required' };
+    return readMarkdown(filePath);
   }
 
   return { error: `unknown tool: ${name}` };
@@ -342,6 +356,11 @@ export async function POST(req: NextRequest) {
         role: 'user' | 'assistant';
         content: string;
       }>),
+      {
+        role: 'system' as const,
+        content:
+          'Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.',
+      },
       { role: 'user' as const, content: message },
     ];
 
@@ -402,6 +421,26 @@ export async function POST(req: NextRequest) {
           'Return the active chat model (id, provider, model name, base URL, whether a key is available). Use when the owner asks which model is active, how model switching works, or why behavior changed. Never reveal API keys.',
         parameters: z.object({}),
         execute: async () => runToolSafely('get_model_info', {}),
+      }),
+      web_search: tool({
+        description:
+          'Search the web for current information, API documentation, technical solutions, or recent news. Use when up-to-date external knowledge is needed. Returns the top 3 results as title/url/snippet text, not raw HTML. Never use it to look up the owner’s private data.',
+        parameters: z.object({
+          query: z.string().describe('The search query'),
+        }),
+        execute: async ({ query }) => runToolSafely('web_search', { query }),
+      }),
+      read_markdown: tool({
+        description:
+          'Read a Markdown file from the repository by relative path. Allowed roots: docs/specs, docs/help, docs/runbooks, core; plus AGENTS.md, TRACKING.md, README.md. Use when the owner asks to read a spec, runbook, or help doc by path. Returns text, truncated at 20,000 chars.',
+        parameters: z.object({
+          path: z
+            .string()
+            .describe(
+              'Relative path, e.g. docs/specs/ES-036-web-search.md'
+            ),
+        }),
+        execute: async ({ path }) => runToolSafely('read_markdown', { path }),
       }),
       push_to_dev: tool({
         description:
