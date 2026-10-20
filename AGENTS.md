@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.8
+**Version:** 1.9
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -319,6 +319,12 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ## 11. Changelog
 
+### v1.9 — 2026-10-19
+- Added §12: Data Sovereignty & Backup — capacity baseline, vendor
+  independence, and the three-layer backup protocol (ES-031).
+- Context: commercial providers can disappear; the database is a cache and
+  the owner's local Markdown/Git copy is the source of truth.
+
 ### v1.8 — 2026-10-18
 - Updated §1 to describe the Core State, configurable Fenshen interfaces, and agentic tools architecture.
 - Added §2.5 on runtime self-awareness, retrieval tools, and confirmation before external side effects.
@@ -378,4 +384,25 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ---
 
-**End of AGENTS.md v1.4 draft**
+## 12. 数据主权与备份 (Data Sovereignty & Backup)
+
+元婴的长期记忆是用户的数字资产，其所有权和控制权绝对属于用户（Owner）。
+
+### 12.1 容量基线 (Capacity Baseline)
+- 人类一生（80年）所产生的文本、思考、对话记录，极端高估下约为 40-50 GB（约 100 亿 tokens）。
+- 架构决策：我们不需要依赖超大上下文窗口（如 10M+）来一次性读取所有记忆。我们通过分层检索（RAG + 结构化查询），确保无论数据量多大，每次 LLM 调用的上下文都保持在高效范围（< 32k tokens）。
+
+### 12.2 供应商无关性 (Vendor Independence)
+- 任何商业供应商（Supabase, Vercel, DeepSeek 等）都可能倒闭或改变服务条款。
+- 核心原则：**数据库是缓存，本地 Markdown 是真理。**
+- 所有的结构化数据（signals, summaries, notes）必须有定期导出为纯文本（JSONL / Markdown）的机制，并落入用户的 Git 仓库或本地存储。
+
+### 12.3 备份机制 (Backup Protocol)
+必须实现三层备份（详见 ES-031）：
+1. **Git 核心备份**：`core/` 和 `memory/` 下的所有 Markdown 文件每天自动 commit。
+2. **数据库快照**：Supabase 数据每天/每周导出并转存。
+3. **本地导出**：用户需能一键导出所有数据为 ZIP，确保离线安全。
+
+---
+
+**End of AGENTS.md v1.9**

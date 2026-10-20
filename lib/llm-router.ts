@@ -84,3 +84,33 @@ export async function getModel(modelId?: string): Promise<LanguageModel> {
       throw new Error(`unsupported provider: ${model.provider}`);
   }
 }
+
+export type ActiveModelInfo = {
+  id: string;
+  provider: string;
+  model_name: string;
+  base_url: string | null;
+  has_api_key: boolean;
+};
+
+/** ES-029 / Issue #20: safe model info for 元婴 (never includes the key). */
+export async function getActiveModelInfo(): Promise<ActiveModelInfo | null> {
+  const id = await getActiveModelId();
+  const { data, error } = await supabase
+    .from('models')
+    .select('id, provider, model_name, api_key, base_url')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (error) throw new Error(`model lookup failed: ${error.message}`);
+  if (!data) return null;
+
+  const model = data as ModelRow;
+  return {
+    id: model.id,
+    provider: model.provider,
+    model_name: model.model_name,
+    base_url: model.base_url,
+    has_api_key: !!apiKeyFor(model),
+  };
+}

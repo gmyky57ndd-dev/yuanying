@@ -1,0 +1,61 @@
+name: Weekly DB Backup
+
+# ES-031: weekly Supabase -> Git snapshot.
+# Requires repo secret SUPABASE_DB_URL (Supabase direct Postgres URL).
+# Commits to backups/db/YYYY-MM-DD.sql on the current default branch.
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-db-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Check backup secret
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::SUPABASE_DB_URL secret is not set"
+            exit 1
+          fi
+
+      - name: Dump Supabase database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p backups/db
+          DATE=$(date -u +%F)
+          docker run --rm \
+            -e SUPABASE_DB_URL \
+            -e BACKUP_DATE="$DATE" \
+            -v "$PWD/backups/db:/backups" \
+            postgres:17 \
+            sh -c 'pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --clean --if-exists -f "/backups/${BACKUP_DATE}.sql"'
+          sudo chown -R "$(id -u):$(id -g)" backups/db
+          echo "BACKUP_DATE=$DATE" >> "$GITHUB_ENV"
+
+      - name: Commit snapshot
+        run: |
+          git config user.name "yuanying-backup"
+          git config user.email "yuanying-backup@users.noreply.github.com"
+          git add "backups/db/${BACKUP_DATE}.sql"
+          if git diff --cached --quiet; then
+            echo "No backup changes to commit"
+            exit 0
+          fi
+          git commit -m "chore(backup): db snapshot ${BACKUP_DATE}"
+          git push

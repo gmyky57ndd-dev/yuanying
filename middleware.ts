@@ -19,8 +19,13 @@ const REFRESH_BELOW_MS = SESSION_MS - 5 * 24 * 60 * 60 * 1000; // refresh if < 2
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Public: cron (CRON_SECRET handled in-route) and auth endpoints.
-  if (pathname.startsWith('/api/cron/') || pathname.startsWith('/api/auth/')) {
+  // Public: cron (CRON_SECRET handled in-route), auth endpoints, and the
+  // Google OAuth callback (Google redirects without the PWA session cookie).
+  if (
+    pathname.startsWith('/api/cron/') ||
+    pathname.startsWith('/api/auth/') ||
+    pathname === '/api/integrations/google-drive/callback'
+  ) {
     return NextResponse.next();
   }
 

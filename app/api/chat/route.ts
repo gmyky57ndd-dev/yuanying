@@ -14,7 +14,8 @@ import {
 } from '@/lib/timezone';
 import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 import { findOrCreateIssue } from '@/lib/github';
-import { getModel } from '@/lib/llm-router';
+import { getActiveModelInfo, getModel } from '@/lib/llm-router';
+import { importDriveDoc } from '@/lib/google-drive';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -140,6 +141,20 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!DATE_RE.test(date)) return { error: 'date must be YYYY-MM-DD' };
     const { data } = await generateSummary({ date });
     return { date, summary: data };
+  }
+
+  if (name === 'get_drive_doc') {
+    const file = String(args?.file_id ?? '').trim();
+    if (!file) return { success: false, error: 'file_id required' };
+    return importDriveDoc(file);
+  }
+
+  if (name === 'get_model_info') {
+    const info = await getActiveModelInfo();
+    if (!info) {
+      return { success: false, error: 'active model not found' };
+    }
+    return { success: true, model: info };
   }
 
   return { error: `unknown tool: ${name}` };
@@ -370,6 +385,23 @@ export async function POST(req: NextRequest) {
           date: z.string().describe('Date in YYYY-MM-DD format'),
         }),
         execute: async ({ date }) => runToolSafely('get_summary', { date }),
+      }),
+      get_drive_doc: tool({
+        description:
+          'Read a Google Drive document by file ID or URL (Google Docs or a text file) and save it as a note. Use when the owner shares a Drive link or asks to import a legacy document. If Drive is not connected, tell the owner to authorize it in Settings.',
+        parameters: z.object({
+          file_id: z
+            .string()
+            .describe('Google Drive file ID or a full Drive URL'),
+        }),
+        execute: async ({ file_id }) =>
+          runToolSafely('get_drive_doc', { file_id }),
+      }),
+      get_model_info: tool({
+        description:
+          'Return the active chat model (id, provider, model name, base URL, whether a key is available). Use when the owner asks which model is active, how model switching works, or why behavior changed. Never reveal API keys.',
+        parameters: z.object({}),
+        execute: async () => runToolSafely('get_model_info', {}),
       }),
       push_to_dev: tool({
         description:

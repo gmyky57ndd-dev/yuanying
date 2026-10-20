@@ -17,6 +17,12 @@ type ModelItem = {
   base_url: string | null;
   has_api_key: boolean;
 };
+type DriveStatus = {
+  configured: boolean;
+  connected: boolean;
+  updated_at: string | null;
+  scope: string | null;
+};
 
 const MODEL_PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'];
 
@@ -42,6 +48,10 @@ export default function Settings() {
   const [modelMessage, setModelMessage] = useState<string | null>(null);
   const [testingModel, setTestingModel] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
+  const [drive, setDrive] = useState<DriveStatus | null>(null);
+  const [driveMessage, setDriveMessage] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -70,7 +80,88 @@ export default function Settings() {
       })
       .catch(() => {});
     loadModels();
+    loadDrive();
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('drive');
+    if (!result) return;
+
+    const messages: Record<string, string> = {
+      connected: 'Google Drive 已连接。',
+      denied: 'Google Drive 授权被取消。',
+      invalid_state: '授权校验失败，请重试。',
+      not_configured: '服务端还没有配置 Google OAuth。',
+      error: 'Google Drive 授权失败，请重试。',
+    };
+    setDriveMessage(messages[result] ?? 'Google Drive 状态未知。');
+    window.history.replaceState({}, '', '/settings');
+  }, []);
+
+  async function loadDrive() {
+    try {
+      const r = await fetchWithTimeout(
+        `${API_BASE}/api/integrations/google-drive`,
+        {}
+      );
+      const d = await r.json();
+      setDrive(d);
+    } catch {}
+  }
+
+  async function disconnectDrive() {
+    if (!window.confirm('断开 Google Drive？元婴将无法再读取 Drive 文档。')) {
+      return;
+    }
+    setDriveMessage(null);
+    try {
+      const r = await fetchWithTimeout(
+        `${API_BASE}/api/integrations/google-drive`,
+        { method: 'DELETE' }
+      );
+      if (!r.ok) {
+        setDriveMessage('断开失败');
+        return;
+      }
+      setDriveMessage('已断开。');
+      await loadDrive();
+    } catch {
+      setDriveMessage('断开失败');
+    }
+  }
+
+  async function exportData() {
+    if (exporting) return;
+    setExporting(true);
+    setExportMessage(null);
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/export`, {});
+      if (!r.ok) {
+        const d = await r.json().catch(() => ({}));
+        setExportMessage(
+          r.status === 401 ? '需要先登录' : d.error ?? '导出失败'
+        );
+        return;
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `yuanying-export-${new Date()
+        .toISOString()
+        .slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportMessage('已生成下载。');
+    } catch {
+      setExportMessage('导出失败');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   async function loadModels() {
     try {
@@ -367,6 +458,62 @@ export default function Settings() {
             )}
           </div>
         </form>
+      </div>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-1">Google Drive（只读）</h2>
+        <p className="text-[11px] text-stone-600 mb-3">
+          授权后，可以在聊天里发 Drive 链接，让我读入并保存为笔记。只读，不写、不删、不分享。
+        </p>
+
+        {!drive?.configured ? (
+          <p className="text-[11px] text-amber-500">
+            服务端未配置 GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET。
+          </p>
+        ) : drive?.connected ? (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-emerald-400">
+              已连接 · 只读权限
+              {drive.updated_at
+                ? ` · ${new Date(drive.updated_at).toLocaleDateString()}`
+                : ''}
+            </span>
+            <button
+              onClick={disconnectDrive}
+              className="text-[11px] px-2 py-1 rounded-lg border border-stone-700 text-stone-400"
+            >
+              断开
+            </button>
+          </div>
+        ) : (
+          <a
+            href={`${API_BASE}/api/integrations/google-drive/authorize`}
+            className="inline-block text-xs px-3 py-2 rounded-xl bg-emerald-800 text-white"
+          >
+            授权 Google Drive
+          </a>
+        )}
+
+        {driveMessage && (
+          <p className="text-[11px] text-stone-400 mt-2">{driveMessage}</p>
+        )}
+      </div>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-1">数据主权</h2>
+        <p className="text-[11px] text-stone-600 mb-3">
+          导出数据库和 core/ 记忆。API key 和 Google token 不会包含在 ZIP 里。
+        </p>
+        <button
+          onClick={exportData}
+          disabled={exporting}
+          className="text-xs px-3 py-2 rounded-xl bg-emerald-800 text-white disabled:opacity-50"
+        >
+          {exporting ? '正在打包…' : '导出我的元婴'}
+        </button>
+        {exportMessage && (
+          <p className="text-[11px] text-stone-400 mt-2">{exportMessage}</p>
+        )}
       </div>
 
       <div className="flex justify-between items-center">

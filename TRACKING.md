@@ -137,6 +137,8 @@
   - `app/api/chat/route.ts` — replaced the hardcoded DeepSeek fetch loop with AI SDK `streamText` + `maxSteps` tools; persists via `onFinish`; model-router failures return `{ success: false, error }`.
   - `lib/api.ts` — consumes the AI SDK data stream and preserves the existing chat UI contract.
   - `core/system-manifest.md` — documents Settings → 模型 and model-failure truthfulness.
+  - `docs/help/model-router.md` — owner + 元婴 guide (Issue #20).
+  - `get_model_info()` tool — returns active model id/provider/name/base URL/key availability, never the key (Issue #20).
 - **Dependencies**: `ai@4.3.19`, `@ai-sdk/openai@1.3.24`, `@ai-sdk/anthropic@1.2.12`, `zod@3.25.76` (AI SDK peer).
 - **Verified (2026-10-19, local dev + configured Supabase)**:
   - `GET /api/models` returns `deepseek-chat` with `has_api_key:false` (env key fallback).
@@ -151,6 +153,59 @@
   - [x] Missing model / bad key / unsupported provider returns `success:false`; the chat UI surfaces the error.
   - [x] DeepSeek continues to work through the router.
   - [ ] Owner verifies the Settings form and a real chat message on the deployed PWA.
+
+### [P2-13] Google Drive read-only import (ES-030)
+
+- **Status**: In Review (2026-10-19) · **Category**: Feature (Integration / Tool) · **Refs**: Issue #18, ES-030 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-030-google-drive-read-tool.md`.
+- **Intake**: Issue #18 requests a read-only Drive tool with `drive.readonly`, explicit provenance, and no write/delete/share permissions.
+- **Impl**:
+  - `supabase/migrations/018_google_drive.sql` — adds `google_drive` to the signals source constraint and creates `google_oauth_tokens` (server-side singleton).
+  - `lib/google-drive.ts` — OAuth URL/state, code exchange, refresh, status/disconnect, file-id parsing, `files.export` text/plain, duplicate guard, and note insert.
+  - `app/api/integrations/google-drive/{route,authorize,callback}` — status/disconnect, Google consent redirect, and CSRF-checked callback.
+  - `app/api/chat/route.ts` — `get_drive_doc(file_id)` tool.
+  - `app/settings/page.tsx` — Google Drive authorization/status/disconnect UI.
+  - `core/system-manifest.md` — documents the tool and the Settings authorization.
+  - `middleware.ts` — callback is public; OAuth `state` cookie is the guard.
+- **Storage**: notes are stored in `signals` (`name='note'`), with `source='google_drive'` and `context.file_id` + `file_url` + `imported_at`.
+- **Known boundary**: only Google Docs and `text/*` files are supported in this pass; Sheets/PDF/binary return an explicit error.
+- **Verified (2026-10-19, local)**:
+  - Migration applied to the configured Supabase.
+  - `GET /api/integrations/google-drive` returns status without tokens.
+  - `get_drive_doc` returns an explicit "not connected" error instead of a fake import.
+  - `tsc`, lint, and build pass.
+- **Blocked verification**: end-to-end OAuth/import needs `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and an authorized redirect URI in Google Cloud. Owner must configure these on the phone/PWA deployment.
+- **Acceptance**:
+  - [ ] Owner can authorize Google Drive via Settings on the phone.
+  - [ ] 元婴 reads a Drive link and summarizes its contents in chat.
+  - [ ] Imported text is saved with `source='google_drive'` and `context.file_id`.
+  - [ ] Read-only boundary confirmed (no write/delete/share).
+
+### [P2-14] Data sovereignty & backup (ES-031)
+
+- **Status**: In Review (2026-10-19) · **Category**: Feature (Infrastructure) · **Refs**: ES-031, AGENTS §12 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-031-data-sovereignty.md`.
+- **Label note**: the handoff requested **P2-09**, but P2-09 is the completed Phase C tool-loading item; renumbered to **P2-14**.
+- **Impl**:
+  - `AGENTS.md` — added §12 Data Sovereignty & Backup; version 1.9.
+  - `.github/workflows/db-backup.yml` — weekly Sunday 00:00 UTC `pg_dump` via `postgres:17`, writes `backups/db/YYYY-MM-DD.sql`, commits and pushes.
+  - `app/api/export/route.ts` — authenticated ZIP export of all user tables + `core/` Markdown; paginated 1000 rows/page; excludes `models.api_key` and `google_oauth_tokens`.
+  - `app/settings/page.tsx` — **导出我的元婴** button.
+  - `jszip@3.10.1` dependency.
+- **Required secret**: `SUPABASE_DB_URL` in GitHub Actions. The workflow fails loudly if it is missing.
+- **Verified (2026-10-19, local)**:
+  - `GET /api/export` without auth → `401`; with `Authorization: Bearer <API_TOKEN>` → `200 application/zip`.
+  - ZIP contains `yuanying-data-export.json` (531 KB) + `core/**` Markdown; manifest counts: messages 196, signals 682, summaries 10, reminders 98, habits 3, config 7, fenshen 3, models 1.
+  - `models` export has no `api_key`; `google_oauth_tokens` is absent.
+  - `tsc`, lint, and production build pass.
+- **Acceptance**:
+  - [x] Weekly backup workflow exists.
+  - [x] Export endpoint returns a ZIP with DB tables + core Markdown.
+  - [x] Secrets are excluded from the export.
+  - [x] `tsc`, lint, and build pass.
+  - [ ] First scheduled workflow run verified in GitHub Actions.
+  - [ ] Owner downloads the ZIP on the phone.
+- **Restore**: see `docs/specs/ES-031-data-sovereignty.md` §6.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
@@ -790,6 +845,32 @@
 ## To Do
 
 _(ES-008/ES-009 home + history work is in review; no open To Do items.)_
+
+### [P2-15] Data portability dry run (ES-034)
+
+- **Status**: To Do (2026-10-19) · **Category**: Chore (Infrastructure Verification) · **Refs**: ES-034, ES-031 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-034-data-portability-dry-run.md`.
+- **Label note**: the handoff requested **P2-10**, but P2-10 is the completed Phase C visual-polish item; renumbered to **P2-15**.
+- **Depends on**: P2-14 (weekly SQL snapshot).
+- **Acceptance**:
+  - [ ] SQL dump imports into local Docker/Neon Postgres.
+  - [ ] App reads/writes without Supabase when `DATABASE_URL` is set.
+  - [ ] Migration completes in under 1 hour.
+
+### [P2-16] Capability expansion — commitments, drafts, deep memory, external reader (ES-032)
+
+- **Status**: To Do (2026-10-19) · **Category**: Feature (Tooling & Background Tasks) · **Refs**: ES-032 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-032-capability-expansion.md`.
+- **Priority**: Medium; schedule after Phase C UI.
+- **Boundary**: confirm before sending; no autonomous external actions.
+- **Depends on**: P1-09 (collector notifications), ES-030 (external reader), an embedding model for pgvector.
+
+### [P2-17] Legacy data ingestion — Stalio & Blinking Notes (ES-033)
+
+- **Status**: To Do (2026-10-19) · **Category**: Feature (Data Migration) · **Refs**: ES-033, ES-030, ES-002 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-033-legacy-data-ingestion.md`.
+- **Boundary**: no new UI; use `scripts/` with `npm run import:legacy`, idempotent batches, provenance in `context`.
+- **Depends on**: owner-provided export formats/samples.
 
 ### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
 
