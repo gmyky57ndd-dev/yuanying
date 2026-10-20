@@ -264,7 +264,7 @@
   - CSV filters: `start_date`, `end_date`, `filter_column`, `filter_value` (`<`, `<=`, `>`, `>=`, `!=`, exact).
   - All tools now return `{ success, data, meta, error }`; empty results are `success:true, data:[], message`.
   - `get_issue(issue_number)` returns state/labels/body + up to 20 comments.
-  - Filtered/entry-specific Drive reads are views: `saved:false`, no duplicate note.
+  - Full reads update the existing note in place; filtered/entry-specific reads are views (`saved:false`) with no duplicate note.
 - **Verified (2026-10-20, local)**:
   - ZIP `entries.csv`: 602 rows, 50 returned, `truncated:true`, `truncated_at:"2026-07-26"`; `routines.csv`: 16/16, `truncated:false`.
   - October ZIP + `entries.csv` date filter `2026-10-08`→`2026-10-16`: 30/30 rows, no truncation.
