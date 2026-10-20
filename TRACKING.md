@@ -235,14 +235,14 @@
 - **Spec**: `docs/specs/ES-036-web-search.md`.
 - **Label note**: the handoff requested **P2-11**, but P2-11 is the completed ES-027 summary-tone item; renumbered to **P2-19**.
 - **Impl**:
-  - `lib/web-search.ts` — Tavily primary (`TAVILY_API_KEY`), DuckDuckGo HTML fallback; top 3 title/url/snippet results; no raw HTML.
+  - `lib/web-search.ts` — Tavily primary (`TAVILY_API_KEY`), DuckDuckGo HTML fallback, Jina Reader/DDG fallback for blocked serverless IPs; top 3 title/url/snippet results; no raw HTML.
   - `lib/read-markdown.ts` — allowlisted Markdown reader (`docs/specs`, `docs/help`, `docs/runbooks`, `core`, `AGENTS.md`, `TRACKING.md`, `README.md`), 20k-char cap, path-traversal guard.
   - `app/api/chat/route.ts` — `web_search(query)` and `read_markdown(path)` tools.
   - `core/system-manifest.md` — tool list + Web search & Markdown rules.
   - `lib/yuanying.ts` + `app/api/chat/route.ts` — per-request tool-availability reminder so old “no web search” history cannot override the real tools.
   - `.env.example` — optional `TAVILY_API_KEY`.
 - **Verified (2026-10-20, local)**:
-  - `web_search("How to use the Vercel AI SDK with tools?")` → DuckDuckGo, 3 parsed results.
+  - `web_search("How to use the Vercel AI SDK with tools?")` → DuckDuckGo, 3 parsed results; Jina fallback path also verified with a simulated DDG 403.
   - Chat called `web_search` and answered with cited URLs (`ai-sdk.dev` docs).
   - `read_markdown("docs/specs/ES-036-web-search.md")` → text; traversal and non-allowlisted paths rejected.
   - `tsc`, lint, and build pass.

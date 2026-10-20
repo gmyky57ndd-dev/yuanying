@@ -123,6 +123,64 @@ async function duckDuckGoSearch(query: string): Promise<WebSearchResult[]> {
   return results;
 }
 
+function stripMarkdown(value: string): string {
+  return value
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, ' ')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`#]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function jinaDuckDuckGoSearch(query: string): Promise<WebSearchResult[]> {
+  const res = await fetch(
+    `https://r.jina.ai/https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+    {
+      cache: 'no-store',
+      headers: { Accept: 'text/plain' },
+    }
+  );
+  if (!res.ok) {
+    throw new Error(`Jina/DDG search failed (HTTP ${res.status})`);
+  }
+
+  const text = await res.text();
+  const blocks = text.split(/\n## \[/).slice(1);
+  const results: WebSearchResult[] = [];
+
+  for (const block of blocks) {
+    if (results.length >= MAX_RESULTS) break;
+    const titleMatch = block.match(/^([^\]]+)\]\(([^)]+)\)/);
+    if (!titleMatch) continue;
+    const title = stripMarkdown(decodeHtml(titleMatch[1]));
+    const url = decodeDdgUrl(titleMatch[2]);
+    if (!url || url.includes('duckduckgo.com')) continue;
+
+    const lines = block
+      .split('\n')
+      .slice(1)
+      .map(stripMarkdown)
+      .filter(line => line.length > 0);
+    const snippet =
+      lines.find(
+        line =>
+          line.length > 40 &&
+          !line.startsWith('http') &&
+          !line.includes('duckduckgo.com')
+      ) ??
+      lines[0] ??
+      '';
+
+    results.push({
+      title,
+      url,
+      snippet: truncate(snippet, MAX_SNIPPET_CHARS),
+    });
+  }
+
+  return results;
+}
+
 /** ES-036: read-only web search, Tavily first then DuckDuckGo HTML. */
 export async function webSearch(query: string): Promise<WebSearchResponse> {
   const q = query.trim();
@@ -140,7 +198,16 @@ export async function webSearch(query: string): Promise<WebSearchResponse> {
     }
   }
 
-  const results = await duckDuckGoSearch(q);
+  try {
+    const results = await duckDuckGoSearch(q);
+    if (results.length > 0) {
+      return { provider: 'duckduckgo', results };
+    }
+  } catch (e) {
+    console.warn('DuckDuckGo search failed; trying Jina reader', e);
+  }
+
+  const results = await jinaDuckDuckGoSearch(q);
   if (results.length === 0) {
     throw new Error('No web search results found.');
   }
