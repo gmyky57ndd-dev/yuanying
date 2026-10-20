@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.9
+**Version:** 1.10
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -187,6 +187,29 @@ ask rather than guess.
 Agents cannot act on intent that is not written down. Paths and fallbacks are
 part of the requirement, not implementation details.
 
+### 4.9 Engineering Spec (ES) Numbering & Governance
+
+To prevent numbering collisions and maintain a traceable history of
+architectural decisions:
+
+1. **Central Index:** All ES documents must be logged in `docs/specs/INDEX.md`.
+2. **Sequential Assignment:** The next available ES number must be checked
+   against the INDEX before creation. Never guess the number.
+3. **One Subject per ES:** Do not append unrelated features to an existing ES.
+   Create a new one.
+4. **No Orphan ES:** Every ES must have a corresponding entry in `TRACKING.md`.
+
+When adding a new ES:
+
+- Create the file `docs/specs/ES-XXX-title.md`.
+- Add a line to `docs/specs/INDEX.md` with the number, title, status, and date.
+- Create/update the tracking item.
+
+**Renumbering rule:** if a collision is discovered after publication, rename the
+newer/duplicate document, update every reference in `TRACKING.md`, code comments,
+and the INDEX, and record the old number in the INDEX note. Never silently reuse
+an ES number.
+
 ---
 
 ## 5. Rules of engagement
@@ -318,6 +341,12 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.10 — 2026-10-20
+- Added §4.9 Engineering Spec (ES) Numbering & Governance.
+- Created `docs/specs/INDEX.md` as the single source of truth.
+- Renamed the duplicate ES-036 tooling spec to **ES-038** and updated
+  references.
 
 ### v1.9 — 2026-10-19
 - Added §12: Data Sovereignty & Backup — capacity baseline, vendor
