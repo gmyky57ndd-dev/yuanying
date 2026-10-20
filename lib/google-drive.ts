@@ -21,7 +21,7 @@ const MAX_MODEL_CHARS = 20_000;
 const MAX_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 const MAX_ZIP_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_ZIP_TOTAL_BYTES = 15 * 1024 * 1024;
-const MAX_CSV_ROWS = 50;
+const MAX_CSV_ROWS = 1000;
 const MAX_ZIP_FILES_WITH_CONTENT = 3;
 
 type TokenRow = {
