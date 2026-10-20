@@ -94,8 +94,8 @@ Not for typing, phone scrolling, or walking. No duration required.
 - [x] Record `body_flag` with domain + polarity + description.
 - [x] 21:30 reminder configured with 收工打卡 + 写反思 + 忽略 actions.
 - [x] Ignore does not repeat the same day (fixed-time dedupe + no backfill).
-- [ ] Install the new collector build and verify the 21:30 notification on the
-      phone.
+- [x] Collector **v1.0.28 (code 29)** built and uploaded to Play internal.
+- [ ] Owner installs v1.0.28 and verifies the 21:30 notification on the phone.
 
 ## 7. Verification
 

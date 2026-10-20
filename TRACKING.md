@@ -295,8 +295,8 @@
   - Home quick **动手** / **状态** panels; activity stream labels/details.
   - `evening_checkin` habit: fixed 21:30, merged notification with 收工打卡 / 写反思 / 忽略; actions open PWA `?panel=work|note`.
   - API validation + v5 signal-name constraint + reminder-name constraint.
-- **Collector**: `ReminderScheduler.kt` + `MainActivity.java` updated; **requires a new Android build installed on the phone** for the 21:30 notification.
-- **Verified (2026-10-20, local)**: signal API validates both payloads; PWA panels render; `tsc`, lint, web build pass. Collector build pending.
+- **Collector**: `ReminderScheduler.kt` + `MainActivity.java` updated. Release **v1.0.28 (code 29)** built and uploaded to Play internal (`status: completed`): https://github.com/gmyky57ndd-dev/yuanying/releases/tag/v1.0.28
+- **Verified (2026-10-20)**: signal API validates both payloads; PWA panels render; web deploy green; Android CI + release workflow green; Play internal shows 1.0.28 / 29 completed. Phone installation/21:30 firing still needs owner confirmation.
 - **Acceptance**:
   - [x] Record `manual_work` with category + optional note.
   - [x] Record `body_flag` with domain + polarity + description.
@@ -306,9 +306,9 @@
 
 ### [P2-22] ZIP top-level truncation semantics (#39)
 
-- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issue #39, ES-036 · **Opened**: 2026-10-20
+- **Status**: Done (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issue #39, ES-036 · **Opened**: 2026-10-20
 - **Fix**: top-level ZIP `truncated` now means "at least one entry was truncated or skipped", with explicit `truncated_entries` and `skipped_entries` arrays. Per-file `meta.truncated` remains authoritative.
-- **Verified (2026-10-20, local)**: ZIP with truncated `entries.csv` + complete `routines.csv` returns top-level `truncated:true`, `truncated_entries:["entries.csv"]`, `skipped_entries:[]`, while `routines.csv` has `truncated:false` (56/56).
+- **Verified (2026-10-20, production)**: ZIP with truncated `entries.csv` + complete `routines.csv` returns top-level `truncated:true`, `truncated_entries:["entries.csv"]`, `skipped_entries:[]`, while `routines.csv` has `truncated:false` (56/56).
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
