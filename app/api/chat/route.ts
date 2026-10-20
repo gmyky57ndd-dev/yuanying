@@ -451,6 +451,14 @@ export async function POST(req: NextRequest) {
         ) {
           const reason = pushToDevResult.error ?? 'unknown error';
           reply = `没发成功。系统报错：${reason}`;
+        } else if (
+          pushToDevResult?.success === true &&
+          typeof pushToDevResult.number === 'number' &&
+          pushToDevResult.issue_url
+        ) {
+          // Issue #21/#24: the persisted success message uses the verified
+          // GitHub number/URL, never a model-composed one.
+          reply = `发了。#${pushToDevResult.number}。\n\n${pushToDevResult.issue_url}`;
         }
 
         const { error: insErr } = await supabase.from('messages').insert([

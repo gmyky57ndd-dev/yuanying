@@ -83,7 +83,6 @@ export default function ImportPage() {
             value={text}
             onChange={e => setText(e.target.value)}
             rows={10}
-            lang="zh-CN"
             inputMode="text"
             autoComplete="off"
             placeholder="对话记录 / 摘要…"
