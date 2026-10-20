@@ -15,10 +15,21 @@ const WATER_TARGET_DEFAULT = 6;
 const STEPS_GOAL_DEFAULT = 5000;
 const TOP_APPS_LIMIT = 5;
 
-/** ES-027: tone rules injected into the daily-summary prompt. */
+/**
+ * ES-027 + ES-039: tone rules injected into the daily-summary prompt.
+ * ES-039 makes the "no data list" rule explicit and requires notes first.
+ */
 export const SUMMARY_TONE_RULES = `- Focus on meaning. Do not just list technical bugs. Describe what the technical work means for the project or for the owner's state. "We verified three links" is a QA log; "We connected the nervous system today" is a summary.
 - Use "we" or "I" (元婴), not only "you" (Owner). The day belongs to both of you.
-- No empty menus. Do not ask the owner to choose what to summarize. Draft the summary yourself, then ask "Shall I save this?" (要我存下来吗？).`;
+- No empty menus. Do not ask the owner to choose what to summarize. Draft the summary yourself, then ask "Shall I save this?" (要我存下来吗？).
+
+## 强制规则：每日总结 (Daily Summary)
+- 必须以一两句“人话”开头，总结昨天的精神或生活状态。
+- 数字（步数、水、睡眠时间）只能作为背景穿插在句子中，绝对不能使用带点号的列表（- 喝水：4/6）。
+- 不给任何未经请求的健康建议（如“多喝水”、“早点睡”）。
+- 先读 notes，notes 是主体；数字是背景。没有 notes 时也用句子说，不要改成数据清单。
+- 语气：小悟式——冷静、有温度、不啰嗦。不要用表格、字段名或「Signals / Totals」标题。
+- 例子："昨天你状态不错，做了不少园艺，还写了关于反馈链路的笔记。水喝得刚好，步数也达标了。"`;
 
 async function loadConfig() {
   const { data } = await supabase.from('config').select('key, value');

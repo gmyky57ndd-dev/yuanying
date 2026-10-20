@@ -310,6 +310,18 @@
 - **Fix**: top-level ZIP `truncated` now means "at least one entry was truncated or skipped", with explicit `truncated_entries` and `skipped_entries` arrays. Per-file `meta.truncated` remains authoritative.
 - **Verified (2026-10-20, production)**: ZIP with truncated `entries.csv` + complete `routines.csv` returns top-level `truncated:true`, `truncated_entries:["entries.csv"]`, `skipped_entries:[]`, while `routines.csv` has `truncated:false` (56/56).
 
+### [P2-23] Daily summary tone enforcement (ES-039)
+
+- **Status**: In Review (2026-10-20) · **Category**: Prompt/Backend · **Refs**: ES-039, ES-019, ES-027 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-039-daily-summary-tone-enforcement.md`.
+- **Impl**: `SUMMARY_TONE_RULES` in `lib/summary-generator.ts` now enforces: start with 1–2 human sentences about state, numbers only as background, no bullet lists, no unsolicited health advice, notes first.
+- **Verified (2026-10-20, local)**: “看昨天的简报” returned three prose sentences: notes first, numbers inline, no bullet list, no health advice, ended with “要我把这条存下来吗？”.
+- **Acceptance**:
+  - [x] Summary request returns no Markdown bullet list.
+  - [x] Notes are mentioned before numbers.
+  - [x] Tone is calm/warm/concise; no health advice.
+  - [ ] Production spot-check after deploy.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---
