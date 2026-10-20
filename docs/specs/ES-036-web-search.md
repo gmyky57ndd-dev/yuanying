@@ -40,11 +40,15 @@ Provider order:
    searches/month free).
 2. **DuckDuckGo HTML** fallback when Tavily is absent or fails. No API key,
    rate-limited.
+3. **Jina Reader → DuckDuckGo** fallback when the direct DuckDuckGo request is
+   blocked (for example, a serverless IP gets HTTP 403). No API key.
 
 Behavior:
 
 - Returns the top **3** results as `{ title, url, snippet }`.
 - Snippets are truncated to 1,200 chars.
+- Provider failures fall through to the next option; if all fail, return an
+explicit error.
 - If no results or the provider fails, return an explicit error; never
   fabricate an answer or source.
 - The tool is read-only and is not used for private data (notes, signals,
@@ -90,7 +94,7 @@ Rules:
 
 ## 5. Files
 
-- `lib/web-search.ts` — Tavily + DuckDuckGo HTML parsing.
+- `lib/web-search.ts` — Tavily, DuckDuckGo HTML, and Jina Reader fallback parsing.
 - `lib/read-markdown.ts` — allowlisted Markdown reader.
 - `app/api/chat/route.ts` — tool definitions + execution.
 - `core/system-manifest.md` — tool list and usage rules.
@@ -108,7 +112,7 @@ Rules:
 ## 7. Limits and fallback
 
 - Web search is user-initiated; no background crawling.
-- Tavily failure falls back to DuckDuckGo. DuckDuckGo failure returns an
-  explicit error.
+- Tavily failure falls back to DuckDuckGo. If direct DuckDuckGo is blocked,
+  the Jina Reader/DDG fallback is used. If all fail, return an explicit error.
 - No raw HTML is passed to the model.
 - No autonomous external actions: search is read-only.
