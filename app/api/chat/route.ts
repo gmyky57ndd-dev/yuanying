@@ -13,7 +13,7 @@ import {
   getDateInTimezone,
 } from '@/lib/timezone';
 import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
-import { findOrCreateIssue } from '@/lib/github';
+import { findOrCreateIssue, getIssue } from '@/lib/github';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
 import { webSearch } from '@/lib/web-search';
@@ -27,7 +27,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 async function runTool(name: string, args: any): Promise<any> {
   if (name === 'get_notes') {
     const date = String(args?.date ?? '');
-    if (!DATE_RE.test(date)) return { error: 'date must be YYYY-MM-DD' };
+    if (!DATE_RE.test(date)) {
+      return { success: false, error: 'date must be YYYY-MM-DD' };
+    }
     const tz = await getConfigTimezone();
     const { start, end } = getDayRange(date, tz);
     const { data } = await supabase
@@ -38,18 +40,24 @@ async function runTool(name: string, args: any): Promise<any> {
       .lt('created_at', end.toISOString())
       .order('created_at', { ascending: true })
       .limit(50);
+    const notes = (data ?? []).map((r: any) => ({
+      text: r.value?.text ?? '',
+      at: r.created_at,
+    }));
     return {
+      success: true,
       date,
-      notes: (data ?? []).map((r: any) => ({
-        text: r.value?.text ?? '',
-        at: r.created_at,
-      })),
+      data: notes,
+      meta: {
+        count: notes.length,
+        message: notes.length > 0 ? 'Notes returned.' : 'No notes found.',
+      },
     };
   }
 
   if (name === 'get_conversation_records') {
     const keyword = String(args?.keyword ?? '').trim();
-    if (!keyword) return { error: 'keyword required' };
+    if (!keyword) return { success: false, error: 'keyword required' };
     const needle = keyword.toLowerCase();
 
     const searchDir = (rel: string, limit: number, fullExcerpt = false) => {
@@ -71,8 +79,6 @@ async function runTool(name: string, args: any): Promise<any> {
         );
         let snippet: string;
         if (fullExcerpt) {
-          // Specs are short; return the distilled decisions, not a keyword
-          // window, so the model can answer design questions.
           snippet = raw.replace(/\s+/g, ' ').trim().slice(0, 1800);
         } else {
           const idx = lower.indexOf(needle);
@@ -87,52 +93,39 @@ async function runTool(name: string, args: any): Promise<any> {
       return out;
     };
 
-    // Return distilled conversation memory AND the relevant spec (specs hold
-    // the design decisions; conversations may only mention them in passing).
     const conv = searchDir('core/memory/conversations', 3);
     const specs = searchDir('docs/specs', 4, true);
+    const matches = [...conv, ...specs].slice(0, 6);
     return {
+      success: true,
       keyword,
-      matches: [...conv, ...specs].slice(0, 6),
+      data: matches,
+      meta: {
+        count: matches.length,
+        message:
+          matches.length > 0 ? 'Matches returned.' : 'No matches found.',
+      },
     };
   }
 
   if (name === 'push_to_dev') {
     const title = String(args?.title ?? '').trim();
     const body = String(args?.body ?? '').trim();
-    if (!title) {
-      return {
-        success: false,
-        issue_url: null,
-        number: null,
-        already: false,
-        error: 'title required',
-      };
-    }
-    if (!body) {
-      return {
-        success: false,
-        issue_url: null,
-        number: null,
-        already: false,
-        error: 'body required',
-      };
-    }
+    if (!title) return { success: false, error: 'title required' };
+    if (!body) return { success: false, error: 'body required' };
     try {
       const issue = await findOrCreateIssue(title, body);
       return {
         success: true,
-        issue_url: issue.issue_url,
-        number: issue.number,
-        already: issue.already,
-        error: null,
+        data: {
+          issue_url: issue.issue_url,
+          number: issue.number,
+          already: issue.already,
+        },
       };
     } catch (e) {
       return {
         success: false,
-        issue_url: null,
-        number: null,
-        already: false,
         error: e instanceof Error ? e.message : 'github error',
       };
     }
@@ -140,15 +133,27 @@ async function runTool(name: string, args: any): Promise<any> {
 
   if (name === 'get_summary') {
     const date = String(args?.date ?? '');
-    if (!DATE_RE.test(date)) return { error: 'date must be YYYY-MM-DD' };
+    if (!DATE_RE.test(date)) {
+      return { success: false, error: 'date must be YYYY-MM-DD' };
+    }
     const { data } = await generateSummary({ date });
-    return { date, summary: data };
+    return { success: true, date, data };
   }
 
   if (name === 'get_drive_doc') {
     const file = String(args?.file_id ?? '').trim();
     if (!file) return { success: false, error: 'file_id required' };
-    return importDriveDoc(file);
+    return importDriveDoc(file, {
+      entry: args?.entry ? String(args.entry) : undefined,
+      start_date: args?.start_date ? String(args.start_date) : undefined,
+      end_date: args?.end_date ? String(args.end_date) : undefined,
+      filter_column: args?.filter_column
+        ? String(args.filter_column)
+        : undefined,
+      filter_value: args?.filter_value
+        ? String(args.filter_value)
+        : undefined,
+    });
   }
 
   if (name === 'get_model_info') {
@@ -156,22 +161,54 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!info) {
       return { success: false, error: 'active model not found' };
     }
-    return { success: true, model: info };
+    return { success: true, data: info };
   }
 
   if (name === 'web_search') {
     const query = String(args?.query ?? '').trim();
     if (!query) return { success: false, error: 'query required' };
-    return webSearch(query);
+    const result = await webSearch(query);
+    return {
+      success: true,
+      provider: result.provider,
+      data: result.results,
+      meta: {
+        count: result.results.length,
+        message:
+          result.results.length > 0 ? 'Results returned.' : 'No results found.',
+      },
+    };
   }
 
   if (name === 'read_markdown') {
     const filePath = String(args?.path ?? '').trim();
     if (!filePath) return { success: false, error: 'path required' };
-    return readMarkdown(filePath);
+    const file = await readMarkdown(filePath);
+    return {
+      success: true,
+      data: file.text,
+      meta: {
+        path: file.path,
+        total_chars: file.total_chars,
+        returned_chars: file.text.length,
+        truncated: file.truncated,
+        message: file.truncated
+          ? 'Markdown truncated at 20,000 characters.'
+          : 'Complete Markdown returned.',
+      },
+    };
   }
 
-  return { error: `unknown tool: ${name}` };
+  if (name === 'get_issue') {
+    const issueNumber = Number(args?.issue_number);
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      return { success: false, error: 'issue_number must be a positive integer' };
+    }
+    const issue = await getIssue(issueNumber);
+    return { success: true, data: issue };
+  }
+
+  return { success: false, error: `unknown tool: ${name}` };
 }
 
 async function runToolSafely(name: string, args: Record<string, unknown>) {
@@ -359,7 +396,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          'Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.',
+          'Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, get_issue, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.',
       },
       { role: 'user' as const, content: message },
     ];
@@ -407,14 +444,33 @@ export async function POST(req: NextRequest) {
       }),
       get_drive_doc: tool({
         description:
-          'Read a Google Drive file by ID or URL and save it as a note. Supports Google Docs, txt, md, csv, json, and zip archives (lists files and reads readable text/csv/json/md entries). Use when the owner shares a Drive link or asks to import a legacy document. If Drive is not connected, tell the owner to authorize it in Settings.',
+          'Read a Google Drive file by ID or URL and save it as a note. Supports Google Docs, txt, md, csv, json, and zip archives. For ZIP files, readable entries are returned separately with per-file truncation metadata; use `entry` to select one file. CSV supports date ranges and column filters. If Drive is not connected, tell the owner to authorize it in Settings.',
         parameters: z.object({
           file_id: z
             .string()
             .describe('Google Drive file ID or a full Drive URL'),
+          entry: z
+            .string()
+            .optional()
+            .describe('For ZIP files: exact entry name, e.g. entries.csv'),
+          start_date: z
+            .string()
+            .optional()
+            .describe('CSV filter: inclusive start date YYYY-MM-DD'),
+          end_date: z
+            .string()
+            .optional()
+            .describe('CSV filter: inclusive end date YYYY-MM-DD'),
+          filter_column: z
+            .string()
+            .optional()
+            .describe('CSV filter: exact column name, e.g. water'),
+          filter_value: z
+            .string()
+            .optional()
+            .describe('CSV filter value; supports <, <=, >, >=, !=, ='),
         }),
-        execute: async ({ file_id }) =>
-          runToolSafely('get_drive_doc', { file_id }),
+        execute: async args => runToolSafely('get_drive_doc', args),
       }),
       get_model_info: tool({
         description:
@@ -442,6 +498,15 @@ export async function POST(req: NextRequest) {
         }),
         execute: async ({ path }) => runToolSafely('read_markdown', { path }),
       }),
+      get_issue: tool({
+        description:
+          'Read a GitHub issue by number, including its state, labels, body, and up to 20 comments. Use after push_to_dev to verify delivery and summarize Dev replies.',
+        parameters: z.object({
+          issue_number: z.number().int().positive().describe('GitHub issue number'),
+        }),
+        execute: async ({ issue_number }) =>
+          runToolSafely('get_issue', { issue_number }),
+      }),
       push_to_dev: tool({
         description:
           'Create a GitHub issue for the dev team. Use only when the owner explicitly asks to send a bug report or feedback to dev, after they confirm the title and body.',
@@ -459,8 +524,8 @@ export async function POST(req: NextRequest) {
           // Structured, body-free result log for future incident review.
           console.log('tool_result push_to_dev', {
             success: result?.success ?? null,
-            number: result?.number ?? null,
-            already: result?.already ?? null,
+            number: result?.data?.number ?? null,
+            already: result?.data?.already ?? null,
             error: result?.error ?? null,
           });
           return result;
@@ -492,12 +557,12 @@ export async function POST(req: NextRequest) {
           reply = `没发成功。系统报错：${reason}`;
         } else if (
           pushToDevResult?.success === true &&
-          typeof pushToDevResult.number === 'number' &&
-          pushToDevResult.issue_url
+          typeof pushToDevResult.data?.number === 'number' &&
+          pushToDevResult.data?.issue_url
         ) {
           // Issue #21/#24: the persisted success message uses the verified
           // GitHub number/URL, never a model-composed one.
-          reply = `发了。#${pushToDevResult.number}。\n\n${pushToDevResult.issue_url}`;
+          reply = `发了。#${pushToDevResult.data.number}。\n\n${pushToDevResult.data.issue_url}`;
         }
 
         const { error: insErr } = await supabase.from('messages').insert([

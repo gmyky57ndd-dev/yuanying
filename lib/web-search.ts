@@ -187,11 +187,13 @@ export async function webSearch(query: string): Promise<WebSearchResponse> {
   if (!q) throw new Error('search query is required');
 
   const failures: string[] = [];
+  let reachable = false;
   const tavilyKey = process.env.TAVILY_API_KEY ?? '';
 
   if (tavilyKey) {
     try {
       const results = await tavilySearch(q, tavilyKey);
+      reachable = true;
       if (results.length > 0) {
         return { provider: 'tavily', results };
       }
@@ -207,6 +209,7 @@ export async function webSearch(query: string): Promise<WebSearchResponse> {
 
   try {
     const results = await duckDuckGoSearch(q);
+    reachable = true;
     if (results.length > 0) {
       return { provider: 'duckduckgo', results };
     }
@@ -219,6 +222,7 @@ export async function webSearch(query: string): Promise<WebSearchResponse> {
 
   try {
     const results = await jinaDuckDuckGoSearch(q);
+    reachable = true;
     if (results.length > 0) {
       return { provider: 'duckduckgo', results };
     }
@@ -226,6 +230,10 @@ export async function webSearch(query: string): Promise<WebSearchResponse> {
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'failed';
     failures.push(`jina/duckduckgo: ${msg}`);
+  }
+
+  if (reachable) {
+    return { provider: 'duckduckgo', results: [] };
   }
 
   throw new Error(`All web search backends failed: ${failures.join('; ')}`);

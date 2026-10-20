@@ -1,5 +1,9 @@
 # ES-036 — Web Search Tool & Markdown Reader
 
+> **Scope note**: the follow-up tooling upgrades (ZIP per-file reads,
+truncation metadata, CSV filters, `get_issue`) are in
+> `ES-036-agentic-tooling-upgrades.md`.
+
 **Status**: Approved
 **Category**: Feature (Tool Integration)
 **Tracking**: P2-19
