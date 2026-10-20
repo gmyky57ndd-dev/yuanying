@@ -43,4 +43,4 @@ save.
 - [x] Notes are mentioned before numbers.
 - [x] Tone is Xiaowu: calm, warm, concise.
 - [x] No unsolicited health advice.
-- [ ] Production spot-check after deploy.
+- [x] Production spot-check: “看昨天的简报” returned prose, notes first, numbers inline, no bullet list, no health advice.

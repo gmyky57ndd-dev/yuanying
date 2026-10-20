@@ -320,7 +320,7 @@
   - [x] Summary request returns no Markdown bullet list.
   - [x] Notes are mentioned before numbers.
   - [x] Tone is calm/warm/concise; no health advice.
-  - [ ] Production spot-check after deploy.
+  - [x] Production spot-check: “看昨天的简报” returned prose, notes first, numbers inline, no bullet list, no health advice.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
