@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-038 (highest assigned: **ES-038**)
+**Range:** ES-001 → ES-039 (highest assigned: **ES-039**)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -51,3 +51,4 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-036 | Web Search Tool & Markdown Reader | Approved | 2026-10-20 | P2-19 |
 | ES-037 | New Signals: manual_work & body_flag | Approved | 2026-10-20 | P2-21 |
 | ES-038 | Agentic Tooling Upgrades (renamed from duplicate ES-036) | Approved | 2026-10-20 | P2-20 |
+| ES-039 | Daily Summary Tone Enforcement | Approved | 2026-10-20 | P2-23 |
