@@ -360,21 +360,21 @@
 - **Status**: In Review (2026-10-21) · **Category**: Bug (Agentic Loop / PWA) · **Refs**: ES-045, Issue #50 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-045-agentic-loop-freeze.md`.
 - **Impl**: no-promise prompt rule; `push_to_dev` sending/done events; Reset button + `POST /api/chat/reset` + reset-aware history; `中/EN` input toggle.
-- **Verified (2026-10-21, local)**: reset flow excluded the prior message; language toggle compiles; tool events wired. **Acceptance**: [x] prompt rule; [x] reset flow; [x] language toggle; [ ] phone PWA check.
+- **Verified (2026-10-21, local + deployed)**: reset flow excluded the prior message; language toggle compiles; tool events wired. Web deploy green. **Acceptance**: [x] prompt rule; [x] reset flow; [x] language toggle; [ ] phone PWA check.
 
 ### [P2-27] API timeout + async tool queue (ES-046) — P0
 
 - **Status**: In Review (2026-10-21) · **Category**: Bug (Backend / Vercel) · **Refs**: ES-046, ES-044 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-046-api-timeout-async-tools.md`.
 - **Impl**: `maxDuration = 60`; 8s GitHub timeout; 5s sync budget then `agent_jobs` queue fallback; queue processed by the PWA reminder poll; 504/network error mapping; maxSteps 3.
-- **Verified (2026-10-21, local)**: queued job processed via `/api/reminder/due` → issue #51 (test issue closed); GitHub timeout/504 mapping present. **Acceptance**: [x] timeout guards; [x] async queue; [x] visible queued/error states; [ ] phone PWA check.
+- **Verified (2026-10-21, local + deployed)**: queued job processed via `/api/reminder/due` → issue #51 (test issue closed); GitHub timeout/504 mapping present. Web deploy green. **Acceptance**: [x] timeout guards; [x] async queue; [x] visible queued/error states; [ ] phone PWA check.
 
 ### [P2-28] Agent tools — write_markdown & scheduler (ES-047)
 
 - **Status**: In Review (2026-10-21) · **Category**: Feature (Tooling / Safety) · **Refs**: ES-047, Issue #50 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-047-write-markdown-scheduler.md`.
 - **Impl**: allowlisted `write_markdown` via GitHub Contents API commit; `scheduler(HH:MM, action)` creates a `scheduled_message` reminder (max 3 pending).
-- **Verified (2026-10-21, local)**: write path guards reject traversal/non-allowlisted paths; scheduler created a 21:30 reminder (test reminder removed). **Acceptance**: [x] path whitelist/validation; [x] limits; [ ] owner confirms a real write/reminder.
+- **Verified (2026-10-21, local + deployed)**: write path guards reject traversal/non-allowlisted paths; scheduler created a 21:30 reminder (test reminder removed). Web deploy green. **Acceptance**: [x] path whitelist/validation; [x] limits; [ ] owner confirms a real write/reminder.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
