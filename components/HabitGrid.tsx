@@ -21,7 +21,7 @@ export function HabitGrid({ signals, onLog }: Props) {
     signals.filter(s => s.name === name).length;
 
   return (
-    <div className="grid grid-cols-5 gap-1.5 px-3 pb-3 shrink-0">
+    <div className="grid grid-cols-5 gap-1.5 px-3 pb-3 shrink-0 md:grid-cols-1 md:gap-2 md:px-0 md:pb-0">
       {HABITS.map(h => {
         const n = count(h.name);
         const done = n > 0;
@@ -43,15 +43,15 @@ export function HabitGrid({ signals, onLog }: Props) {
           <button
             key={h.name}
             onClick={() => onLog(h.name)}
-            className={`flex flex-col items-center rounded-xl border px-1 py-2 transition-colors ${
+            className={`flex flex-col items-center rounded-xl border px-1 py-2 transition-colors md:flex-row md:justify-between md:px-3 md:py-2.5 ${
               done
                 ? 'border-emerald-800 bg-emerald-900/40 text-emerald-200'
                 : 'border-stone-800 bg-stone-900 text-stone-400 active:bg-stone-800'
             }`}
             aria-label={h.label}
           >
-            <span className="text-[11px] leading-none">{h.label}</span>
-            <span className="mt-1 text-[10px] leading-none text-stone-500">
+            <span className="text-[11px] leading-none md:text-sm">{h.label}</span>
+            <span className="mt-1 text-[10px] leading-none text-stone-500 md:mt-0 md:text-xs">
               {value}
             </span>
           </button>
