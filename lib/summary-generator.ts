@@ -137,6 +137,8 @@ async function readOrGenerate(date: string, tz: string): Promise<CachedSummary> 
     .from('summaries')
     .select('*')
     .eq('date', date)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .eq('timezone', tz)
     .eq('type', 'day')
     .maybeSingle();

@@ -1420,7 +1420,7 @@ export default function Home() {
       <div className="flex gap-2 p-3 border-t border-stone-800 shrink-0">
         <button
           onClick={toggleInputLang}
-          className="hidden md:hidden text-[10px] px-2 rounded-full border border-stone-700 text-stone-400"
+          className="md:hidden text-[10px] px-2 rounded-full border border-stone-700 text-stone-400"
           aria-label="toggle input language"
           title="切换输入法语言"
         >

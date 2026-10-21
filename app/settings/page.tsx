@@ -263,8 +263,12 @@ export default function Settings() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
-      setExportMessage('已生成下载。');
+      // Safari/WebKit cancels a blob download if the URL is revoked immediately.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const name = a.download;
+      setExportMessage(
+        `已生成 ${name}。macOS 会静默保存到「下载」文件夹（⌘⇧L 打开）；若没看到文件，检查浏览器是否拦截了下载。`
+      );
     } catch {
       setExportMessage('导出失败');
     } finally {

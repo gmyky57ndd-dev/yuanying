@@ -106,7 +106,7 @@ never by the section they happened to be written under.
 
 ### [P1-15] Review & optimize self-upgrade
 
-- **Status**: In Progress
+- **Status**: Done (2026-10-21, owner: collector self-upgrade has worked since day 1)
 - **Owner**: @agent
 - **Opened**: 2026-10-14
 - **Phase**: P1
@@ -165,6 +165,39 @@ never by the section they happened to be written under.
 | **D** | 17 | 对话、提示词与模型 (Chat, prompt & models) |
 | **E** | 11 | Agent 工具与集成 (Agent tools & integrations) |
 | **F** | 14 | 反馈、自省与架构 (Feedback, self-awareness & architecture) |
+
+#### 模块 G — 2026-10-21 验证反馈 (owner verification round)
+
+### [B-25] 输入框语言切换按钮消失 `[BUG]` (issue #67)
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (UI regression) · **Refs**: issue #67, ES-045/ES-052
+- **Report**: the 中/EN toggle next to the composer is gone on the phone.
+- **Root cause**: `app/page.tsx` rendered it with `className="hidden md:hidden"` — `hidden` hides it at every breakpoint. Introduced when the desktop layout (P3-02) hid the toggle for `md` and up.
+- **Fix**: class is now `md:hidden` (visible on phone, still hidden on desktop by design). Commit `fix(ui): restore language toggle...`.
+- **Verification**: `tsc` + 32/32 tests; needs a phone check after deploy.
+
+### [B-26] 步数三处读数不一致 `[BUG]` (issue #68)
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Data consistency) · **Refs**: issue #68, ES-025, P1-23
+- **Report**: same moment — collector 522, PWA 57, AI 0.
+- **Evidence (DB, 2026-10-21)**: `signals` got `value=522` at **19:07:11Z**; the cached `summaries` row for today was written at **19:06:35Z** with `steps=57` (36 s earlier). The AI answered from that cache; the UI polled once at load.
+- **Second defect found**: `summaries` has **duplicate rows for the same date** (two rows for 2026-10-20, different `updated_at`), and `readOrGenerate` selected without ordering → a stale duplicate could win. Fix in same commit: `.order('updated_at',{ascending:false}).limit(1)`.
+- **Still open**: (a) no live refresh after a collector POST — UI needs a poll/`/api/steps/latest`; (b) the AI needs a `get_steps` tool that reads the newest row instead of the cached summary; (c) why the collector posts `America/Los_Angeles` timezone rows (15:17–17:43Z today) — collector tz detection flips.
+- **Design proposal**: on owner step questions, AI calls `get_steps()` → newest `signals.value` + `created_at` + source; UI polls `/api/steps` every 60 s and after 立即同步采集器.
+
+### [B-27] macOS 没有「导出我的元婴」+ 下载去向不明 `[BUG]`
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (PWA / macOS)
+- **Report**: the button is absent on the Mac PWA; on the phone it says 已生成下载 but the file cannot be found.
+- **Evidence**: the string is present in the built `settings` chunk, and `exportData()` uses a blob + `a.download`. Two problems: (1) on macOS PWAs the save is silent (usually `~/Downloads`), (2) `URL.revokeObjectURL()` ran immediately after `click()`, which aborts the download in WebKit.
+- **Fix**: revoke after 60 s, and the message now names the file and points at ⌘⇧L / the 下载 folder. Button absence on Mac still needs one check after a hard reload (stale SW bundle is the likely cause).
+- **Open**: if it is genuinely absent on Mac, capture the Settings section list.
+
+### [P2-31] Drive 大文档分段读取 (ES-030/ES-035 follow-up)
+
+- **Status**: To Do (2026-10-21) · **Category**: Feature (Tool) · **Refs**: ES-030, ES-035, P2-13, P2-18
+- **Report**: Mac read a 1.46M-char doc; `get_drive_doc` caps at **20,000 chars** (`MAX_MODEL_CHARS`), so 元婴 saw only the first ~1.4% and had to ask whether to continue.
+- **Proposal**: add `offset`/`max_chars` to `get_drive_doc` (default 20k, hard cap per call), return `total_chars` + `next_offset` + `truncated`, and let 元婴 page through on request; keep the 20k per-call budget so context stays bounded. Owner decision: is paging enough, or should large docs be indexed into `notes` and queried by section?
 
 #### 模块 A — 提醒与采集器 (Reminders & collector) (13)
 
@@ -472,7 +505,7 @@ never by the section they happened to be written under.
 
 ### [P3-02] Desktop PWA responsive layout (ES-049)
 
-- **Status**: In Review (2026-10-21) · **Category**: UI/UX (Responsive) · **Refs**: ES-049 · **Opened**: 2026-10-21
+- **Status**: Done (2026-10-21, owner verified on Mac) · **Category**: UI/UX (Responsive) · **Refs**: ES-049 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-049-desktop-pwa-layout.md`.
 - **Impl**: `md:` two-column grid (`280px` sidebar + `max-w-[700px]` chat), overall `max-w-6xl mx-auto`; vertical habit list; desktop avatar/status header; larger chat text; language toggle hidden on desktop; independently scrolling sidebar.
 - **Verified (2026-10-21)**: web deploy green; classes/bundles ship. **Acceptance**: [x] centered max width; [x] habits left / chat right; [x] larger text; [x] language toggle hidden; [ ] Mac PWA visual check.
