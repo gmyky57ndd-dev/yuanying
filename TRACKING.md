@@ -339,6 +339,22 @@
   - [x] `push_to_dev` success and failure data parts verified.
   - [ ] Installed PWA chat + `push_to_dev` on the phone (owner).
 
+### [P2-25] PWA tool-calling stream + timeout hardening (ES-044) — P0
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug (Agentic Loop / PWA) · **Refs**: ES-044, ES-043 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-044-pwa-tool-calling-stream.md`.
+- **Impl**:
+  - Prompt/manifest force a real `push_to_dev` call after confirmation; text alone cannot claim success.
+  - `push_to_dev` streams `sending` / `done` data parts; client shows “⚙️ 正在发送到 GitHub…” and alerts on failure/network error.
+  - GitHub API calls have an 8s AbortController timeout; `maxDuration = 60` remains.
+  - Persisted success/failure still uses the verified tool result.
+- **Verified (2026-10-20, local)**: success data part (`success:true`, number) and forced-failure data part (`success:false`, `Not Found`) both parsed by the client; `tsc`, lint, build pass.
+- **Acceptance**:
+  - [x] Tool sending/done events are streamed and parsed.
+  - [x] GitHub calls cannot hang the stream indefinitely.
+  - [x] Visible failure/network alerts are wired.
+  - [ ] Installed PWA phone test: send an issue, confirm a real issue or visible error.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---

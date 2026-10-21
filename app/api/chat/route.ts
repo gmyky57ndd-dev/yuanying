@@ -520,6 +520,7 @@ export async function POST(req: NextRequest) {
             ),
         }),
         execute: async ({ title, body }) => {
+          streamData.append({ type: 'push_to_dev', status: 'sending' });
           const result = await runToolSafely('push_to_dev', { title, body });
           pushToDevResult = result;
           // Structured, body-free result log for future incident review.
@@ -531,6 +532,7 @@ export async function POST(req: NextRequest) {
           });
           streamData.append({
             type: 'push_to_dev',
+            status: 'done',
             success: result?.success === true,
             number: result?.data?.number ?? null,
             error: result?.error ?? null,

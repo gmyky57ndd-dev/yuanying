@@ -20,6 +20,25 @@ export class GitHubRequestError extends Error {
   }
 }
 
+const GITHUB_TIMEOUT_MS = 8000;
+
+async function githubFetch(
+  input: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GITHUB_TIMEOUT_MS);
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+      cache: 'no-store',
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export type CreatedIssue = {
   issue_url: string;
   number: number;
@@ -46,9 +65,9 @@ export async function findOrCreateIssue(
   // no separate key or body hash; `already:false` means no match was found and
   // the issue was created by this call.
   try {
-    const listRes = await fetch(
+    const listRes = await githubFetch(
       `https://api.github.com/repos/${repo}/issues?state=all&per_page=100&sort=created&direction=desc`,
-      { headers, cache: 'no-store' }
+      { headers }
     );
     if (listRes.ok) {
       const list = await listRes.json();
@@ -81,9 +100,8 @@ export async function findOrCreateIssue(
     });
   }
 
-  const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+  const res = await githubFetch(`https://api.github.com/repos/${repo}/issues`, {
     method: 'POST',
-    cache: 'no-store',
     headers,
     body: JSON.stringify({
       title: expectedTitle,
@@ -125,9 +143,9 @@ export async function findOrCreateIssue(
 
   // Issue #21/#24: read the issue back from GitHub before reporting success.
   // The returned number/URL must come from a real GET, not just the POST body.
-  const verifyRes = await fetch(
+  const verifyRes = await githubFetch(
     `https://api.github.com/repos/${repo}/issues/${data.number}`,
-    { headers, cache: 'no-store' }
+    { headers }
   );
   if (!verifyRes.ok) {
     console.error('github issue readback failed', {
@@ -205,9 +223,9 @@ export async function getIssue(issueNumber: number): Promise<IssueDetails> {
     'User-Agent': 'yuanying-fenshen',
   };
 
-  const res = await fetch(
+  const res = await githubFetch(
     `https://api.github.com/repos/${repo}/issues/${issueNumber}`,
-    { headers, cache: 'no-store' }
+    { headers }
   );
   if (!res.ok) {
     if (res.status === 404) {
@@ -223,9 +241,9 @@ export async function getIssue(issueNumber: number): Promise<IssueDetails> {
   let comments: any[] = [];
   let commentsError: string | null = null;
   try {
-    const commentsRes = await fetch(
+    const commentsRes = await githubFetch(
       `https://api.github.com/repos/${repo}/issues/${issueNumber}/comments?per_page=20`,
-      { headers, cache: 'no-store' }
+      { headers }
     );
     if (commentsRes.ok) {
       const data = await commentsRes.json();

@@ -458,6 +458,9 @@ export default function Home() {
     if (/步数|喝水|起身|维生素|简报|数据|今天/.test(message)) {
       return '正在读取今天的数据…';
     }
+    if (/发给.*dev|发.*issue|push.*github|github.*issue|反馈.*dev|提交.*dev/i.test(message)) {
+      return '⚙️ 正在发送到 GitHub…';
+    }
     return '正在想…';
   }
 
@@ -471,7 +474,15 @@ export default function Home() {
     setSending(true);
 
     try {
-      const d = await postChat(content, sessionIdRef.current);
+      const d = await postChat(content, sessionIdRef.current, event => {
+        if (event?.type === 'push_to_dev') {
+          if (event.status === 'sending') {
+            setToolStatus('⚙️ 正在发送到 GitHub…');
+          } else if (event.status === 'done' && event.success) {
+            setToolStatus('已发送，正在整理…');
+          }
+        }
+      });
       if (d.reply) {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
       } else {
@@ -484,6 +495,9 @@ export default function Home() {
       const reason = err instanceof Error ? err.message : '连接失败';
       setError(reason);
       if (/GitHub Issue/i.test(reason)) alert(reason);
+      else if (/network|fetch|failed|abort|timeout|超时|断开/i.test(reason)) {
+        alert('网络断开，发送失败。');
+      }
       setMessages(m => [
         ...m,
         { role: 'assistant', content: `…（${reason}）` },

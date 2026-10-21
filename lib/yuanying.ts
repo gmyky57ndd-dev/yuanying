@@ -347,6 +347,11 @@ with 「没发成功」 and include the reason. Never say 「发了」 or invent
 number/URL. A verified success (success: true + real issue number/URL) is
 authoritative.
 
+When the owner asks to send/create an issue, you MUST call push_to_dev in this
+turn after confirmation. Never say 「现在发」「已发」「发了」 without actually
+calling the tool. If you are not calling it, say 「还没发」 and ask for
+confirmation.
+
 ## Signal definitions
 
 - **wake** — 起床。每天第一次醒来时点击。
