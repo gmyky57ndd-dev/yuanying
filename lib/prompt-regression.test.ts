@@ -23,7 +23,7 @@ test('ES-050 injects PWA/collector body status', () => {
   const prompt = read('lib/yuanying.ts');
   const config = read('next.config.mjs');
   assert.match(prompt, /Body Status/);
-  assert.match(prompt, /NEXT_PUBLIC_APP_VERSION/);
+  assert.match(prompt, /APP_VERSION/);
   assert.match(config, /NEXT_PUBLIC_APP_VERSION/);
   const settings = read('app/settings/page.tsx');
   assert.match(settings, /\/api\/health/);

@@ -430,7 +430,7 @@
 - **Status**: In Review (2026-10-21) · **Category**: Feature (Agent Config) · **Refs**: ES-051 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-051-tool-readback.md`.
 - **Impl**: `tool_readback_enabled` config (default false); Settings toggle; `lib/tool-result.ts` silent normalization + 800-char verbose cap; chat prompt silent/verbose injection; long assistant replies collapse with 展开全文.
-- **Tests**: `lib/tool-result.test.ts` covers silent push/get_notes, verbose truncation, error passthrough.
+- **Tests**: `lib/tool-result.test.ts` covers silent push/get_notes, verbose truncation, error passthrough; full suite 28/28.
 - **Acceptance**: [x] default silent; [x] Settings toggle; [x] normalized results; [x] 800-char cap; [x] frontend collapse; [ ] owner real push/verbose check.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.

@@ -5,6 +5,7 @@ import { SUMMARY_TONE_RULES } from './summary-generator';
 import { readConfirmed, relevantHeld, Opinion } from './opinions';
 import { supabase } from './db';
 import { getActiveModelInfo } from './llm-router';
+import { APP_VERSION } from './app-version';
 
 interface BuildOptions {
   signals?: Array<{ name: string; created_at: string }>;
@@ -319,7 +320,7 @@ export async function buildSystemPrompt(
       row.value,
     ])
   );
-  const pwaVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0';
+  const pwaVersion = APP_VERSION;
   const collectorVersion =
     typeof bodyConfig.collector_version === 'string'
       ? bodyConfig.collector_version
@@ -447,6 +448,12 @@ ${now}
 
 Timezone: ${opts.timezone ?? 'Asia/Shanghai'}
 Today: ${opts.today ?? ''}
+
+## Body Status (authoritative for version questions)
+- LLM: ${modelInfo ? `${modelInfo.provider}/${modelInfo.model_name}` : 'unknown'}
+- PWA: v${pwaVersion}
+- Collector: ${collectorVersion ? `v${collectorVersion}` : '未上报'}
+Use these values, not earlier chat messages, when asked about versions.
 ${signalCtx}${dailyCtx}${summaryLine}${opinionsCtx}
 `;
 }
