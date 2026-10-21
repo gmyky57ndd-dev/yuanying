@@ -23,6 +23,15 @@ type DriveStatus = {
   updated_at: string | null;
   scope: string | null;
 };
+type CollectorStatus = {
+  installed_version: string | null;
+  installed_code: number | null;
+  last_report_at: string | null;
+  last_signal_at: string | null;
+  latest_version: string | null;
+  update_available: boolean;
+  update_url: string;
+};
 
 const MODEL_PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'];
 
@@ -52,6 +61,8 @@ export default function Settings() {
   const [driveMessage, setDriveMessage] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [collector, setCollector] = useState<CollectorStatus | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -81,6 +92,11 @@ export default function Settings() {
       .catch(() => {});
     loadModels();
     loadDrive();
+    loadCollector();
+    setIsStandalone(
+      window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as any).standalone === true
+    );
   }, []);
 
   useEffect(() => {
@@ -98,6 +114,27 @@ export default function Settings() {
     setDriveMessage(messages[result] ?? 'Google Drive 状态未知。');
     window.history.replaceState({}, '', '/settings');
   }, []);
+
+  async function loadCollector() {
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/collector/status`, {});
+      const d = await r.json();
+      setCollector(d);
+    } catch {}
+  }
+
+  async function addToHome() {
+    const prompt = (window as any).__yyInstallPrompt;
+    if (prompt?.prompt) {
+      prompt.prompt();
+      await prompt.userChoice?.catch?.(() => {});
+      (window as any).__yyInstallPrompt = null;
+      return;
+    }
+    alert(
+      '请用手机浏览器打开 https://yuanying-rust.vercel.app，然后在浏览器菜单中选择「添加到主屏幕」。'
+    );
+  }
 
   async function loadDrive() {
     try {
@@ -331,6 +368,60 @@ export default function Settings() {
         <p className="text-[11px] text-stone-600 mt-1">
           切换立即生效，下一条消息用新分身。也可在聊天输入 /fenshen &lt;name&gt;。
         </p>
+      </div>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-2">采集器与客户端</h2>
+        <div className="text-xs text-stone-400 space-y-2">
+          <div className="flex justify-between gap-3">
+            <span className="text-stone-500">采集器版本</span>
+            <span>
+              {collector?.installed_version
+                ? `v${collector.installed_version}${
+                    collector.installed_code
+                      ? ` (${collector.installed_code})`
+                      : ''
+                  }`
+                : '未上报'}
+            </span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-stone-500">最后上报</span>
+            <span>
+              {collector?.last_report_at || collector?.last_signal_at
+                ? new Date(
+                    collector.last_report_at ||
+                      collector.last_signal_at ||
+                      ''
+                  ).toLocaleString()
+                : '没有记录'}
+            </span>
+          </div>
+          {collector?.update_available && (
+            <a
+              href={collector.update_url}
+              className="inline-block text-xs px-3 py-2 rounded-xl bg-emerald-800 text-white"
+            >
+              有新版本 v{collector.latest_version}，去更新
+            </a>
+          )}
+          {isStandalone ? (
+            <p className="text-[11px] text-emerald-500">
+              当前已在主屏幕模式运行。
+            </p>
+          ) : (
+            <button
+              onClick={addToHome}
+              className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-200"
+            >
+              添加到主屏幕
+            </button>
+          )}
+          <p className="text-[11px] text-stone-600 leading-relaxed">
+            图标被删除后，用手机浏览器打开
+            https://yuanying-rust.vercel.app，再选择「添加到主屏幕」。
+          </p>
+        </div>
       </div>
 
       <div className="mt-6 border-t border-stone-800 pt-4">
