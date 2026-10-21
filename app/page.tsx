@@ -763,28 +763,90 @@ export default function Home() {
     setListening(true);
   }
 
+  const stageState = listening
+    ? 'listening'
+    : sending
+      ? 'thinking'
+      : speaking
+        ? 'speaking'
+        : 'idle';
+
   return (
     <div className="flex flex-col h-[100dvh] bg-stone-950 text-stone-100">
-      <AvatarStage
-        name={fenshen?.display_name || '元婴'}
-        avatarUrl={fenshen?.avatar_url || '/avatar.png'}
-        state={
-          listening
-            ? 'listening'
-            : sending
-              ? 'thinking'
-              : speaking
-                ? 'speaking'
-                : 'idle'
-        }
-        listening={listening}
-        ttsEnabled={ttsEnabled}
-        collapsed={stageCollapsed}
-        onToggleCollapse={() => setStageCollapsed(v => !v)}
-        onMicStart={startVoice}
-        onMicEnd={stopVoice}
-        onToggleTts={toggleTts}
-      />
+      <div className="md:hidden">
+        <AvatarStage
+          name={fenshen?.display_name || '元婴'}
+          avatarUrl={fenshen?.avatar_url || '/avatar.png'}
+          state={stageState}
+          listening={listening}
+          ttsEnabled={ttsEnabled}
+          collapsed={stageCollapsed}
+          onToggleCollapse={() => setStageCollapsed(v => !v)}
+          onMicStart={startVoice}
+          onMicEnd={stopVoice}
+          onToggleTts={toggleTts}
+        />
+      </div>
+
+      <div className="flex flex-1 min-h-0 flex-col md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-8 md:max-w-6xl md:mx-auto md:w-full md:px-6">
+        <aside className="flex shrink-0 flex-col min-h-0 md:shrink md:overflow-y-auto md:py-4">
+          <div className="hidden md:flex items-center gap-3 px-3 pb-3 shrink-0">
+            <a href="/settings" title="设置">
+              <img
+                src={fenshen?.avatar_url || '/avatar.png'}
+                alt={fenshen?.display_name || '元婴'}
+                className="h-12 w-12 rounded-full bg-stone-800 object-cover"
+                onError={e => {
+                  if (e.currentTarget.src.endsWith('/avatar.png')) return;
+                  e.currentTarget.src = '/avatar.png';
+                }}
+              />
+            </a>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm text-stone-200">
+                {fenshen?.display_name || '元婴'}
+              </div>
+              <div className="text-[11px] text-stone-500">
+                {stageState === 'listening'
+                  ? '在听…'
+                  : stageState === 'thinking'
+                    ? '在想…'
+                    : stageState === 'speaking'
+                      ? '在说…'
+                      : '在。'}
+              </div>
+            </div>
+            <button
+              onPointerDown={e => {
+                e.preventDefault();
+                startVoice();
+              }}
+              onPointerUp={stopVoice}
+              onPointerLeave={stopVoice}
+              className={`h-9 w-9 rounded-full ${
+                listening ? 'bg-red-900 text-red-100' : 'bg-stone-800 text-stone-300'
+              }`}
+              aria-label="hold to talk"
+            >
+              ◉
+            </button>
+            <button
+              onClick={toggleTts}
+              className={`text-[11px] px-2 py-1 rounded-full border ${
+                ttsEnabled
+                  ? 'border-emerald-800 text-emerald-300'
+                  : 'border-stone-700 text-stone-500'
+              }`}
+            >
+              {ttsEnabled ? '声' : '静'}
+            </button>
+          </div>
+          <div className="hidden md:flex gap-3 px-3 pb-3 text-[11px] text-stone-500">
+            <a href="/history">历史</a>
+            <a href="/feedback">反馈</a>
+            <a href="/settings">设置</a>
+          </div>
+
 
       <HabitGrid signals={todaySignals} onLog={logSignal} />
 
@@ -1007,7 +1069,7 @@ export default function Home() {
       </div>
 
       {/* Today — raw activity stream (ES-009 §1) */}
-      <div className="px-4 pb-2 shrink-0 max-h-28 overflow-y-auto text-[12px]">
+      <div className="px-4 pb-2 shrink-0 max-h-28 md:max-h-64 overflow-y-auto text-[12px]">
         <div className="text-[11px] text-stone-600 mb-1">今天</div>
         {stream.length === 0 ? (
           <div className="text-stone-600">今天还没有记录。</div>
@@ -1176,7 +1238,9 @@ export default function Home() {
           </ul>
         )}
       </div>
+        </aside>
 
+        <main className="flex flex-col min-h-0 md:max-w-[700px] md:w-full md:mx-auto md:py-4">
       {/* Error */}
       {error && (
         <div className="text-center text-xs text-red-400 pb-2 shrink-0">
@@ -1199,7 +1263,7 @@ export default function Home() {
               className={`${isAssistant ? 'mr-auto max-w-[85%] group' : 'ml-auto max-w-[80%]'} fade-in`}
             >
               <div
-                className={`px-3.5 py-2 rounded-2xl text-[15px] leading-snug whitespace-pre-wrap break-words ${
+                className={`px-3.5 py-2 rounded-2xl text-[15px] md:text-base md:leading-relaxed whitespace-pre-wrap break-words ${
                   isAssistant
                     ? 'mr-auto bg-stone-800 text-stone-100'
                     : 'ml-auto bg-stone-700 text-stone-50'
@@ -1306,7 +1370,7 @@ export default function Home() {
       <div className="flex gap-2 p-3 border-t border-stone-800 shrink-0">
         <button
           onClick={toggleInputLang}
-          className="text-[10px] px-2 rounded-full border border-stone-700 text-stone-400"
+          className="hidden md:hidden text-[10px] px-2 rounded-full border border-stone-700 text-stone-400"
           aria-label="toggle input language"
           title="切换输入法语言"
         >
@@ -1349,7 +1413,7 @@ export default function Home() {
           autoCorrect={inputLang === 'zh' ? 'off' : 'on'}
           autoCapitalize={inputLang === 'zh' ? 'off' : 'sentences'}
           spellCheck={inputLang === 'en'}
-          className="flex-1 bg-stone-900 border border-stone-800 rounded-full px-4 py-2 text-[15px] outline-none focus:border-stone-600"
+          className="flex-1 bg-stone-900 border border-stone-800 rounded-full px-4 py-2 text-[15px] md:text-base outline-none focus:border-stone-600"
         />
         <button
           onClick={() => send()}
@@ -1358,6 +1422,8 @@ export default function Home() {
         >
           →
         </button>
+      </div>
+        </main>
       </div>
 
       {/* ES-025: steps source debug */}

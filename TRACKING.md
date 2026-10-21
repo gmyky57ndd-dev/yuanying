@@ -411,6 +411,13 @@
 - **Impl**: `collector_sync_requested_at` + **立即同步采集器** + `SyncCheckWorker` (15-min WorkManager limit); prompt/manifest “summarize tool results, do not read back full docs by default”; language toggle now focuses the input and changes the placeholder, while OS keyboard language remains system-controlled.
 - **Verified**: sync request marker + 15-min `SyncCheckWorker`; prompt/manifest brevity rule; language toggle focus/placeholder. Production Settings shows the update prompt. **Acceptance**: [x] sync request path; [x] tool-result brevity rule; [x] language toggle UX; [ ] true <30s sync requires FCM (documented).
 
+### [P3-02] Desktop PWA responsive layout (ES-049)
+
+- **Status**: In Review (2026-10-21) · **Category**: UI/UX (Responsive) · **Refs**: ES-049 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-049-desktop-pwa-layout.md`.
+- **Impl**: `md:` two-column grid (`280px` sidebar + `max-w-[700px]` chat), overall `max-w-6xl mx-auto`; vertical habit list; desktop avatar/status header; larger chat text; language toggle hidden on desktop; independently scrolling sidebar.
+- **Acceptance**: [x] centered max width; [x] habits left / chat right; [x] larger text; [x] language toggle hidden; [ ] Mac PWA visual check.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---
