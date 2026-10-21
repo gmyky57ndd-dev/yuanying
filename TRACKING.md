@@ -38,7 +38,16 @@
 
 ## Scheduled reminders
 
-- **2026-10-22** — **[P0-05] ES-004 enforce phase**: set `AUTH_ENFORCE=true` on Vercel (after the 7-day grace) — only once legitimate clients show `would_401=false` in `auth_events`. Runbook: `docs/runbooks/ES-004-enforce.md`.
+- **2026-10-25** — **[P0-05] ES-004 enforce phase** (postponed from 2026-10-22): set `AUTH_ENFORCE=true` on Vercel — only after preflight-safe logging lands **and** legitimate clients show `would_401=false` in `auth_events`. Runbook: `docs/runbooks/ES-004-enforce.md`.
+
+## Tracking map
+
+Snapshot **2026-10-21** · 116 items: 6 In Progress · 84 In Review · 3 To Do · 0 Blocked · 16 Done · 1 Backlog · 6 Won't Do.
+
+In Review is grouped by module (A–F). Items are otherwise grouped by status only — 
+never by the section they happened to be written under.
+
+---
 
 ## In Progress
 
@@ -52,6 +61,7 @@
 - **Description**: Scheduler logic retained in TS, but **implementation migrating to Kotlin** in the collector (P1-09). The TS scheduler remains only for the PWA-open fallback.
 - **Notes**: Per Dev Response §2.1/§3 — do not treat as Done; the delivery path moves to Android.
 
+
 ### [P1-03] Client reminder poller (PWA-open fallback)
 
 - **Status**: In Progress
@@ -62,56 +72,518 @@
 - **Description**: `ReminderPoller` demoted to a **fallback that only runs while the PWA is open**. Primary delivery becomes the collector (P1-09).
 - **Notes**: Keep mounted; do not invest further until P1-09 lands.
 
-### [P2-06] Phase C — Home restructure (ES-026)
 
-- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
-- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
-- **Spec**: `docs/specs/ES-026-phase-c-ui-restructure.md`.
-- **Label note**: the handoff requested P2-01..P2-05, but those IDs are the Opinions items; Phase C uses P2-06..P2-10.
-- **Impl**: active Fenshen avatar/name from `/api/fenshen` (tap opens Settings); five core habits in `components/HabitGrid.tsx`; steps debug modal preserved; today-only activity/chat.
+### [P1-23] Steps — window/source diagnostic `[REOPENED · P0]`
+
+- **Status**: In Progress · **Priority**: P0 · **Category**: Bug · **Refs**: ES-007 §3; [B-21] · **Reopened**: 2026-10-16
+- **Correction (owner, 2026-10-16)**: the mismatch is **not** summation across sources. Fit and Watch are **independent** and both ≈ truth; **HealthConnect-via-元婴 is the outlier**.
+- **Earlier partial fix (kept)**: `pickDailySteps` / `GET /api/steps` use the day's **max snapshot** (still correct for the `723→0→2809` pattern) — but it does **not** explain why HC-via-元婴 disagrees with Fit/Watch.
+- **Diagnostic (required; logged 2026-10-16)** — window / sources / per-source count / aggregation mode:
+  - **Window**: `context.window_start = 2026-10-16T00:00:00Z` → **UTC midnight**, not the device's local midnight. `StepsCollector` uses `Instant.now().truncatedTo(ChronoUnit.DAYS)` (UTC). On `America/New_York` the window `[UTC 00:00, now)` starts ~20:00 the prior local evening → includes ~4h of yesterday's steps.
+  - **Aggregation mode**: `sum_all_origins` — `readRecords(StepsRecord)` with **no DataOriginFilter**, summing `record.count` across every origin present (phone + watch + Fit can all contribute).
+  - **Sources / per-source count**: **not previously captured**. DB rows are all `source='passive'` (14 rows / 5 days; values `0`…`2809`). HealthConnect per-origin counts were unavailable.
+- **Instrumentation added (diagnostic only; no value change)**: collector `StepsCollector` now sends `sources` (`{package, steps, count}` per HealthConnect data origin), `sources_count`, and `aggregation`; `POST /api/steps` persists them in `context`. `value` is unchanged.
+- **Fix (2026-10-16)**: `StepsCollector` now anchors the window to **local midnight** in the device timezone (`LocalDate.now(zone).atStartOfDay(zone)`), not `Instant.now().truncatedTo(DAYS)` (UTC). This stops ~4h of the previous local evening leaking into the day. **Aggregation is unchanged** (owner: the problem is *not* summation across sources). Collector **v1.0.21 (code 22)**.
+- **Display cutoff (2026-10-16)**: the day value is the **max** snapshot, so an already-stored inflated reading would persist. `pickDailySteps` + `GET /api/steps` now **prefer rows tagged `context.timezone`** (collector v1.0.21+ = corrected local window); legacy UTC-window rows are preserved for audit but excluded once a corrected row exists (clean-data cutoff, AGENTS §3).
+- **ES-011 §3 provenance (2026-10-16)**: steps `context` now also carries `source` (`merged`), `aggregation` (`sum`), and `raw_value`, alongside `window_start`/`window_end`/`timezone`/`sources`. Collector **v1.0.22 (code 23)**.
+- **Fix (issue #8, 2026-10-17)**: per-origin data proved double counting — Fit `4054` + HC-phone `4317` = `8371`. Collector now takes **max per origin** (`aggregation: max_per_origin`; `raw_value` = raw sum), so it reports ~`4317`. Collector **v1.0.27 (code 28)**.
+- **Verified (2026-10-17)**: release run green; Play internal `completed` (code 28). Open issues #2/#3/#5/#6/#7/#8 all commented + closed (3/5/6 duplicate/completed; 8 fixed).
+- **Display cutoff (2026-10-17)**: home/summary now prefer rows with `aggregation='max_per_origin'` (then `context.timezone`, then legacy). This stops the old `sum` row (8371) from overriding the corrected `max_per_origin` row (4595) via the max-snapshot rule.
+- **Display verified (2026-10-17, prod)**: `/api/steps` and `/api/summary/today` now return **4595** (max_per_origin row #524), not 8371 (old `sum` row #506).
+- **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
+- **Verified (2026-10-16)**: Play internal `completed` (versionCode 22); GitHub Release `v1.0.21`; web `/api/steps` live. Production still shows the pre-fix value (`2700`) until the phone runs v1.0.21 and posts a corrected row — then the cutoff switches the day value to the local-day reading.
+
+
+### [P1-35] AI session capture — manual + folder (v1)
+
+- **Status**: In Progress · **Category**: Feature · **Refs**: ES-010
+- **Impl**: PWA `share_target` (`/import`, GET title/text/url prefill) + `POST /api/sessions` (stores a `session` signal with auto-tags); desktop folder import via `npm run import` normalizes `~/yuanying/imports/conversations/*.md` into `core/memory/conversations/YYYY-MM-DD-<slug>.md` (standard record format, ES-010 §5).
+- **Verified (2026-10-16)**: `/import` (200) + `/api/sessions` (`{sessions:[]}`) live; `npm run import` normalizes the folder into `core/memory/conversations/`. Device check of the share sheet pending.
+- **Remaining**: surface the standard export prompt in-app (ES-010 §4); wire topic-tag retrieval into the chat session (ES-010 §7); owner device check of the share sheet.
+
+---
+
+
+### [P1-15] Review & optimize self-upgrade
+
+- **Status**: In Progress
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: AGENTS §4.4/§4.7; `docs/runbooks/self-upgrade.md`
+- **Description**: Dedicated session to review and optimize the two self-upgrade planes end-to-end and make them robust:
+  - **PWA**: GitHub Actions → `vercel deploy --prod` (currently works; token is a reused CLI OAuth token — move to a dedicated no-expiration token; add failure alerting).
+  - **Collector**: Play auto-update vs. in-app `AppUpdateManager`; ensure the release pipeline (`v*` tag → signed AAB → Play track) is automated.
 - **Acceptance**:
-  - [x] Home shows today only; empty state present.
-  - [x] Five habits in one compact grid; no new capture surface.
-  - [x] Fenshen avatar opens Settings; fallback avatar/name works.
+  - [x] Deploy loop verified from a clean state; failures surface
+  - [x] Dedicated `VERCEL_TOKEN` (no expiration) with rotation note — **done 2026-10-18**: project-scoped token stored as the GitHub Actions secret; deploy run `39140374327` green. Rotate/revoke at https://vercel.com/account/tokens if exposed.
+  - [x] Play upload automated (service account) OR documented manual fallback — **verified**: v1.0.14 release uploaded to Play internal (draft); workflow gated on `PLAY_SERVICE_ACCOUNT_JSON`
+  - [x] A short runbook in `docs/` — `docs/runbooks/self-upgrade.md`
+- **Notes**: **Dedicated session** — do not fold into other work. **Scheduled 2026-10-15** (owner: run the manual process one more day). **Interim (owner, 2026-10-14):** use web auto-deployment (`deploy.yml`) for the PWA and **manual AAB upload to Google Play** for the collector until this session. **Observation 2026-10-15:** the Vercel Git integration is auto-deploying on push again (independent of CI); the CI `VERCEL_TOKEN` (reused CLI OAuth) rotated and was refreshed — a dedicated no-expiration token is still required. **Token update (2026-10-18):** replaced it with a dedicated project-scoped token; CI deploy is green.
+- **Bug fix (2026-10-16)** — *Play internal never updated past 1.0.9*:
+  - **Report**: owner saw the Play Store internal list still on **1.0.9**.
+  - **Diagnosis** (Play Developer API, `internal` track): `status=draft versionCodes=18` (the latest draft) alongside `status=completed versionCodes=10` (1.0.9). Every upload since 1.0.9 was a **draft**, which is never rolled out → testers stayed on 1.0.9.
+  - **Root cause**: `android-release.yml` uploaded with `status: draft`.
+  - **Fix**: upload with `status: completed`; made the GitHub Release step idempotent; fixed tag resolution for `workflow_dispatch`. Collector **v1.0.18 (code 19)**.
+  - **Verified (2026-10-16)**: release run `38941378463` green; Play `internal` now `status=completed name=1.0.18 versionCodes=19`.
+  - **Remaining**: owner confirms the phone updates 1.0.9 → 1.0.18 via Play internal.
+- **Feature (2026-10-16)** — *in-app update link*: collector home adds an **更新到最新版** button that opens the Play internal-testing page (`https://play.google.com/apps/internaltest/4701496216557819136`), so the owner can pull the latest build when the store shows no update. Collector **v1.0.19 (code 20)**. **In Review** (device verify pending).
 
-### [P2-07] Phase C — History restructure (ES-026)
+---
 
-- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
-- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
-- **Impl**: day list now shows water/standup/steps; detail adds full notes + tags and AI conversation excerpts; raw activity and chat log remain.
+
+### [P0-05] API authentication (ES-004)
+
+- **Status**: In Progress · **Phase**: P0 · **Opened**: 2026-10-15
+- **Refs**: `docs/specs/ES-004-api-authentication.md` (approved 2026-10-15)
+- **Description**: Global API access control. PWA = owner password → **httpOnly session cookie (30 days, refreshed on use)**; collector = bearer token; `/api/cron/*` keeps `CRON_SECRET`.
+- **Sub-tasks**:
+  - [x] **Logging phase** (§3.1) — live 2026-10-15; `auth_events` populated (`would_401` recorded, `enforced=false`).
+  - [ ] **Enforce phase** — set `AUTH_ENFORCE=true` after the grace (**postponed to 2026-10-25**; see audit below).
+  - [x] PWA session cookie (30d, refreshed on use) + collector bearer (baked build-time).
+  - [ ] **Preflight-safe logging** — do not log/deny CORS `OPTIONS` in the middleware (see audit).
+  - [ ] **Client-side origin audit** — identify the cross-origin caller that sends no credential (see audit).
+- **Notes**: Priority #2. Grace started **2026-10-15**. `OWNER_PASSWORD`/`API_TOKEN`/`SESSION_SECRET`/`IP_SALT` set in Vercel + `.env.local` (values not recorded here). ES-001 v1.1 write endpoints depend on this.
+
+- **Enforce readiness audit (2026-10-21, owner-requested check)** — **NOT ready; postponed 3 days to 2026-10-25.**
+  - Query: `auth_events` for 2026-10-15 → 2026-10-21 = **5,862 requests, 2,806 would_401 (48%), 0 enforced**.
+  - Daily would_401: 280 / 541 / 417 / 434 / 224 / 449 / 461 — steady, not a single spike.
+  - **Root cause of the anomaly:** the middleware logs CORS **preflight `OPTIONS`** requests. A preflight never carries a cookie or bearer, so every one is recorded `would_401=true`. Verified by probe: a preflight to `/api/reminder/create` returned **204** and wrote one `would_401=true` row; an unauthenticated `GET /api/config` returned **200** and also wrote one.
+  - **Second, real risk:** several routes are **100% would_401 over 7 days** — `/api/activity` (107/107), `/api/reminder/create` (96/96), `/api/reminder/act` (56/56), `/api/history/search` (2/2), `/api/external-chats` (2/2), `/api/summary/generate` (1/1). No authenticated call to those routes exists from the main client IP, so enforcing would break that client (likely a cross-origin WebView/desktop-PWA context that sends no cookie).
+  - **Why postpone:** flipping `AUTH_ENFORCE=true` today would 401 the preflights (browser CORS failure) and the 100%-unauthenticated routes. Neither is acceptable while the owner is actively using the PWA.
+  - **Unblock sequence (must complete before 2026-10-25):** (1) middleware skips `OPTIONS` entirely — no logging, no 401; (2) add `method` + `origin` to `auth_events` (forward migration) so the next audit can separate preflight from real traffic; (3) fix or authenticate the 100%-401 client; (4) re-audit 3 days; (5) then enforce.
+  - **Decision:** postpone, do not enforce (owner instruction: anomaly → record + 3-day slip).
+
+
+## In Review
+
+| Module | Items | Scope |
+|---|---|---|
+| **A** | 13 | 提醒与采集器 (Reminders & collector) |
+| **B** | 15 | 信号与每日计数 (Signals & daily counts) |
+| **C** | 14 | 笔记、历史与界面 (Notes, history & UI) |
+| **D** | 17 | 对话、提示词与模型 (Chat, prompt & models) |
+| **E** | 11 | Agent 工具与集成 (Agent tools & integrations) |
+| **F** | 14 | 反馈、自省与架构 (Feedback, self-awareness & architecture) |
+
+#### 模块 A — 提醒与采集器 (Reminders & collector) (13)
+
+### [P2-21] New signals — manual_work & body_flag + 21:30 evening check-in (ES-037, #40)
+
+- **Status**: In Review (2026-10-20) · **Category**: Feature (Data Model & UI) · **Refs**: Issue #40, ES-037 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-037-new-signals.md`.
+- **Label note**: the handoff requested **P2-13**, but P2-13 is the completed ES-030 Drive item; renumbered to **P2-21**.
+- **Impl**:
+  - `manual_work` (count; category 园艺/做饭/家务/修理 + optional note).
+  - `body_flag` (event; domain 身体/情绪/睡眠 + polarity 不适/良好 + required description).
+  - Home quick **动手** / **状态** panels; activity stream labels/details.
+  - `evening_checkin` habit: fixed 21:30, merged notification with 收工打卡 / 写反思 / 忽略; actions open PWA `?panel=work|note`.
+  - API validation + v5 signal-name constraint + reminder-name constraint.
+- **Collector**: `ReminderScheduler.kt` + `MainActivity.java` updated. Release **v1.0.28 (code 29)** built and uploaded to Play internal (`status: completed`): https://github.com/gmyky57ndd-dev/yuanying/releases/tag/v1.0.28
+- **Verified (2026-10-20)**: signal API validates both payloads; PWA panels render; web deploy green; Android CI + release workflow green; Play internal shows 1.0.28 / 29 completed. Phone installation/21:30 firing still needs owner confirmation.
 - **Acceptance**:
-  - [x] Day list + tap-to-detail.
-  - [x] Full notes and tags visible in detail.
-  - [x] Standup count included in the day aggregation.
+  - [x] Record `manual_work` with category + optional note.
+  - [x] Record `body_flag` with domain + polarity + description.
+  - [x] 21:30 reminder configured with two action entries + ignore.
+  - [x] Ignore/no-repeat semantics preserved by fixed-time dedupe.
+  - [ ] Owner installs the new collector build and verifies 21:30 on the phone.
 
-### [P2-08] Phase C — Chat message actions (ES-026)
 
-- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026, ES-019 · **Opened**: 2026-10-18
-- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
-- **Impl**: `⋮` menu keeps Push to GitHub / Save to Inbox / Copy; Push shows a spinner then `Issue #N`; Save persists `metadata.inbox_path` and shows **Saved to Inbox**.
+### [P1-61] PWA client restore + collector status/update (Issue #54)
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug/Feature (PWA Ops) · **Refs**: Issue #54 · **Opened**: 2026-10-21
+- **Runbook**: `docs/runbooks/pwa-client-restore.md`.
+- **Impl**: Settings shows collector version + last report; `/api/collector/status` compares the latest GitHub release; update button opens Play internal testing; **添加到主屏幕** install prompt/instructions; collector heartbeat + v1.0.29.
+- **Verified (2026-10-21, production)**: `/api/collector/status` reports installed **v1.0.29 (30)**, last report `2026-10-21T15:06:22Z`, latest `1.0.29`, no update needed. Collector v1.0.29 (code 30) is completed on Play internal; GitHub release assets available. **Acceptance**: [x] runbook; [x] version/last report UI; [x] update prompt; [x] add-to-home path; [ ] owner restores icon and confirms a signal.
+
+
+### [P3-01] Collector as hub & PWA lifesaver (ES-048)
+
+- **Status**: In Review (2026-10-21) · **Category**: Architecture / Android Client · **Refs**: ES-048, Issue #54, Issue #56 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-048-collector-hub.md`.
+- **Impl**: Collector **启动元婴** launchpad with WebAPK detection/restore dialog; `OverlayService` (draggable bubble + quick note input) and overlay switch; heartbeat `overlay_active`; Settings online/overlay/PWA version; collector/PWA update prompts; server sync request + 15-min `SyncCheckWorker`.
+- **Verified (2026-10-21, production)**: collector v1.0.30 (code 31) completed on Play internal; `/api/collector/status` shows installed 1.0.29 → latest 1.0.30 with `update_available:true`, online true, overlay false. Web deploy, Tests, and Android CI green. **Acceptance**: [x] launchpad; [x] overlay; [x] health/version UI; [x] update prompts; [x] sync request; [ ] owner phone verification.
+
+
+### [P1-62] Server-triggered sync + tool-result brevity + language toggle (Issue #56)
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug/Feature (Ops/UI) · **Refs**: Issue #56 · **Opened**: 2026-10-21
+- **Impl**: `collector_sync_requested_at` + **立即同步采集器** + `SyncCheckWorker` (15-min WorkManager limit); prompt/manifest “summarize tool results, do not read back full docs by default”; language toggle now focuses the input and changes the placeholder, while OS keyboard language remains system-controlled.
+- **Verified**: sync request marker + 15-min `SyncCheckWorker`; prompt/manifest brevity rule; language toggle focus/placeholder. Production Settings shows the update prompt. **Acceptance**: [x] sync request path; [x] tool-result brevity rule; [x] language toggle UX; [ ] true <30s sync requires FCM (documented).
+
+
+### [P1-17] Reminder cadence — quiet window, 2h standup, cap 6/day
+
+- **Status**: In Review
+- **Category**: Bug (9/day violated quiet-by-default)
+- **Refs**: ES-005 §E.2; commit `de6bab5`; collector v1.0.15
+- **Notes**: TS scheduler quiet window + daily cap 6 + 60-min miss sweep; collector daily cap 6 (quiet window already); standup habit interval 60→120; `reminders.missed_at` added.
+
+
+### [P1-04] `/api/reminder/due` + `/act`
+
+- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §4.2; commit `899c8a1`
+- **Notes**: Verified in production (401/200, `{reminders:[]}`). Will be consumed by the collector in P1-09.
+
+
+### [P1-05] Reminder settings toggles
+
+- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §6.4; commit `f4e40e0`
+- **Notes**: `/settings` renders the 3 toggles backed by `config.reminders_enabled`.
+
+
+### [P1-06] HealthConnect step collection (Android)
+
+- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §7/App B; commits `75b243d`, `8dbb240`
+- **Notes**: v1.0.8 keeps **minSdk 24** via `tools:overrideLibrary` + `SDK_INT>=26` gate (Play blocked the minSdk-26 reduction). Steps work on Android 9+. **Device verification pending.**
+
+
+### [P1-09] Reminder generation + delivery in Android collector
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/Dev Response 1014.md` §2.1; commit `c7ef80c`
+- **Description**: Collector WorkManager job decides due reminders (Beijing windows), records them via `POST /api/reminder/create`, then shows a notification + Chinese TTS. No cron, no PWA-open requirement.
 - **Acceptance**:
-  - [x] `⋮` menu actions wired.
-  - [x] Push spinner + issue link.
-  - [x] Save to Inbox badge persists via message metadata.
+  - [x] Collector checks water/standup/vitamin windows hourly
+  - [x] Notification + TTS fire without the PWA open (code path)
+  - [x] Writes `reminders` rows (shown/acted) for the summary
+  - [x] Respects `config.reminders_enabled`
+  - [ ] Owner confirms on device
+- **Notes**: Kotlin; minSdk 24; `POST_NOTIFICATIONS` requested on Android 13+. iOS deferred (P2). Replaces P1-02. **Device verification pending.** Build v1.0.9 (code 10).
 
-### [P2-09] Phase C — Tool-loading state (ES-026)
 
-- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
-- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
-- **Impl**: chat shows a spinner + context-aware status bubble while a tool-requiring message is in flight. Client-side intent hint, not a server tool trace.
+### [P1-25] Reminder notification action buttons
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
+- **Impl**: collector notification now has a habit action (water 喝了 / standup 起身了 / vitamin 吃了) + 忽略; `ReminderActionReceiver` maps acted→`acted`, ignore→`dismissed`; acted opens the app, ignore stays quiet.
+- **Verified (2026-10-16)**: Android Collector CI build green (run `38929058636`, debug-APK artifact). Collector **v1.0.17 (code 18)** released (tag `v1.0.17`) — signed AAB/APK GitHub Release + **Play internal upload succeeded**.
+- **Remaining**: device verification (install internal build, confirm habit action + 忽略); PWA fallback = open modal.
+
+---
+
+
+### [P1-40] Habits bugfix — standup cadence, vitamin time, action recording, tracking list
+
+- **Status**: In Review · **Category**: Bug · **Refs**: owner report 2026-10-16 · **Opened**: 2026-10-16
+- **Report**: (1) no hourly standup; (2) water reminder 喝了 didn't add water; (3) missed 08:30 vitamin; (4) no place to track 起身/维生素.
+- **Diagnosis**:
+  - standup rule was interval **120 min + idle-gated** → not hourly.
+  - `acted = 0` for **all** reminders over 3 days: the notification action never recorded the habit (no `water`/`standup`/`vitamin` action signal existed).
+  - vitamin fired via the **Vercel cron** at Beijing 08:30 (= 00:30 UTC = 20:30 EDT); `fireDueReminders` hardcodes `Asia/Shanghai`, so local 08:30 never fired.
+- **Fix**: standup → interval **60**, window 09:00–18:00, condition `always` (migration 011); `/api/reminder/act` records the **habit action** (water/standup +1, vitamin done) — collector sends the habit name; removed the **Vercel vitamin cron** (`vercel.json` `crons: []`); daily cap 6 → **14**; home **tracking list** adds tappable **起身 N/8** and **维生素 ✓/--** (schema `v4_signal_name`).
+- **Doc**: `core/habits.md` (loaded into the prompt) + `docs/habits-tracking.md` so 元婴 can explain each habit.
+- **Deploy**: collector **v1.0.23 (code 24)** + web.
+- **Refinement (2026-10-16)**: notification buttons only record + dismiss (no app-open); **vitamin** → hourly (07:00–22:00) **until confirmed**, then stops that day (migration 012); all reminders bounded to **wake time** (outside quiet window); daily cap 30. Collector **v1.0.24 (code 25)**.
+- **Bug (2026-10-16)**: buttons did nothing (notification stayed; vitamin unchecked). Cause: `ReminderActionReceiver.onReceive` ran the synchronous OkHttp POST on the **main thread** → `NetworkOnMainThreadException` (silently caught), and `setAutoCancel` does not dismiss on **action-button** taps. Fix: explicit `NotificationManagerCompat.cancel(notif_id)` + `goAsync()`/worker thread for the POST; fallback to `/api/signal` when the reminder row is missing. Collector **v1.0.25 (code 26)**.
+- **Verified (2026-10-16)**: standup `interval 60 / 09:00–18:00 / always`; vitamin `interval 60 / 07:00–22:00 / count_below_target 1`; Vercel crons removed; homepage 200 with 起身/维生素 tracking; reminder-button fix released as collector **v1.0.25 (code 26)** — Play internal `completed`, CI build green.
+- **Remaining**: owner device check (hourly standup, hourly vitamin-until-done, 喝了/起身了 updates + dismiss).
+
+---
+
+
+### [P1-41] Android notification action → signal write
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §4 / P1-40 follow-up · **Opened**: 2026-10-17
+- **Report**: tapping **起身了** on an Android reminder writes no `standup` signal (the reminder row exists, no signal). Same check for **喝了** (water).
+- **Root cause (confirmed)**: `signals_source_check` allowed only `manual/usagestats/activitywatch/passive/inferred` — **not `reminder`**. Every reminder-originated signal insert was rejected (and swallowed). (`share`/`import` for session capture were rejected too.)
+- **Secondary**: the action path leaned on the server to write the habit signal; `/api/signal` hardcoded `source='manual'`.
+- **Fix**: `ReminderActionReceiver` now calls `POST /api/signal {name, source:'reminder'}` on **acted** (water/standup/vitamin) and `POST /api/reminder/act` for bookkeeping; `/api/signal` accepts `source` (`manual`/`reminder`/`passive`); `/api/reminder/act` no longer writes a habit signal (avoids double counting) — it only records `reminder_acted` + `acted_at`. Summary/home count from the habit signal alone.
+- **Acceptance**: action button → new `signals` row with `source='reminder'`; summary count updates.
+- **DB fix**: migration 014 extends `signals_source_check` to include `reminder`, `share`, `import`.
+- **Verified (2026-10-17, prod)**: `POST /api/signal {name:'brief_wake', source:'reminder'}` → row `id=448, source='reminder'` (test row deleted).
+- **Deploy**: collector **v1.0.26 (code 27)** + web — Play internal `completed` (code 27), CI build green.
+
+---
+
+
+### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
+
+- **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-15 · **Refs** AGENTS §2.1/§6; commit `bc4aa12`
+- **Description**: Date boundaries and reminder windows are computed in a hardcoded `Asia/Shanghai` (collector `ReminderScheduler` TZ constant, `lib/timezone.ts` default, `config.timezone` default). On a phone whose location/timezone is not Beijing, the reminder windows map to the wrong local time and notifications fire during the user's sleeping hours.
+- **Observed**: a reminder notification fired during sleeping time.
+- **Fix (implemented)**: collector uses the **device timezone** (`TimeZone.getDefault()`) and is the **primary writer** of `config.timezone` (each hourly run); the PWA writes only on a **>1h mismatch** (exception). Added **quiet window 22:00–07:00** (`config.quiet_window`) — reminders suppressed, no backfill (ES-001 §3 / owner D5).
 - **Acceptance**:
-  - [x] Visible loading state while waiting.
-  - [x] Does not claim a tool result before the reply arrives.
+  - [x] Reminders evaluated in the device timezone
+  - [x] No notifications during the quiet window (no backfill)
+  - [x] `config.timezone` reflects the device timezone (collector primary)
+  - [ ] Owner device verification (collector v1.0.11)
+- **Notes**: Not a duplicate of B-16 (B-16 scoped daily counts to a *configured* tz; this makes that tz the device's). Collector **v1.0.11** (code 12) pending Play upload + device check.
 
-### [P2-10] Phase C — Visual polish (ES-026)
 
-- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
-- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
-- **Impl**: subtle `fade-in` for chat messages; breathing Fenshen avatar; `prefers-reduced-motion` fallback; stone/green palette.
+#### 模块 B — 信号与每日计数 (Signals & daily counts) (15)
+
+### [B-21] Steps signal diagnostic (value 0 vs summation bug) `[BUG]`
+
+- **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-16 · **Refs**: ES-007 §3; commit `44dbc35`
+- **Diagnostic** (logged per §3): today's snapshots were `723` then `0` — **some value > 0 but summary showed 0 → aggregation bug** (not a total HealthConnect failure).
+- **Fix**: summary uses the **max snapshot** of the day (`pickDailySteps`/max). Applied (ES-005 §E.3); see **P1-23**.
+- **Source mismatch (escalated, no code change)**: HealthConnect values (0/723) are far below the Fit app (~6k) → likely source/counter-scope mismatch; **reported to owner** for the same-source check ("matches Fit within 10%").
+- **Re-diagnosed (2026-10-16, ES-009 §5)**: home shows `步骤 0` while yesterday shows `2809`. Query of today's rows: all **7** `steps` signals for the local day are `value=0` (16:56–18:24 UTC). So aggregation (max) is correct — the current day's **collection** is 0. Yesterday's rows: `723`, `0`, `2809` → max `2809`. Conclusion: **not** an aggregation bug; the collector's HealthConnect read returns 0 for the current day → **collection/source** issue, escalated.
+- **Moved** from Backlog to Bug per Work Order §5.2.
+
+
+### [P0-01] Remove `sit` button and signal
+
+- **Status**: In Review · **Phase** P0 · **Refs** spec v2 §5; commit `6b8ffac`
+- **Acceptance**: UI = wake/sleep/water; API rejects `sit`; schema constraint updated; no `sit` literals.
+- **Notes**: v2 migration applied; `v2_signal_name` NOT VALID (historical sit row retained, AGENTS §3 historical records). Production check: `sit → 400` verified. Owner UI check pending.
+
+
+### [B-15] app_usage `duration_min` inflation `[BUG]`
+
+- **Status**: In Review · **Phase** P0 · **Refs** commits `a71c996`, `2f3fdf3`
+- **Description**: ROM returns cumulative foreground totals (e.g., 653 min in a 60-min window).
+- **Fix**: v1.0.5 clamp + v1.0.6 per-window deltas via `UsageEvents.queryEvents()`.
+- **Acceptance**: all rows ≤ 60 after 2 hourly batches. **Clean-data cutoff** = v1.0.6 collector deploy timestamp (record on device deploy).
+
+
+### [B-16] water count accumulates across days `[BUG]`
+
+- **Status**: In Review · **Phase** P0 · **Refs** AGENTS §6, APPENDIX B; commit `473a005`
+- **Description**: Water (and other daily) counts included previous days; server "today" used UTC and the client re-filtered by browser timezone.
+- **Fix**: `lib/timezone.ts` (`getTodayRange`/`getDayRange`, `config.timezone`); applied to `/api/signal` (GET+POST idempotency), `/api/chat`, `/api/steps`; removed client `toDateString()`; removed duplicate `/api/summary`.
+- **Acceptance**: unit test passes (day range crosses UTC at 16:00); no `setHours(0,0,0,0)`/`toDateString()` in `app|lib`; **owner confirms reset across a real local midnight** (pending).
+- **Blocks**: P1-11.
+
+
+### [B-17] button/summary inconsistency `[BUG]`
+
+- **Status**: In Review · **Phase** P0 · **Refs** `docs/PM/PM Feedback — 2026-10-14.md` §2.4; commit `56a0762`
+- **Description**: Signal buttons read live `/api/signal` while the chat summary read a cached `summaries` row that never refreshed → buttons showed `wake` active / `water ×1` but the summary showed `起床: 未记录` / `喝水: 0/6`.
+- **Evidence**: `summaries` row `updated_at 2026-10-14T18:38:34Z` (wake null, water 0) while `wake`/`water` signals were written `19:16Z` (same Beijing day).
+- **Fix**: `getTodaySummaryCached` now regenerates when the cached row is older than the newest signal/reminder of the day.
+- **Acceptance**: summary matches buttons after new signals; owner confirms on device.
+- **Blocks**: P1-14.
+
+
+### [P0-02] Signal button silent failure
+
+- **Status**: In Review · **Phase** P0 · **Refs** diagnostic F1; commit `89a8f04`
+- **Notes**: Optimistic update + visible errors + absolute URLs; SW v2 network-first. Verified by agent in a clean browser; owner on-device confirmation pending.
+
+
+### [P0-03] Signal definitions in system prompt
+
+- **Status**: In Review · **Phase** P0 · **Refs** diagnostic F2; commit `89a8f04`
+- **Notes**: Definitions + no-fabrication rule; verified via production `/api/chat`.
+
+
+### [P0-04] 元婴 fabrication of button meanings
+
+- **Status**: In Review · **Phase** P0 · **Refs** diagnostic F2
+- **Notes**: Awaiting owner sign-off (behavior confirmed earlier in chat).
+
+
+### [P1-07] `/api/steps`
+
+- **Status**: In Review · **Phase** P1 · **Refs** spec v2 App B.8; commit `d4111d1`
+- **Notes**: POST/GET verified; GET now uses `getTodayRange` (B-16).
+
+
+### [P1-10] Steps display on PWA home
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/Dev Response 1014.md` §2.3; commit `832fcc8`
+- **Description**: Show today's steps + goal on the PWA home (reads `/api/steps`).
 - **Acceptance**:
-  - [x] Fade-in and breathing animations.
-  - [x] Reduced-motion fallback.
-- **Verified (2026-10-18, prod, PR #17, deploy run `39153665136`)**: home bundle contains the five habit labels and Saved-to-Inbox strings; `/api/history/days` returns `standup` (e.g., 2026-10-17: water 4, standup 6); CSS contains `fadeIn`, `breathe`, and the reduced-motion rule.
+  - [x] Home shows `steps / goal`
+  - [x] Updates after a step report / reload (refresh on load + on foreground)
+  - [x] Honors daily scoping (B-16)
+- **Notes**: Verified in production — home renders `步数 0 / 5000`. Owner device check pending.
+
+
+### [P1-12] Configurable habits
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/specs/ES-001-habits-framework.md` (approved 2026-10-15); commit `0675e78`
+- **Description**: Configurable habits (minimal). v1 = **passive** new habits only; read-only administration; reminder rules support fixed times + per-day intervals (§3.1 tick semantics); the collector reads server config.
+- **Acceptance**:
+  - [x] Forward migration + idempotent seed (water/standup/vitamin)
+  - [x] `GET /api/habits` read-only; no new public write endpoints (ES-004 gate)
+  - [x] Collector evaluates fixed/interval rules with §3.1 semantics (tick, no backfill, dedup)
+  - [x] Authored templates + optional `text_override`/`voice_override`
+  - [x] Settings read-only 管理习惯 list
+  - [ ] Owner device verification (collector v1.0.10)
+- **Notes**: Web deployed; collector **v1.0.10** (code 11) pending Play upload + device check. v1.1 (manual habits + dynamic buttons) gated on ES-004.
+
+---
+
+
+### [P1-21] Summary window — 今天 = last completed day
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §1 · **Opened**: 2026-10-16
+- **Problem**: home summary + 今天 panel showed the current *incomplete* day (before 18:00 it leaked partial data).
+- **Spec**: before 18:00 local → **yesterday** (label 昨天); 18:00–24:00 → **today** (label 今天); after 00:00 → **yesterday**.
+- **Impl**: `getDisplayDay(tz)` in `lib/timezone.ts`; `getDisplaySummary()` in `lib/summary-generator.ts` returns `{...summary, label}`; `/api/summary/today` + `/api/chat` use it; panel header renders the label.
+- **Verified (2026-10-16, prod)**: `GET /api/summary/today` → `date=2026-10-15, label=昨天` (tz `America/New_York`, before 18:00).
+- **Remaining**: owner confirms the label flips at 18:00 on device.
+
+
+### [P1-24] Action model — unify counters
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
+- **Impl**: `SummaryData` gains `standup {count,target}` and `vitamin {done,at}`; summary + "今天" panel show 喝水 x/6, 起身 x/8, 维生素 ✓ HH:MM; `/api/reminder/act` writes `context.habit` and, for water, a single `water` action (reminder action = manual action). Prompt line updated.
+- **Verified (2026-10-16, prod)**: `/api/summary/today` returns `standup:{count,target}` and `vitamin:{done,at}`.
+
+
+### [P1-34] Summary counter unification (ES-007 §4 completion)
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2; ES-007 §4
+- **Impl**: History 概要 top line now shows **habit counts** only — 起床 · 入睡 · 喝水 x/6 · 起身 x/8 · 维生素. The `提醒 0/N` counter is removed from the summary and moved to a collapsed **提醒记录 (audit)** subsection.
+- **Verified (2026-10-16)**: build/typecheck green; 概要 built from stored summary habit counts (device check pending).
+- **Remaining**: owner device check.
+
+---
+
+
+### [P1-14] Tracking visibility
+
+- **Status**: In Review · **Phase**: P1 · **Opened**: 2026-10-14 · **Refs** `docs/specs/ES-003-tracking-visibility.md` (approved 2026-10-15); commit `4036521`
+- **Description**: Home “今天” transparency panel (collapsible): 自动 / 手动 / 提醒, counts only.
+- **Acceptance**:
+  - [x] Collapsed one-line summary `今天 ▸ 自动 n · 手动 n · 提醒 n` (B1)
+  - [x] Rows count only (no app names) (B2)
+  - [x] Tap a row → prefilled editable chat; send stays explicit (no auto model call)
+  - [x] Reads `/api/summary/today`; refreshes after log/note/chat
+  - [ ] Owner device verification
+- **Notes**: Added `apps_used` to the summary; cached-summary now regenerates on schema drift. Depends on B-17 (fixed).
+
+---
+
+
+#### 模块 C — 笔记、历史与界面 (Notes, history & UI) (14)
+
+### [P2-30] First manifestation — avatar stage + voice (ES-040)
+
+- **Status**: In Review (2026-10-21) · **Category**: Feature (Phase C) · **Refs**: ES-040, Issue #54 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-040-first-manifestation.md`.
+- **Impl**: `AvatarStage` at 60vh (collapsible); idle/thinking/speaking/listening animations; hold-to-talk STT; auto-TTS with 声/静 toggle; stage nav. Placeholder avatar image pending the owner's Live2D/VRM asset.
+- **Verified (2026-10-21, deployed)**: web deploy green; stage/voice/TTS code compiles and ships. **Acceptance**: [x] stage; [x] hold-to-talk; [x] TTS; [x] animation states; [ ] Live2D/VRM model swap; [ ] phone visual/voice check.
+
+
+### [P3-02] Desktop PWA responsive layout (ES-049)
+
+- **Status**: In Review (2026-10-21) · **Category**: UI/UX (Responsive) · **Refs**: ES-049 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-049-desktop-pwa-layout.md`.
+- **Impl**: `md:` two-column grid (`280px` sidebar + `max-w-[700px]` chat), overall `max-w-6xl mx-auto`; vertical habit list; desktop avatar/status header; larger chat text; language toggle hidden on desktop; independently scrolling sidebar.
+- **Verified (2026-10-21)**: web deploy green; classes/bundles ship. **Acceptance**: [x] centered max width; [x] habits left / chat right; [x] larger text; [x] language toggle hidden; [ ] Mac PWA visual check.
+
+
+### [B-23] Note saved twice on submit `[BUG]`
+
+- **Status**: In Review · **Category**: Bug · **Opened**: 2026-10-17 · **Refs**: ES-012 §1
+- **Report**: two identical notes are saved every time.
+- **Diagnosis** (DB, 2026-10-17): duplicate pairs with identical text ~0.75–0.93s apart (ids 482/483, 470s) → a double submit; the save button had no in-flight guard.
+- **Fix**: client `noteSaving` guard (disable + "保存中…"); server dedupe — an identical note inserted within 5s returns the existing row.
+- **Verified (2026-10-17, prod)**: two identical POSTs within 5s → second returned `{deduped:true, id:484}`; only **1** row created (test row deleted).
+- **Remaining**: owner device check.
+
+
+### [P1-27] History tab — day list + detail
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.2 · **Opened**: 2026-10-16
+- **Impl**: new page `/history` (day list newest-first; tap → day detail) backed by `GET /api/history/days`, `GET /api/history/day?date=`, `GET /api/history/search?q=`. Detail shows signals with timestamps, notes, reminders fired + responses, that day's conversation, and the stored prose summary. Search by date (jumps to the day) and by note keyword. Cloud-first (per request, nothing cached on the phone). Home links to 历史.
+- **Verified (2026-10-16, prod)**: `/api/history/days` → 4 days; `/api/history/day?date=2026-10-15` → 61 signals / 2 notes / 15 reminders / 10 messages + stored summary; `/api/history/search` date + keyword both work.
+- **Remaining**: owner device check.
+
+
+### [P1-28] Note capture — free text, no metadata
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.3
+- **Impl**: note capture already complies — free-text field + optional mic, no dropdowns/tags/required fields; `POST /api/note` stores `{text}` only. Notes are now surfaced and searchable in History (§2.2). 元婴-side structure remains in ES-006 Detector 1 (not a user action).
+- **Verified (2026-10-16, prod)**: note keyword search returns matches from `/api/history/search`.
+- **Remaining**: owner device check.
+
+---
+
+
+### [P1-26] Home redesign — activities + chat only
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.1 (revised by ES-009 §1)
+- **Impl**: home is today-only — avatar, signals, steps, 记一笔, a raw **今天** activity stream, and chat. The ES-007 今天/昨天 summary panel and the `自动 X · 手动 X · 提醒 X` line are removed (no summary/historical data on home). Delivered with **P1-30**.
+- **Remaining**: owner device check.
+
+
+### [P1-29] Move settings off home
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.1 (revised by ES-009 §1)
+- **Impl**: settings are reachable only via a corner nav link; the inline home summary panel (the last summary surface on home) is gone. No settings controls render on home.
+- **Remaining**: owner device check.
+
+
+### [P1-30] Home = today only, remove 昨天 panel
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §1
+- **Impl**: removed the summary panel from home (今天/昨天 header + the `自动·手动·提醒` line + the reminder group). Added a raw today activity stream via new `lib/activity-stream.ts` (`buildActivityStream`) with an empty state ("今天还没有记录。"). Home no longer reads the display-day summary at all.
+- **Remaining**: owner device check; supersedes the ES-007 §1 pre-18:00 "昨天" label on home.
+
+
+### [P1-31] Chat scoped to today
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §1
+- **Impl**: `/api/history?today=1` filters messages to the current product day (`getTodayRange`); home loads that on mount, so the chat never scrolls before 00:00 local. Earlier days remain available in History.
+- **Verified (2026-10-16, prod)**: home `/` → 200; home no longer fetches/renders the display-day summary panel or the `自动·手动·提醒` line.
+- **Verified (2026-10-16, prod)**: `/api/history?today=1` → `{messages:[]}` (today empty); `/api/history` → 22 (earlier days intact for History).
+- **Remaining**: owner device check.
+
+
+### [P1-32] Notes expandable inline
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §3
+- **Impl**: note rows in the home **今天** stream and the History 活动 stream are tap-to-expand inline (full text wraps; tap again collapses). No separate note view. Fixes the "notes added but not viewable" triage item.
+- **Verified (2026-10-16)**: build/typecheck green; expand/collapse via UI state (device check pending).
+- **Remaining**: owner device check.
+
+
+### [P1-33] History app_usage grouping
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2
+- **Impl**: History detail renders the shared activity stream — contiguous `app_usage` windows roll into **应用会话 (约 Xh, N 应用)** rows (tap to expand apps sorted by minutes); steps rows with value 0 / no change are hidden.
+- **Verified (2026-10-16)**: build/typecheck green; grouping via `buildActivityStream` (device check pending).
+- **Remaining**: owner device check.
+
+
+### [P1-37] Note language bug on web
+
+- **Status**: In Review · **Category**: Bug · **Refs**: ES-012 §1 · **Opened**: 2026-10-16
+- **Reproduction (logged first)**: all 5 stored notes are **Latin-only** (0 CJK/JP/KR). Owner note #349: *"The switch language does not work."* → the on-device keyboard/IME cannot switch to Chinese while composing in the PWA. Exact browser + steps still needed from the owner (ES-012 §1 checklist); no device here.
+- **Ranked causes** (ES-012 §1): inputMode/autoComplete · missing CJK glyphs · controlled-input composition · PWA standalone IME.
+- **Fix applied (defensive, addresses #1/#3)**: note textarea + chat input set `lang="zh-CN"`, `inputMode="text"`, `autoComplete/autoCorrect/autoCapitalize="off"`, `spellCheck={false}`, `onCompositionEnd` sync.
+- **Verified (2026-10-16)**: build/typecheck green; note + chat inputs updated. Owner device verification pending on the failing browser.
+- **Remaining**: owner verifies on the failing browser; if still broken, test browser (non-standalone) vs installed PWA to isolate cause #4.
+
+
+### [P1-38] Note tags — auto-derived, visible, editable
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §2
+- **Impl**: `lib/tags.ts` extractor (open vocabulary — words from the note + existing tags; no model call). Tags stored in note `value.tags` on save; shown under the note (home 今天 stream + History detail); editable (remove ×, add ＋); History search matches text **or** tag (`/api/history/search`); `PATCH /api/note/[id]`.
+- **Verified (2026-10-16)**: prod `/api/note` extracts + stores tags; History search matches text **or** tag. Device check pending.
+- **Remaining**: owner device check; tag autocomplete is a simple prompt for now.
+
+
+### [P1-13] Daily notes
+
+- **Status**: In Review · **Phase**: P1 · **Opened**: 2026-10-14 · **Refs** `docs/specs/ES-002-daily-notes.md` (approved 2026-10-15); commit `4527ecc`
+- **Description**: "记一笔" text note (voice transcribed at input; text only); notes stored as signals and integrated into the summary.
+- **Acceptance**:
+  - [x] `note` accepted (migration) + server validation (empty / >2000 rejected)
+  - [x] Content never logged
+  - [x] PWA 记一笔 editor + count + today's list; mic hidden if unsupported (A1)
+  - [x] Summary `notes {count, ≤10 excerpts ≤200}`; prompt labeling block (A2)
+  - [ ] Owner device verification
+- **Notes**: Verified in production (valid / empty / long; summary includes the note). Deletion UI deferred to **P2-01**.
+
+
+#### 模块 D — 对话、提示词与模型 (Chat, prompt & models) (17)
 
 ### [P2-11] Elevate summary tone — partner vs QA (ES-027)
 
@@ -122,6 +594,7 @@
 - **Acceptance**:
   - [x] Prompt contains the meaning / first-person-plural / no-empty-menu rules.
   - [ ] Owner verifies a real summary reads as a reflection, not a QA log, and ends with a draft confirmation.
+
 
 ### [P2-12] Model router & provider abstraction (ES-029)
 
@@ -154,6 +627,157 @@
   - [x] DeepSeek continues to work through the router.
   - [ ] Owner verifies the Settings form and a real chat message on the deployed PWA.
 
+
+### [P2-23] Daily summary tone enforcement (ES-039)
+
+- **Status**: In Review (2026-10-20) · **Category**: Prompt/Backend · **Refs**: ES-039, ES-019, ES-027 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-039-daily-summary-tone-enforcement.md`.
+- **Impl**: `SUMMARY_TONE_RULES` in `lib/summary-generator.ts` now enforces: start with 1–2 human sentences about state, numbers only as background, no bullet lists, no unsolicited health advice, notes first.
+- **Verified (2026-10-20, local)**: “看昨天的简报” returned three prose sentences: notes first, numbers inline, no bullet list, no health advice, ended with “要我把这条存下来吗？”.
+- **Acceptance**:
+  - [x] Summary request returns no Markdown bullet list.
+  - [x] Notes are mentioned before numbers.
+  - [x] Tone is calm/warm/concise; no health advice.
+  - [x] Production spot-check: “看昨天的简报” returned prose, notes first, numbers inline, no bullet list, no health advice.
+
+
+### [P2-26] Agentic loop freeze + Reset Chat + language toggle (ES-045) — P0
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Agentic Loop / PWA) · **Refs**: ES-045, Issue #50 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-045-agentic-loop-freeze.md`.
+- **Impl**: no-promise prompt rule; `push_to_dev` sending/done events; Reset button + `POST /api/chat/reset` + reset-aware history; `中/EN` input toggle.
+- **Verified (2026-10-21, local + deployed)**: reset flow excluded the prior message; language toggle compiles; tool events wired. Web deploy green. **Acceptance**: [x] prompt rule; [x] reset flow; [x] language toggle; [ ] phone PWA check.
+
+
+### [P2-27] API timeout + async tool queue (ES-046) — P0
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Backend / Vercel) · **Refs**: ES-046, ES-044 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-046-api-timeout-async-tools.md`.
+- **Impl**: `maxDuration = 60`; 8s GitHub timeout; 5s sync budget then `agent_jobs` queue fallback; queue processed by the PWA reminder poll; 504/network error mapping; maxSteps 3.
+- **Verified (2026-10-21, local + deployed)**: queued job processed via `/api/reminder/due` → issue #51 (test issue closed); GitHub timeout/504 mapping present. Web deploy green. **Acceptance**: [x] timeout guards; [x] async queue; [x] visible queued/error states; [ ] phone PWA check.
+
+
+### [P3-06] Chat API broken hotfix (ES-052) — P0
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Backend / Frontend Bridge) · **Refs**: ES-052, ES-049, ES-051 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-052-chat-api-broken.md`.
+- **Root cause**: model ended tool turns with no final text; stale history also overrode version answers.
+- **Fix**: maxSteps 5; “answer after tool result” prompt; authoritative Body Status reminder; empty-reply server fallback + `assistant_text` data part; client no longer shows “信号中断”.
+- **Verified (2026-10-21, production)**: normal chat returned text; version answer PWA v0.2.0 / collector v1.0.31; empty-reply fallback deployed; 31/31 tests green.
+
+
+---
+
+
+### [B-24] Chat messages vanished after 10:20pm `[BUG]`
+
+- **Status**: In Review · **Category**: Bug · **Opened**: 2026-10-18 · **Refs**: issue #11
+- **Diagnosis**: the messages were in the DB (ids 82–91). `/api/history?today=1` ordered **ascending** + `limit=50`; Oct 17 had **58** messages, so it returned the **oldest 50** and dropped the newest 8. Every send reloaded and replaced the UI with that page.
+- **Fix**: query newest-first then reverse; add the product-day upper bound; `loadMessages` no longer wipes the view on a server error.
+- **Verified (2026-10-18, prod)**: `/api/history?limit=5` returns ids 91–95 (newest); `/api/history?today=1` returns today's 4.
+
+
+### [P1-16] Voice pass — 元婴 speaks, not reports
+
+- **Status**: In Review
+- **Category**: Bug (voice violated core/voice.md)
+- **Refs**: ES-005 §E.1; commit `c7c4af7`
+- **Notes**: `core/voice.md` "When reporting data" section + system-prompt rule. Acceptance: chat to "看今天简报" starts with a sentence; no Signals/Totals/Reminders bullets; numbers inside sentences. **Spot-check 2026-10-15:** reply led with a label ("今天：") — rule is in the prompt but the model still drifts; owner to confirm, may need prompt tightening (no separate task yet).
+
+
+### [P1-18] Weekly digest endpoint
+
+- **Status**: In Review
+- **Category**: Feature
+- **Refs**: ES-005 §E.4; commit `209ab4e`
+- **Notes**: `GET /api/digest/week` + `lib/digest-generator.ts`; prose (not fields); stored in `summaries` with `type='week'`.
+
+
+### [P1-19] Ground rules file + prompt integration
+
+- **Status**: In Review
+- **Category**: Feature
+- **Refs**: ES-005 §E.5; commit `c7c4af7`
+- **Notes**: `core/ground-rules.md` seeded (owner edits over time, non-blocking). Loader handles present/empty/missing (warn once). Priority-order block in prompt.
+
+
+### [B-18] 元婴 states inference as fact `[BUG]`
+
+- **Status**: In Review · **Phase** P0 · **Refs** `docs/PM/PM Feedback — 2026-10-14.md` §2.5; commit `a184e33`
+- **Description**: 元婴 said "…有一串 app_usage。十九次。没睡。" — diagnosing instead of observing (learning loop step 3).
+- **Fix**: authored rule in `core/voice.md` (观察，不诊断) + runtime reinforcement in `lib/yuanying.ts` (propose, never conclude).
+- **Acceptance**: 元婴 presents inferences as questions, not facts; owner confirms.
+
+
+### [P1-08] Reference reminders + steps in chat
+
+- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §6.3/§7; commit `cc952f3`
+- **Notes**: `buildSystemPrompt` includes steps/water/recent reminders; now day-scoped via B-16.
+
+
+### [P1-11] Daily summary v1
+
+- **Status**: In Review
+- **Owner**: @agent
+- **Opened**: 2026-10-14
+- **Phase**: P1
+- **Refs**: `docs/APPENDIX for 1014 response.md` Appendix A; commit `5a276c4`
+- **Description**: Aggregate the day's signals + reminders into a `summaries` row (aggregation only). `POST /api/summary/generate`, `GET /api/summary/today`; chat "看今天的简报".
+- **Acceptance**:
+  - [x] `summaries` table created
+  - [x] generate endpoint idempotent (upsert)
+  - [x] `today` caches on hit, generates on miss
+  - [x] empty day produces a record
+  - [x] cross-day boundary per user timezone
+  - [x] chat "看今天的简报" works
+- **Notes**: Verified in production (generate → cached `today`; chat returns the formatted brief). Supersedes the deleted `/api/summary`.
+
+
+### [P1-36] 元婴 self-diagnostic response
+
+- **Status**: In Review · **Category**: Bug (voice) + Feature (provenance) · **Refs**: ES-011
+- **Voice**: `core/voice.md` gains "When something is wrong" (query own data → state what you see → what you cannot see → propose **one** direction; never a menu / never "你确认一下").
+- **Provenance**: steps signal logs `source`, `window_start`, `window_end`, `aggregation`, `raw_value` (ES-011 §3); the chat prompt now receives steps provenance so 元婴 can state it.
+- **Governance**: `AGENTS.md` §5.1 bullet 7 (signal provenance) + **v1.6**.
+- **Verified (2026-10-16)**: `core/voice.md` + `AGENTS.md` v1.6 committed; collector **v1.0.22 (code 23)** Play internal `completed` (provenance fields). Owner to confirm a discrepancy reply follows §4.
+- **Remaining**: owner confirms a discrepancy reply follows §4 (no menu).
+
+
+### [P1-39] Feedback loop — notes → PM inbox
+
+- **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §3
+- **Impl**: `value.feedback` flag; heuristic proposal on likely-feedback notes ("这像反馈，标记?"); **Feedback Inbox** page `/feedback` (small link on home, not a new tab); [promote] sets `value.promoted`, [dismiss] clears the flag (`PATCH /api/note/[id]`); `npm run inbox` drafts `docs/pm/inbox/YYYY-MM-DD.md`. One-way owner → dev; **never** writes TRACKING.
+- **Verified (2026-10-16)**: `/feedback` (200) + `/api/feedback` (`{items:[]}`) live; `npm run inbox` runs (no promoted notes yet). Device check pending.
+- **Remaining**: owner device check; weekly promote review.
+
+
+### [P1-48] Daily summary context & tone (ES-020)
+
+- **Status**: In Review · **Category**: Bug (prompt/logic) + Feature · **Refs**: ES-020 · **Opened**: 2026-10-18
+- **Impl**: `SummaryData` gains `conversations`; `generateSummary` reads `core/memory/conversations/<date>-*.md` (Decisions section) and keeps the day's notes. The chat prompt renders **Owner's Notes** + **AI Conversations** first and numbers as secondary context. Base prompt adds a **Daily Summaries** rule (no unsolicited health advice; reflect inner state; "No notes yesterday." when empty).
+- **Verified (2026-10-18, prod)**: `/api/summary/generate {date:2026-10-16}` returns `conversations: 1` (AI Capture & Feedback Loop, Decisions excerpt) + notes. Asking "summarize yesterday" led with the owner's notes/project context (feedback flow, Save to Inbox, steps, lost messages), numbers last, no health advice.
+- **Remaining**: owner check.
+
+---
+
+
+### [P1-58] Prevent false behavioral judgments from missing data (ES-028)
+
+- **Status**: In Review (2026-10-19) · **Category**: Bug (Prompt/Logic) · **Refs**: ES-028 · **Opened**: 2026-10-19
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
+- **Report**: phone steps dropped to 600 while charging; Xiaowu said "you barely moved today", ignoring 4120 watch steps.
+- **Impl**: added `## Rule: Context before Judgment` to `core/fenshen/xiaowu/profile.md` and `core/system-manifest.md`. `lib/yuanying.ts` now loads an optional `core/fenshen/<id>/profile.md` for the active Fenshen, so the rule reaches the runtime prompt.
+- **Acceptance**:
+  - [x] Rule requires checking source/window before any behavioral judgment.
+  - [x] Rule requires "I see [number] from [source]" instead of judging.
+  - [ ] Owner verifies Xiaowu does not say "you barely moved" / "you need to walk more" with partial data.
+- **Note**: `core/voice.md` still has the example `Steps: 0/5000 → 今天还没动。`, which conflicts with this rule. Left unchanged because ES-028 does not include `voice.md` in its scope; recommend a follow-up.
+
+---
+
+
+#### 模块 E — Agent 工具与集成 (Agent tools & integrations) (11)
+
 ### [P2-13] Google Drive read-only import (ES-030)
 
 - **Status**: In Review (2026-10-19) · **Category**: Feature (Integration / Tool) · **Refs**: Issue #18, ES-030 · **Opened**: 2026-10-19
@@ -181,31 +805,6 @@
   - [ ] Imported text is saved with `source='google_drive'` and `context.file_id`.
   - [ ] Read-only boundary confirmed (no write/delete/share).
 
-### [P2-14] Data sovereignty & backup (ES-031)
-
-- **Status**: In Review (2026-10-19) · **Category**: Feature (Infrastructure) · **Refs**: ES-031, AGENTS §12 · **Opened**: 2026-10-19
-- **Spec**: `docs/specs/ES-031-data-sovereignty.md`.
-- **Label note**: the handoff requested **P2-09**, but P2-09 is the completed Phase C tool-loading item; renumbered to **P2-14**.
-- **Impl**:
-  - `AGENTS.md` — added §12 Data Sovereignty & Backup; version 1.9.
-  - `.github/workflows/db-backup.yml` — weekly Sunday 00:00 UTC `pg_dump` via `postgres:17`, writes `backups/db/YYYY-MM-DD.sql`, commits and pushes.
-  - `app/api/export/route.ts` — authenticated ZIP export of all user tables + `core/` Markdown; paginated 1000 rows/page; excludes `models.api_key` and `google_oauth_tokens`.
-  - `app/settings/page.tsx` — **导出我的元婴** button.
-  - `jszip@3.10.1` dependency.
-- **Required secret**: `SUPABASE_DB_URL` in GitHub Actions. The workflow fails loudly if it is missing.
-- **Verified (2026-10-19, local)**:
-  - `GET /api/export` without auth → `401`; with `Authorization: Bearer <API_TOKEN>` → `200 application/zip`.
-  - ZIP contains `yuanying-data-export.json` (531 KB) + `core/**` Markdown; manifest counts: messages 196, signals 682, summaries 10, reminders 98, habits 3, config 7, fenshen 3, models 1.
-  - `models` export has no `api_key`; `google_oauth_tokens` is absent.
-  - `tsc`, lint, and production build pass.
-- **Acceptance**:
-  - [x] Weekly backup workflow exists.
-  - [x] Export endpoint returns a ZIP with DB tables + core Markdown.
-  - [x] Secrets are excluded from the export.
-  - [x] `tsc`, lint, and build pass.
-  - [ ] First scheduled workflow run verified in GitHub Actions.
-  - [ ] Owner downloads the ZIP on the phone.
-- **Restore**: see `docs/specs/ES-031-data-sovereignty.md` §6.
 
 ### [P2-18] Google Drive formats — txt / csv / json / zip (ES-035)
 
@@ -228,6 +827,7 @@
   - [x] ZIP listing and readable text-file extraction.
   - [x] Size limits, truncation reporting, and path-traversal guard.
   - [ ] Owner tests their own CSV/JSON/ZIP on the phone after deploy.
+
 
 ### [P2-19] Web search + Markdown reader (ES-036)
 
@@ -252,6 +852,7 @@
   - [x] `read_markdown` reads allowlisted Markdown and rejects unsafe paths.
   - [x] The chat triggers `web_search` and answers with cited snippets.
   - [x] Production: asked “How to use the Vercel AI SDK with tools?” → `web_search` called, answer cited `ai-sdk.dev` / `vercel.com` URLs.
+
 
 ### [P2-20] Agentic tooling upgrades — ZIPs, truncation, filters, get_issue (ES-038, #35)
 
@@ -284,43 +885,6 @@
   - [x] Issue status/comments can be queried.
   - [x] Deployed and verified via production chat; owner phone spot-check remains optional.
 
-### [P2-21] New signals — manual_work & body_flag + 21:30 evening check-in (ES-037, #40)
-
-- **Status**: In Review (2026-10-20) · **Category**: Feature (Data Model & UI) · **Refs**: Issue #40, ES-037 · **Opened**: 2026-10-20
-- **Spec**: `docs/specs/ES-037-new-signals.md`.
-- **Label note**: the handoff requested **P2-13**, but P2-13 is the completed ES-030 Drive item; renumbered to **P2-21**.
-- **Impl**:
-  - `manual_work` (count; category 园艺/做饭/家务/修理 + optional note).
-  - `body_flag` (event; domain 身体/情绪/睡眠 + polarity 不适/良好 + required description).
-  - Home quick **动手** / **状态** panels; activity stream labels/details.
-  - `evening_checkin` habit: fixed 21:30, merged notification with 收工打卡 / 写反思 / 忽略; actions open PWA `?panel=work|note`.
-  - API validation + v5 signal-name constraint + reminder-name constraint.
-- **Collector**: `ReminderScheduler.kt` + `MainActivity.java` updated. Release **v1.0.28 (code 29)** built and uploaded to Play internal (`status: completed`): https://github.com/gmyky57ndd-dev/yuanying/releases/tag/v1.0.28
-- **Verified (2026-10-20)**: signal API validates both payloads; PWA panels render; web deploy green; Android CI + release workflow green; Play internal shows 1.0.28 / 29 completed. Phone installation/21:30 firing still needs owner confirmation.
-- **Acceptance**:
-  - [x] Record `manual_work` with category + optional note.
-  - [x] Record `body_flag` with domain + polarity + description.
-  - [x] 21:30 reminder configured with two action entries + ignore.
-  - [x] Ignore/no-repeat semantics preserved by fixed-time dedupe.
-  - [ ] Owner installs the new collector build and verifies 21:30 on the phone.
-
-### [P2-22] ZIP top-level truncation semantics (#39)
-
-- **Status**: Done (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issue #39, ES-038 · **Opened**: 2026-10-20
-- **Fix**: top-level ZIP `truncated` now means "at least one entry was truncated or skipped", with explicit `truncated_entries` and `skipped_entries` arrays. Per-file `meta.truncated` remains authoritative.
-- **Verified (2026-10-20, production)**: ZIP with truncated `entries.csv` + complete `routines.csv` returns top-level `truncated:true`, `truncated_entries:["entries.csv"]`, `skipped_entries:[]`, while `routines.csv` has `truncated:false` (56/56).
-
-### [P2-23] Daily summary tone enforcement (ES-039)
-
-- **Status**: In Review (2026-10-20) · **Category**: Prompt/Backend · **Refs**: ES-039, ES-019, ES-027 · **Opened**: 2026-10-20
-- **Spec**: `docs/specs/ES-039-daily-summary-tone-enforcement.md`.
-- **Impl**: `SUMMARY_TONE_RULES` in `lib/summary-generator.ts` now enforces: start with 1–2 human sentences about state, numbers only as background, no bullet lists, no unsolicited health advice, notes first.
-- **Verified (2026-10-20, local)**: “看昨天的简报” returned three prose sentences: notes first, numbers inline, no bullet list, no health advice, ended with “要我把这条存下来吗？”.
-- **Acceptance**:
-  - [x] Summary request returns no Markdown bullet list.
-  - [x] Notes are mentioned before numbers.
-  - [x] Tone is calm/warm/concise; no health advice.
-  - [x] Production spot-check: “看昨天的简报” returned prose, notes first, numbers inline, no bullet list, no health advice.
 
 ### [P2-24] PWA standalone API failures (ES-043)
 
@@ -339,6 +903,7 @@
   - [x] `push_to_dev` success and failure data parts verified.
   - [ ] Installed PWA chat + `push_to_dev` on the phone (owner).
 
+
 ### [P2-25] PWA tool-calling stream + timeout hardening (ES-044) — P0
 
 - **Status**: In Review (2026-10-20) · **Category**: Bug (Agentic Loop / PWA) · **Refs**: ES-044, ES-043 · **Opened**: 2026-10-20
@@ -355,19 +920,6 @@
   - [x] Visible failure/network alerts are wired.
   - [ ] Installed PWA phone test: send an issue, confirm a real issue or visible error.
 
-### [P2-26] Agentic loop freeze + Reset Chat + language toggle (ES-045) — P0
-
-- **Status**: In Review (2026-10-21) · **Category**: Bug (Agentic Loop / PWA) · **Refs**: ES-045, Issue #50 · **Opened**: 2026-10-21
-- **Spec**: `docs/specs/ES-045-agentic-loop-freeze.md`.
-- **Impl**: no-promise prompt rule; `push_to_dev` sending/done events; Reset button + `POST /api/chat/reset` + reset-aware history; `中/EN` input toggle.
-- **Verified (2026-10-21, local + deployed)**: reset flow excluded the prior message; language toggle compiles; tool events wired. Web deploy green. **Acceptance**: [x] prompt rule; [x] reset flow; [x] language toggle; [ ] phone PWA check.
-
-### [P2-27] API timeout + async tool queue (ES-046) — P0
-
-- **Status**: In Review (2026-10-21) · **Category**: Bug (Backend / Vercel) · **Refs**: ES-046, ES-044 · **Opened**: 2026-10-21
-- **Spec**: `docs/specs/ES-046-api-timeout-async-tools.md`.
-- **Impl**: `maxDuration = 60`; 8s GitHub timeout; 5s sync budget then `agent_jobs` queue fallback; queue processed by the PWA reminder poll; 504/network error mapping; maxSteps 3.
-- **Verified (2026-10-21, local + deployed)**: queued job processed via `/api/reminder/due` → issue #51 (test issue closed); GitHub timeout/504 mapping present. Web deploy green. **Acceptance**: [x] timeout guards; [x] async queue; [x] visible queued/error states; [ ] phone PWA check.
 
 ### [P2-28] Agent tools — write_markdown & scheduler (ES-047)
 
@@ -376,54 +928,6 @@
 - **Impl**: allowlisted `write_markdown` via GitHub Contents API commit; `scheduler(HH:MM, action)` creates a `scheduled_message` reminder (max 3 pending).
 - **Verified (2026-10-21, local + deployed)**: write path guards reject traversal/non-allowlisted paths; scheduler created a 21:30 reminder (test reminder removed). Web deploy green. **Acceptance**: [x] path whitelist/validation; [x] limits; [ ] owner confirms a real write/reminder.
 
-### [P2-29] Automated regression tests for ES-039/043–047
-
-- **Status**: Done (2026-10-21) · **Category**: Chore (Testing) · **Refs**: ES-039, ES-043–ES-047 · **Opened**: 2026-10-21
-- **Impl**: `npm test` (Node test runner), 23 tests across CSV/JSON/ZIP parsers, GitHub read-back, SSE data parts/504, `write_markdown`, scheduler timezones, prompt/SW/manifest regression guards.
-- **CI**: `.github/workflows/tests.yml` runs tests + lint + typecheck on push/PR.
-- **Runbook**: `docs/runbooks/tests.md`.
-- **Verified (2026-10-21)**: 23/23 tests pass locally; GitHub Actions **Tests** run `39612470879` green; web deploy run `39612470889` green.
-
-### [P2-30] First manifestation — avatar stage + voice (ES-040)
-
-- **Status**: In Review (2026-10-21) · **Category**: Feature (Phase C) · **Refs**: ES-040, Issue #54 · **Opened**: 2026-10-21
-- **Spec**: `docs/specs/ES-040-first-manifestation.md`.
-- **Impl**: `AvatarStage` at 60vh (collapsible); idle/thinking/speaking/listening animations; hold-to-talk STT; auto-TTS with 声/静 toggle; stage nav. Placeholder avatar image pending the owner's Live2D/VRM asset.
-- **Verified (2026-10-21, deployed)**: web deploy green; stage/voice/TTS code compiles and ships. **Acceptance**: [x] stage; [x] hold-to-talk; [x] TTS; [x] animation states; [ ] Live2D/VRM model swap; [ ] phone visual/voice check.
-
-### [P1-61] PWA client restore + collector status/update (Issue #54)
-
-- **Status**: In Review (2026-10-21) · **Category**: Bug/Feature (PWA Ops) · **Refs**: Issue #54 · **Opened**: 2026-10-21
-- **Runbook**: `docs/runbooks/pwa-client-restore.md`.
-- **Impl**: Settings shows collector version + last report; `/api/collector/status` compares the latest GitHub release; update button opens Play internal testing; **添加到主屏幕** install prompt/instructions; collector heartbeat + v1.0.29.
-- **Verified (2026-10-21, production)**: `/api/collector/status` reports installed **v1.0.29 (30)**, last report `2026-10-21T15:06:22Z`, latest `1.0.29`, no update needed. Collector v1.0.29 (code 30) is completed on Play internal; GitHub release assets available. **Acceptance**: [x] runbook; [x] version/last report UI; [x] update prompt; [x] add-to-home path; [ ] owner restores icon and confirms a signal.
-
-### [P3-01] Collector as hub & PWA lifesaver (ES-048)
-
-- **Status**: In Review (2026-10-21) · **Category**: Architecture / Android Client · **Refs**: ES-048, Issue #54, Issue #56 · **Opened**: 2026-10-21
-- **Spec**: `docs/specs/ES-048-collector-hub.md`.
-- **Impl**: Collector **启动元婴** launchpad with WebAPK detection/restore dialog; `OverlayService` (draggable bubble + quick note input) and overlay switch; heartbeat `overlay_active`; Settings online/overlay/PWA version; collector/PWA update prompts; server sync request + 15-min `SyncCheckWorker`.
-- **Verified (2026-10-21, production)**: collector v1.0.30 (code 31) completed on Play internal; `/api/collector/status` shows installed 1.0.29 → latest 1.0.30 with `update_available:true`, online true, overlay false. Web deploy, Tests, and Android CI green. **Acceptance**: [x] launchpad; [x] overlay; [x] health/version UI; [x] update prompts; [x] sync request; [ ] owner phone verification.
-
-### [P1-62] Server-triggered sync + tool-result brevity + language toggle (Issue #56)
-
-- **Status**: In Review (2026-10-21) · **Category**: Bug/Feature (Ops/UI) · **Refs**: Issue #56 · **Opened**: 2026-10-21
-- **Impl**: `collector_sync_requested_at` + **立即同步采集器** + `SyncCheckWorker` (15-min WorkManager limit); prompt/manifest “summarize tool results, do not read back full docs by default”; language toggle now focuses the input and changes the placeholder, while OS keyboard language remains system-controlled.
-- **Verified**: sync request marker + 15-min `SyncCheckWorker`; prompt/manifest brevity rule; language toggle focus/placeholder. Production Settings shows the update prompt. **Acceptance**: [x] sync request path; [x] tool-result brevity rule; [x] language toggle UX; [ ] true <30s sync requires FCM (documented).
-
-### [P3-02] Desktop PWA responsive layout (ES-049)
-
-- **Status**: In Review (2026-10-21) · **Category**: UI/UX (Responsive) · **Refs**: ES-049 · **Opened**: 2026-10-21
-- **Spec**: `docs/specs/ES-049-desktop-pwa-layout.md`.
-- **Impl**: `md:` two-column grid (`280px` sidebar + `max-w-[700px]` chat), overall `max-w-6xl mx-auto`; vertical habit list; desktop avatar/status header; larger chat text; language toggle hidden on desktop; independently scrolling sidebar.
-- **Verified (2026-10-21)**: web deploy green; classes/bundles ship. **Acceptance**: [x] centered max width; [x] habits left / chat right; [x] larger text; [x] language toggle hidden; [ ] Mac PWA visual check.
-
-### [P3-03] PWA version awareness + SW update (ES-050)
-
-- **Status**: Done (2026-10-21) · **Category**: Bug (Self-Awareness / Update) · **Refs**: ES-050 · **Opened**: 2026-10-21
-- **Spec**: `docs/specs/ES-050-pwa-version-awareness.md`.
-- **Impl**: `next.config.mjs` injects `NEXT_PUBLIC_APP_VERSION`; Settings shows PWA version; runtime Body Status distinguishes LLM/PWA/Collector; SW update prompt + cache v4; `/api/health` no-store alias; Settings uses no-store.
-- **Verified (2026-10-21, production)**: `/sw.js` is v4; `/api/health` returns `Cache-Control: no-store`; “你是什么版本？” answered PWA v0.1.0, LLM deepseek-chat, collector v1.0.29 (latest v1.0.30 available). Web deploy + tests green. **Acceptance**: [x] PWA version injection; [x] version answer context; [x] SW prompt; [x] collector status no-store; [ ] owner phone/Mac update-prompt check.
 
 ### [P3-04] Config-driven tool readback / silent mode (ES-051)
 
@@ -432,6 +936,7 @@
 - **Impl**: `tool_readback_enabled` config (default false); Settings toggle; `lib/tool-result.ts` silent normalization + 800-char verbose cap; chat prompt silent/verbose injection; long assistant replies collapse with 展开全文.
 - **Verified (2026-10-21, production)**: silent `get_notes` returned `count:5` + 80-char titles only; the reply summarized the notes without dumping full text. `tool_readback_enabled` defaults false; Settings toggle persists. **Tests**: `lib/tool-result.test.ts` + full suite 28/28.
 - **Acceptance**: [x] default silent; [x] Settings toggle; [x] normalized results; [x] 800-char cap; [x] frontend collapse; [ ] owner real push/verbose check.
+
 
 ### [P3-05] External AI bridge & context ingestion (ES-053)
 
@@ -442,412 +947,103 @@
 - **Verified (2026-10-21, production)**: `/api/external-chats` saved and retrieved a test external chat; explicit `ingest_external_chat` saved 230 chars locally; `query_external_chats` returned an excerpt.
 - **Verified (2026-10-21, local + production)**: MCP `initialize` returned PWA v0.2.0; `tools/list` exposed notes/conversations/summary/external-chats/mailbox/body-status; `get_body_status` returned collector v1.0.31. Production `/api/mcp` returns 401 without auth and 200 with the API/MCP token. Mailbox `read_local_file` read `mailbox/README.md`; external chat API saved/retrieved. 32/32 tests. **Acceptance**: [x] save external chat; [x] retrieve by keyword; [x] clipboard button + shortcut; [x] optional Claude tool; [x] MCP server/config/mailbox; [ ] owner connects Claude Desktop/Cursor.
 
-### [P3-06] Chat API broken hotfix (ES-052) — P0
 
-- **Status**: In Review (2026-10-21) · **Category**: Bug (Backend / Frontend Bridge) · **Refs**: ES-052, ES-049, ES-051 · **Opened**: 2026-10-21
-- **Spec**: `docs/specs/ES-052-chat-api-broken.md`.
-- **Root cause**: model ended tool turns with no final text; stale history also overrode version answers.
-- **Fix**: maxSteps 5; “answer after tool result” prompt; authoritative Body Status reminder; empty-reply server fallback + `assistant_text` data part; client no longer shows “信号中断”.
-- **Verified (2026-10-21, production)**: normal chat returned text; version answer PWA v0.2.0 / collector v1.0.31; empty-reply fallback deployed; 31/31 tests green.
+### [P1-49] Agentic tools — function calling (ES-021)
 
-**Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
+- **Status**: In Review · **Category**: Feature (Architecture) · **Refs**: ES-021 · **Opened**: 2026-10-18
+- **Impl**: DeepSeek calls now include `tools` (`get_notes`, `get_conversation_records`, `get_summary`) with a bounded tool loop (3 rounds, 20s/call); the backend executes Supabase/filesystem queries and feeds results back. Manifest gains a **Tools (法术)** section.
+- **Verified (2026-10-18, prod)**: "昨天我写了什么笔记？" → `get_notes` returned the 9 Oct-17 notes; "Fenshen 是怎么决定的？" → `get_conversation_records` returned the ES-013 decisions (Core vs Interface, shared memory, no-deploy). (Earlier misses were deploy lag + model anchoring; a forced tool call listed ES-013.)
+- **Extended by**: P1-53 / ES-022 (`push_to_dev`; shared GitHub helper).
+- **Remaining**: owner check.
 
 ---
 
-## In Review
+
+### [P1-60] Drive MIME fallback + web search backend errors (#31/#33)
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issues #31, #33, ES-035, ES-036
+- **#31 — `get_drive_doc` rejected `*/*`**:
+  - RCA: file `1o5WgYgzSmtjq9sU-eQHIWR8Nt0gAjXvQ` is
+    `stalio_export_csv_1792519528276.zip`; Drive returned `mimeType:"*/*"` and
+    the strict MIME classifier rejected it. It is a ZIP, not a CSV.
+  - Fix: infer MIME from `.csv/.json/.zip/.md/.txt` when MIME is empty,
+    `*/*`, or `application/octet-stream`; log raw `{id,name,mimeType,size}`;
+    store `effective_mime_type`; include raw MIME/name in unsupported errors.
+  - Verified locally: the file now classifies as `zip`, lists `entries.csv` /
+    `routines.csv`, and returns content.
+- **#33 — web_search all backends failed**:
+  - RCA: direct DuckDuckGo returns 403 from Vercel; Tavily had no key.
+  - Fix: Jina Reader/DDG fallback (already deployed) + aggregated structured
+    error listing every backend and status.
+  - Verified locally: simulated all-403 → `All web search backends failed:
+    tavily: not configured; duckduckgo: ...403; jina/duckduckgo: ...403`.
+  - Production: `web_search` returns results and cited URLs.
+- **Acceptance**:
+  - [x] `*/*` CSV/ZIP file imports via extension fallback.
+  - [x] Raw MIME/name logging is present.
+  - [x] Web search has a working serverless fallback.
+  - [x] All-failure error names each backend and status.
+  - [ ] Deploy + owner retest of the two original files/questions.
+
+
+#### 模块 F — 反馈、自省与架构 (Feedback, self-awareness & architecture) (14)
+
+### [P2-14] Data sovereignty & backup (ES-031)
+
+- **Status**: In Review (2026-10-19) · **Category**: Feature (Infrastructure) · **Refs**: ES-031, AGENTS §12 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-031-data-sovereignty.md`.
+- **Label note**: the handoff requested **P2-09**, but P2-09 is the completed Phase C tool-loading item; renumbered to **P2-14**.
+- **Impl**:
+  - `AGENTS.md` — added §12 Data Sovereignty & Backup; version 1.9.
+  - `.github/workflows/db-backup.yml` — weekly Sunday 00:00 UTC `pg_dump` via `postgres:17`, writes `backups/db/YYYY-MM-DD.sql`, commits and pushes.
+  - `app/api/export/route.ts` — authenticated ZIP export of all user tables + `core/` Markdown; paginated 1000 rows/page; excludes `models.api_key` and `google_oauth_tokens`.
+  - `app/settings/page.tsx` — **导出我的元婴** button.
+  - `jszip@3.10.1` dependency.
+- **Required secret**: `SUPABASE_DB_URL` in GitHub Actions. The workflow fails loudly if it is missing.
+- **Verified (2026-10-19, local)**:
+  - `GET /api/export` without auth → `401`; with `Authorization: Bearer <API_TOKEN>` → `200 application/zip`.
+  - ZIP contains `yuanying-data-export.json` (531 KB) + `core/**` Markdown; manifest counts: messages 196, signals 682, summaries 10, reminders 98, habits 3, config 7, fenshen 3, models 1.
+  - `models` export has no `api_key`; `google_oauth_tokens` is absent.
+  - `tsc`, lint, and production build pass.
+- **Acceptance**:
+  - [x] Weekly backup workflow exists.
+  - [x] Export endpoint returns a ZIP with DB tables + core Markdown.
+  - [x] Secrets are excluded from the export.
+  - [x] `tsc`, lint, and build pass.
+  - [ ] First scheduled workflow run verified in GitHub Actions.
+  - [ ] Owner downloads the ZIP on the phone.
+- **Restore**: see `docs/specs/ES-031-data-sovereignty.md` §6.
+
 
 ### [P2-01] Opinions file structure + schema
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §5; commit `46acf06`
 - **Notes**: `core/opinions/{held,confirmed,rejected,archive}.md` created with the entry format (id, Confidence, First observed, Last engaged, Topic, Evidence).
 
+
 ### [P2-02] Detector 1 — avoidance via adjacent tasks
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §4; `scripts/opinions.mjs` (`npm run opinions:detect`)
 - **Notes**: Runs as an **agent batch** (core/opinions files are read-only on the serverless runtime — writes are committed). Requires 5+ consecutive note-days **and** adjacent activity (false-positive guard); max 3 held (oldest → archive); topic heuristic; off-limits filter. Nightly scheduling is the agent/cron invoking the script.
+
 
 ### [P2-03] Confirmation protocol + file transitions
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §7; `npm run opinions:respond <id> 对|不对|有可能 [reason]`
 - **Notes**: 对 → `confirmed.md`; 不对 → `rejected.md` (+reason, never re-proposed); 有可能 → confidence +0.1; silence → −0.05/week, 60 days → `archive.md`.
 
+
 ### [P2-04] Prompt integration — confirmed + held opinions
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §8; `lib/yuanying.ts`
 - **Notes**: `confirmed.md` always; `held.md` only when the conversation topic matches; `rejected.md`/`archive.md` never. Prompt line + "we" voice + priority order (ground rules > opinions; confirm-before-action > all).
+
 
 ### [P2-05] Off-limits filter from ground rules
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-006 §10; `lib/opinions.ts` + detector filter
 - **Notes**: Reads `## No opinions about` from `core/ground-rules.md`; **hard filter** (not a threshold). Owner populates over time; empty filter acceptable for v1 (non-blocking).
 
-### [B-21] Steps signal diagnostic (value 0 vs summation bug) `[BUG]`
-
-- **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-16 · **Refs**: ES-007 §3; commit `44dbc35`
-- **Diagnostic** (logged per §3): today's snapshots were `723` then `0` — **some value > 0 but summary showed 0 → aggregation bug** (not a total HealthConnect failure).
-- **Fix**: summary uses the **max snapshot** of the day (`pickDailySteps`/max). Applied (ES-005 §E.3); see **P1-23**.
-- **Source mismatch (escalated, no code change)**: HealthConnect values (0/723) are far below the Fit app (~6k) → likely source/counter-scope mismatch; **reported to owner** for the same-source check ("matches Fit within 10%").
-- **Re-diagnosed (2026-10-16, ES-009 §5)**: home shows `步骤 0` while yesterday shows `2809`. Query of today's rows: all **7** `steps` signals for the local day are `value=0` (16:56–18:24 UTC). So aggregation (max) is correct — the current day's **collection** is 0. Yesterday's rows: `723`, `0`, `2809` → max `2809`. Conclusion: **not** an aggregation bug; the collector's HealthConnect read returns 0 for the current day → **collection/source** issue, escalated.
-- **Moved** from Backlog to Bug per Work Order §5.2.
-
-### [B-23] Note saved twice on submit `[BUG]`
-
-- **Status**: In Review · **Category**: Bug · **Opened**: 2026-10-17 · **Refs**: ES-012 §1
-- **Report**: two identical notes are saved every time.
-- **Diagnosis** (DB, 2026-10-17): duplicate pairs with identical text ~0.75–0.93s apart (ids 482/483, 470s) → a double submit; the save button had no in-flight guard.
-- **Fix**: client `noteSaving` guard (disable + "保存中…"); server dedupe — an identical note inserted within 5s returns the existing row.
-- **Verified (2026-10-17, prod)**: two identical POSTs within 5s → second returned `{deduped:true, id:484}`; only **1** row created (test row deleted).
-- **Remaining**: owner device check.
-
-### [B-24] Chat messages vanished after 10:20pm `[BUG]`
-
-- **Status**: In Review · **Category**: Bug · **Opened**: 2026-10-18 · **Refs**: issue #11
-- **Diagnosis**: the messages were in the DB (ids 82–91). `/api/history?today=1` ordered **ascending** + `limit=50`; Oct 17 had **58** messages, so it returned the **oldest 50** and dropped the newest 8. Every send reloaded and replaced the UI with that page.
-- **Fix**: query newest-first then reverse; add the product-day upper bound; `loadMessages` no longer wipes the view on a server error.
-- **Verified (2026-10-18, prod)**: `/api/history?limit=5` returns ids 91–95 (newest); `/api/history?today=1` returns today's 4.
-
-### [P1-16] Voice pass — 元婴 speaks, not reports
-
-- **Status**: In Review
-- **Category**: Bug (voice violated core/voice.md)
-- **Refs**: ES-005 §E.1; commit `c7c4af7`
-- **Notes**: `core/voice.md` "When reporting data" section + system-prompt rule. Acceptance: chat to "看今天简报" starts with a sentence; no Signals/Totals/Reminders bullets; numbers inside sentences. **Spot-check 2026-10-15:** reply led with a label ("今天：") — rule is in the prompt but the model still drifts; owner to confirm, may need prompt tightening (no separate task yet).
-
-### [P1-17] Reminder cadence — quiet window, 2h standup, cap 6/day
-
-- **Status**: In Review
-- **Category**: Bug (9/day violated quiet-by-default)
-- **Refs**: ES-005 §E.2; commit `de6bab5`; collector v1.0.15
-- **Notes**: TS scheduler quiet window + daily cap 6 + 60-min miss sweep; collector daily cap 6 (quiet window already); standup habit interval 60→120; `reminders.missed_at` added.
-
-### [P1-18] Weekly digest endpoint
-
-- **Status**: In Review
-- **Category**: Feature
-- **Refs**: ES-005 §E.4; commit `209ab4e`
-- **Notes**: `GET /api/digest/week` + `lib/digest-generator.ts`; prose (not fields); stored in `summaries` with `type='week'`.
-
-### [P1-19] Ground rules file + prompt integration
-
-- **Status**: In Review
-- **Category**: Feature
-- **Refs**: ES-005 §E.5; commit `c7c4af7`
-- **Notes**: `core/ground-rules.md` seeded (owner edits over time, non-blocking). Loader handles present/empty/missing (warn once). Priority-order block in prompt.
-
-### ES-005 §E.3 — Steps diagnostic (recorded)
-
-- **Result**: **aggregation bug** (not a total HealthConnect failure). Today's `steps` snapshots: `723` then `0`; the summary used "last" → showed 0. Fix: max-of-day snapshot (`lib/summary-generator.ts`). Acceptance: today's steps reflect the day's max snapshot; steps line and summary agree.
-
-### [P0-01] Remove `sit` button and signal
-
-- **Status**: In Review · **Phase** P0 · **Refs** spec v2 §5; commit `6b8ffac`
-- **Acceptance**: UI = wake/sleep/water; API rejects `sit`; schema constraint updated; no `sit` literals.
-- **Notes**: v2 migration applied; `v2_signal_name` NOT VALID (historical sit row retained, AGENTS §3 historical records). Production check: `sit → 400` verified. Owner UI check pending.
-
-### [B-15] app_usage `duration_min` inflation `[BUG]`
-
-- **Status**: In Review · **Phase** P0 · **Refs** commits `a71c996`, `2f3fdf3`
-- **Description**: ROM returns cumulative foreground totals (e.g., 653 min in a 60-min window).
-- **Fix**: v1.0.5 clamp + v1.0.6 per-window deltas via `UsageEvents.queryEvents()`.
-- **Acceptance**: all rows ≤ 60 after 2 hourly batches. **Clean-data cutoff** = v1.0.6 collector deploy timestamp (record on device deploy).
-
-### [B-16] water count accumulates across days `[BUG]`
-
-- **Status**: In Review · **Phase** P0 · **Refs** AGENTS §6, APPENDIX B; commit `473a005`
-- **Description**: Water (and other daily) counts included previous days; server "today" used UTC and the client re-filtered by browser timezone.
-- **Fix**: `lib/timezone.ts` (`getTodayRange`/`getDayRange`, `config.timezone`); applied to `/api/signal` (GET+POST idempotency), `/api/chat`, `/api/steps`; removed client `toDateString()`; removed duplicate `/api/summary`.
-- **Acceptance**: unit test passes (day range crosses UTC at 16:00); no `setHours(0,0,0,0)`/`toDateString()` in `app|lib`; **owner confirms reset across a real local midnight** (pending).
-- **Blocks**: P1-11.
-
-### [B-17] button/summary inconsistency `[BUG]`
-
-- **Status**: In Review · **Phase** P0 · **Refs** `docs/PM/PM Feedback — 2026-10-14.md` §2.4; commit `56a0762`
-- **Description**: Signal buttons read live `/api/signal` while the chat summary read a cached `summaries` row that never refreshed → buttons showed `wake` active / `water ×1` but the summary showed `起床: 未记录` / `喝水: 0/6`.
-- **Evidence**: `summaries` row `updated_at 2026-10-14T18:38:34Z` (wake null, water 0) while `wake`/`water` signals were written `19:16Z` (same Beijing day).
-- **Fix**: `getTodaySummaryCached` now regenerates when the cached row is older than the newest signal/reminder of the day.
-- **Acceptance**: summary matches buttons after new signals; owner confirms on device.
-- **Blocks**: P1-14.
-
-### [B-18] 元婴 states inference as fact `[BUG]`
-
-- **Status**: In Review · **Phase** P0 · **Refs** `docs/PM/PM Feedback — 2026-10-14.md` §2.5; commit `a184e33`
-- **Description**: 元婴 said "…有一串 app_usage。十九次。没睡。" — diagnosing instead of observing (learning loop step 3).
-- **Fix**: authored rule in `core/voice.md` (观察，不诊断) + runtime reinforcement in `lib/yuanying.ts` (propose, never conclude).
-- **Acceptance**: 元婴 presents inferences as questions, not facts; owner confirms.
-
-### [P0-02] Signal button silent failure
-
-- **Status**: In Review · **Phase** P0 · **Refs** diagnostic F1; commit `89a8f04`
-- **Notes**: Optimistic update + visible errors + absolute URLs; SW v2 network-first. Verified by agent in a clean browser; owner on-device confirmation pending.
-
-### [P0-03] Signal definitions in system prompt
-
-- **Status**: In Review · **Phase** P0 · **Refs** diagnostic F2; commit `89a8f04`
-- **Notes**: Definitions + no-fabrication rule; verified via production `/api/chat`.
-
-### [P0-04] 元婴 fabrication of button meanings
-
-- **Status**: In Review · **Phase** P0 · **Refs** diagnostic F2
-- **Notes**: Awaiting owner sign-off (behavior confirmed earlier in chat).
-
-### [P1-04] `/api/reminder/due` + `/act`
-
-- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §4.2; commit `899c8a1`
-- **Notes**: Verified in production (401/200, `{reminders:[]}`). Will be consumed by the collector in P1-09.
-
-### [P1-05] Reminder settings toggles
-
-- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §6.4; commit `f4e40e0`
-- **Notes**: `/settings` renders the 3 toggles backed by `config.reminders_enabled`.
-
-### [P1-06] HealthConnect step collection (Android)
-
-- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §7/App B; commits `75b243d`, `8dbb240`
-- **Notes**: v1.0.8 keeps **minSdk 24** via `tools:overrideLibrary` + `SDK_INT>=26` gate (Play blocked the minSdk-26 reduction). Steps work on Android 9+. **Device verification pending.**
-
-### [P1-07] `/api/steps`
-
-- **Status**: In Review · **Phase** P1 · **Refs** spec v2 App B.8; commit `d4111d1`
-- **Notes**: POST/GET verified; GET now uses `getTodayRange` (B-16).
-
-### [P1-08] Reference reminders + steps in chat
-
-- **Status**: In Review · **Phase** P1 · **Refs** spec v2 §6.3/§7; commit `cc952f3`
-- **Notes**: `buildSystemPrompt` includes steps/water/recent reminders; now day-scoped via B-16.
-
-### [P1-09] Reminder generation + delivery in Android collector
-
-- **Status**: In Review
-- **Owner**: @agent
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: `docs/Dev Response 1014.md` §2.1; commit `c7ef80c`
-- **Description**: Collector WorkManager job decides due reminders (Beijing windows), records them via `POST /api/reminder/create`, then shows a notification + Chinese TTS. No cron, no PWA-open requirement.
-- **Acceptance**:
-  - [x] Collector checks water/standup/vitamin windows hourly
-  - [x] Notification + TTS fire without the PWA open (code path)
-  - [x] Writes `reminders` rows (shown/acted) for the summary
-  - [x] Respects `config.reminders_enabled`
-  - [ ] Owner confirms on device
-- **Notes**: Kotlin; minSdk 24; `POST_NOTIFICATIONS` requested on Android 13+. iOS deferred (P2). Replaces P1-02. **Device verification pending.** Build v1.0.9 (code 10).
-
-### [P1-10] Steps display on PWA home
-
-- **Status**: In Review
-- **Owner**: @agent
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: `docs/Dev Response 1014.md` §2.3; commit `832fcc8`
-- **Description**: Show today's steps + goal on the PWA home (reads `/api/steps`).
-- **Acceptance**:
-  - [x] Home shows `steps / goal`
-  - [x] Updates after a step report / reload (refresh on load + on foreground)
-  - [x] Honors daily scoping (B-16)
-- **Notes**: Verified in production — home renders `步数 0 / 5000`. Owner device check pending.
-
-### [P1-11] Daily summary v1
-
-- **Status**: In Review
-- **Owner**: @agent
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: `docs/APPENDIX for 1014 response.md` Appendix A; commit `5a276c4`
-- **Description**: Aggregate the day's signals + reminders into a `summaries` row (aggregation only). `POST /api/summary/generate`, `GET /api/summary/today`; chat "看今天的简报".
-- **Acceptance**:
-  - [x] `summaries` table created
-  - [x] generate endpoint idempotent (upsert)
-  - [x] `today` caches on hit, generates on miss
-  - [x] empty day produces a record
-  - [x] cross-day boundary per user timezone
-  - [x] chat "看今天的简报" works
-- **Notes**: Verified in production (generate → cached `today`; chat returns the formatted brief). Supersedes the deleted `/api/summary`.
-
-### [P1-12] Configurable habits
-
-- **Status**: In Review
-- **Owner**: @agent
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: `docs/specs/ES-001-habits-framework.md` (approved 2026-10-15); commit `0675e78`
-- **Description**: Configurable habits (minimal). v1 = **passive** new habits only; read-only administration; reminder rules support fixed times + per-day intervals (§3.1 tick semantics); the collector reads server config.
-- **Acceptance**:
-  - [x] Forward migration + idempotent seed (water/standup/vitamin)
-  - [x] `GET /api/habits` read-only; no new public write endpoints (ES-004 gate)
-  - [x] Collector evaluates fixed/interval rules with §3.1 semantics (tick, no backfill, dedup)
-  - [x] Authored templates + optional `text_override`/`voice_override`
-  - [x] Settings read-only 管理习惯 list
-  - [ ] Owner device verification (collector v1.0.10)
-- **Notes**: Web deployed; collector **v1.0.10** (code 11) pending Play upload + device check. v1.1 (manual habits + dynamic buttons) gated on ES-004.
-
----
-
-### [P1-21] Summary window — 今天 = last completed day
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §1 · **Opened**: 2026-10-16
-- **Problem**: home summary + 今天 panel showed the current *incomplete* day (before 18:00 it leaked partial data).
-- **Spec**: before 18:00 local → **yesterday** (label 昨天); 18:00–24:00 → **today** (label 今天); after 00:00 → **yesterday**.
-- **Impl**: `getDisplayDay(tz)` in `lib/timezone.ts`; `getDisplaySummary()` in `lib/summary-generator.ts` returns `{...summary, label}`; `/api/summary/today` + `/api/chat` use it; panel header renders the label.
-- **Verified (2026-10-16, prod)**: `GET /api/summary/today` → `date=2026-10-15, label=昨天` (tz `America/New_York`, before 18:00).
-- **Remaining**: owner confirms the label flips at 18:00 on device.
-
-### [P1-23] Steps — window/source diagnostic `[REOPENED · P0]`
-
-- **Status**: In Progress · **Priority**: P0 · **Category**: Bug · **Refs**: ES-007 §3; [B-21] · **Reopened**: 2026-10-16
-- **Correction (owner, 2026-10-16)**: the mismatch is **not** summation across sources. Fit and Watch are **independent** and both ≈ truth; **HealthConnect-via-元婴 is the outlier**.
-- **Earlier partial fix (kept)**: `pickDailySteps` / `GET /api/steps` use the day's **max snapshot** (still correct for the `723→0→2809` pattern) — but it does **not** explain why HC-via-元婴 disagrees with Fit/Watch.
-- **Diagnostic (required; logged 2026-10-16)** — window / sources / per-source count / aggregation mode:
-  - **Window**: `context.window_start = 2026-10-16T00:00:00Z` → **UTC midnight**, not the device's local midnight. `StepsCollector` uses `Instant.now().truncatedTo(ChronoUnit.DAYS)` (UTC). On `America/New_York` the window `[UTC 00:00, now)` starts ~20:00 the prior local evening → includes ~4h of yesterday's steps.
-  - **Aggregation mode**: `sum_all_origins` — `readRecords(StepsRecord)` with **no DataOriginFilter**, summing `record.count` across every origin present (phone + watch + Fit can all contribute).
-  - **Sources / per-source count**: **not previously captured**. DB rows are all `source='passive'` (14 rows / 5 days; values `0`…`2809`). HealthConnect per-origin counts were unavailable.
-- **Instrumentation added (diagnostic only; no value change)**: collector `StepsCollector` now sends `sources` (`{package, steps, count}` per HealthConnect data origin), `sources_count`, and `aggregation`; `POST /api/steps` persists them in `context`. `value` is unchanged.
-- **Fix (2026-10-16)**: `StepsCollector` now anchors the window to **local midnight** in the device timezone (`LocalDate.now(zone).atStartOfDay(zone)`), not `Instant.now().truncatedTo(DAYS)` (UTC). This stops ~4h of the previous local evening leaking into the day. **Aggregation is unchanged** (owner: the problem is *not* summation across sources). Collector **v1.0.21 (code 22)**.
-- **Display cutoff (2026-10-16)**: the day value is the **max** snapshot, so an already-stored inflated reading would persist. `pickDailySteps` + `GET /api/steps` now **prefer rows tagged `context.timezone`** (collector v1.0.21+ = corrected local window); legacy UTC-window rows are preserved for audit but excluded once a corrected row exists (clean-data cutoff, AGENTS §3).
-- **ES-011 §3 provenance (2026-10-16)**: steps `context` now also carries `source` (`merged`), `aggregation` (`sum`), and `raw_value`, alongside `window_start`/`window_end`/`timezone`/`sources`. Collector **v1.0.22 (code 23)**.
-- **Fix (issue #8, 2026-10-17)**: per-origin data proved double counting — Fit `4054` + HC-phone `4317` = `8371`. Collector now takes **max per origin** (`aggregation: max_per_origin`; `raw_value` = raw sum), so it reports ~`4317`. Collector **v1.0.27 (code 28)**.
-- **Verified (2026-10-17)**: release run green; Play internal `completed` (code 28). Open issues #2/#3/#5/#6/#7/#8 all commented + closed (3/5/6 duplicate/completed; 8 fixed).
-- **Display cutoff (2026-10-17)**: home/summary now prefer rows with `aggregation='max_per_origin'` (then `context.timezone`, then legacy). This stops the old `sum` row (8371) from overriding the corrected `max_per_origin` row (4595) via the max-snapshot rule.
-- **Display verified (2026-10-17, prod)**: `/api/steps` and `/api/summary/today` now return **4595** (max_per_origin row #524), not 8371 (old `sum` row #506).
-- **Deploy**: collector **v1.0.20 (code 21)** (instrumented) → **v1.0.21 (code 22)** (local-midnight window fix) + web `/api/steps`.
-- **Verified (2026-10-16)**: Play internal `completed` (versionCode 22); GitHub Release `v1.0.21`; web `/api/steps` live. Production still shows the pre-fix value (`2700`) until the phone runs v1.0.21 and posts a corrected row — then the cutoff switches the day value to the local-day reading.
-
-### [P1-24] Action model — unify counters
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
-- **Impl**: `SummaryData` gains `standup {count,target}` and `vitamin {done,at}`; summary + "今天" panel show 喝水 x/6, 起身 x/8, 维生素 ✓ HH:MM; `/api/reminder/act` writes `context.habit` and, for water, a single `water` action (reminder action = manual action). Prompt line updated.
-- **Verified (2026-10-16, prod)**: `/api/summary/today` returns `standup:{count,target}` and `vitamin:{done,at}`.
-
-### [P1-25] Reminder notification action buttons
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-007 §4
-- **Impl**: collector notification now has a habit action (water 喝了 / standup 起身了 / vitamin 吃了) + 忽略; `ReminderActionReceiver` maps acted→`acted`, ignore→`dismissed`; acted opens the app, ignore stays quiet.
-- **Verified (2026-10-16)**: Android Collector CI build green (run `38929058636`, debug-APK artifact). Collector **v1.0.17 (code 18)** released (tag `v1.0.17`) — signed AAB/APK GitHub Release + **Play internal upload succeeded**.
-- **Remaining**: device verification (install internal build, confirm habit action + 忽略); PWA fallback = open modal.
-
----
-
-### [P1-27] History tab — day list + detail
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.2 · **Opened**: 2026-10-16
-- **Impl**: new page `/history` (day list newest-first; tap → day detail) backed by `GET /api/history/days`, `GET /api/history/day?date=`, `GET /api/history/search?q=`. Detail shows signals with timestamps, notes, reminders fired + responses, that day's conversation, and the stored prose summary. Search by date (jumps to the day) and by note keyword. Cloud-first (per request, nothing cached on the phone). Home links to 历史.
-- **Verified (2026-10-16, prod)**: `/api/history/days` → 4 days; `/api/history/day?date=2026-10-15` → 61 signals / 2 notes / 15 reminders / 10 messages + stored summary; `/api/history/search` date + keyword both work.
-- **Remaining**: owner device check.
-
-### [P1-28] Note capture — free text, no metadata
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.3
-- **Impl**: note capture already complies — free-text field + optional mic, no dropdowns/tags/required fields; `POST /api/note` stores `{text}` only. Notes are now surfaced and searchable in History (§2.2). 元婴-side structure remains in ES-006 Detector 1 (not a user action).
-- **Verified (2026-10-16, prod)**: note keyword search returns matches from `/api/history/search`.
-- **Remaining**: owner device check.
-
----
-
-### [P1-26] Home redesign — activities + chat only
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.1 (revised by ES-009 §1)
-- **Impl**: home is today-only — avatar, signals, steps, 记一笔, a raw **今天** activity stream, and chat. The ES-007 今天/昨天 summary panel and the `自动 X · 手动 X · 提醒 X` line are removed (no summary/historical data on home). Delivered with **P1-30**.
-- **Remaining**: owner device check.
-
-### [P1-29] Move settings off home
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-008 §2.1 (revised by ES-009 §1)
-- **Impl**: settings are reachable only via a corner nav link; the inline home summary panel (the last summary surface on home) is gone. No settings controls render on home.
-- **Remaining**: owner device check.
-
-### [P1-30] Home = today only, remove 昨天 panel
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §1
-- **Impl**: removed the summary panel from home (今天/昨天 header + the `自动·手动·提醒` line + the reminder group). Added a raw today activity stream via new `lib/activity-stream.ts` (`buildActivityStream`) with an empty state ("今天还没有记录。"). Home no longer reads the display-day summary at all.
-- **Remaining**: owner device check; supersedes the ES-007 §1 pre-18:00 "昨天" label on home.
-
-### [P1-31] Chat scoped to today
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §1
-- **Impl**: `/api/history?today=1` filters messages to the current product day (`getTodayRange`); home loads that on mount, so the chat never scrolls before 00:00 local. Earlier days remain available in History.
-- **Verified (2026-10-16, prod)**: home `/` → 200; home no longer fetches/renders the display-day summary panel or the `自动·手动·提醒` line.
-- **Verified (2026-10-16, prod)**: `/api/history?today=1` → `{messages:[]}` (today empty); `/api/history` → 22 (earlier days intact for History).
-- **Remaining**: owner device check.
-
-### [P1-32] Notes expandable inline
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §3
-- **Impl**: note rows in the home **今天** stream and the History 活动 stream are tap-to-expand inline (full text wraps; tap again collapses). No separate note view. Fixes the "notes added but not viewable" triage item.
-- **Verified (2026-10-16)**: build/typecheck green; expand/collapse via UI state (device check pending).
-- **Remaining**: owner device check.
-
-### [P1-33] History app_usage grouping
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2
-- **Impl**: History detail renders the shared activity stream — contiguous `app_usage` windows roll into **应用会话 (约 Xh, N 应用)** rows (tap to expand apps sorted by minutes); steps rows with value 0 / no change are hidden.
-- **Verified (2026-10-16)**: build/typecheck green; grouping via `buildActivityStream` (device check pending).
-- **Remaining**: owner device check.
-
-### [P1-34] Summary counter unification (ES-007 §4 completion)
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-009 §2; ES-007 §4
-- **Impl**: History 概要 top line now shows **habit counts** only — 起床 · 入睡 · 喝水 x/6 · 起身 x/8 · 维生素. The `提醒 0/N` counter is removed from the summary and moved to a collapsed **提醒记录 (audit)** subsection.
-- **Verified (2026-10-16)**: build/typecheck green; 概要 built from stored summary habit counts (device check pending).
-- **Remaining**: owner device check.
-
----
-
-### [P1-37] Note language bug on web
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-012 §1 · **Opened**: 2026-10-16
-- **Reproduction (logged first)**: all 5 stored notes are **Latin-only** (0 CJK/JP/KR). Owner note #349: *"The switch language does not work."* → the on-device keyboard/IME cannot switch to Chinese while composing in the PWA. Exact browser + steps still needed from the owner (ES-012 §1 checklist); no device here.
-- **Ranked causes** (ES-012 §1): inputMode/autoComplete · missing CJK glyphs · controlled-input composition · PWA standalone IME.
-- **Fix applied (defensive, addresses #1/#3)**: note textarea + chat input set `lang="zh-CN"`, `inputMode="text"`, `autoComplete/autoCorrect/autoCapitalize="off"`, `spellCheck={false}`, `onCompositionEnd` sync.
-- **Verified (2026-10-16)**: build/typecheck green; note + chat inputs updated. Owner device verification pending on the failing browser.
-- **Remaining**: owner verifies on the failing browser; if still broken, test browser (non-standalone) vs installed PWA to isolate cause #4.
-
-### [P1-36] 元婴 self-diagnostic response
-
-- **Status**: In Review · **Category**: Bug (voice) + Feature (provenance) · **Refs**: ES-011
-- **Voice**: `core/voice.md` gains "When something is wrong" (query own data → state what you see → what you cannot see → propose **one** direction; never a menu / never "你确认一下").
-- **Provenance**: steps signal logs `source`, `window_start`, `window_end`, `aggregation`, `raw_value` (ES-011 §3); the chat prompt now receives steps provenance so 元婴 can state it.
-- **Governance**: `AGENTS.md` §5.1 bullet 7 (signal provenance) + **v1.6**.
-- **Verified (2026-10-16)**: `core/voice.md` + `AGENTS.md` v1.6 committed; collector **v1.0.22 (code 23)** Play internal `completed` (provenance fields). Owner to confirm a discrepancy reply follows §4.
-- **Remaining**: owner confirms a discrepancy reply follows §4 (no menu).
-
-### [P1-38] Note tags — auto-derived, visible, editable
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §2
-- **Impl**: `lib/tags.ts` extractor (open vocabulary — words from the note + existing tags; no model call). Tags stored in note `value.tags` on save; shown under the note (home 今天 stream + History detail); editable (remove ×, add ＋); History search matches text **or** tag (`/api/history/search`); `PATCH /api/note/[id]`.
-- **Verified (2026-10-16)**: prod `/api/note` extracts + stores tags; History search matches text **or** tag. Device check pending.
-- **Remaining**: owner device check; tag autocomplete is a simple prompt for now.
-
-### [P1-39] Feedback loop — notes → PM inbox
-
-- **Status**: In Review · **Category**: Feature · **Refs**: ES-012 §3
-- **Impl**: `value.feedback` flag; heuristic proposal on likely-feedback notes ("这像反馈，标记?"); **Feedback Inbox** page `/feedback` (small link on home, not a new tab); [promote] sets `value.promoted`, [dismiss] clears the flag (`PATCH /api/note/[id]`); `npm run inbox` drafts `docs/pm/inbox/YYYY-MM-DD.md`. One-way owner → dev; **never** writes TRACKING.
-- **Verified (2026-10-16)**: `/feedback` (200) + `/api/feedback` (`{items:[]}`) live; `npm run inbox` runs (no promoted notes yet). Device check pending.
-- **Remaining**: owner device check; weekly promote review.
-
-### [P1-35] AI session capture — manual + folder (v1)
-
-- **Status**: In Progress · **Category**: Feature · **Refs**: ES-010
-- **Impl**: PWA `share_target` (`/import`, GET title/text/url prefill) + `POST /api/sessions` (stores a `session` signal with auto-tags); desktop folder import via `npm run import` normalizes `~/yuanying/imports/conversations/*.md` into `core/memory/conversations/YYYY-MM-DD-<slug>.md` (standard record format, ES-010 §5).
-- **Verified (2026-10-16)**: `/import` (200) + `/api/sessions` (`{sessions:[]}`) live; `npm run import` normalizes the folder into `core/memory/conversations/`. Device check of the share sheet pending.
-- **Remaining**: surface the standard export prompt in-app (ES-010 §4); wire topic-tag retrieval into the chat session (ES-010 §7); owner device check of the share sheet.
-
----
-
-### [P1-40] Habits bugfix — standup cadence, vitamin time, action recording, tracking list
-
-- **Status**: In Review · **Category**: Bug · **Refs**: owner report 2026-10-16 · **Opened**: 2026-10-16
-- **Report**: (1) no hourly standup; (2) water reminder 喝了 didn't add water; (3) missed 08:30 vitamin; (4) no place to track 起身/维生素.
-- **Diagnosis**:
-  - standup rule was interval **120 min + idle-gated** → not hourly.
-  - `acted = 0` for **all** reminders over 3 days: the notification action never recorded the habit (no `water`/`standup`/`vitamin` action signal existed).
-  - vitamin fired via the **Vercel cron** at Beijing 08:30 (= 00:30 UTC = 20:30 EDT); `fireDueReminders` hardcodes `Asia/Shanghai`, so local 08:30 never fired.
-- **Fix**: standup → interval **60**, window 09:00–18:00, condition `always` (migration 011); `/api/reminder/act` records the **habit action** (water/standup +1, vitamin done) — collector sends the habit name; removed the **Vercel vitamin cron** (`vercel.json` `crons: []`); daily cap 6 → **14**; home **tracking list** adds tappable **起身 N/8** and **维生素 ✓/--** (schema `v4_signal_name`).
-- **Doc**: `core/habits.md` (loaded into the prompt) + `docs/habits-tracking.md` so 元婴 can explain each habit.
-- **Deploy**: collector **v1.0.23 (code 24)** + web.
-- **Refinement (2026-10-16)**: notification buttons only record + dismiss (no app-open); **vitamin** → hourly (07:00–22:00) **until confirmed**, then stops that day (migration 012); all reminders bounded to **wake time** (outside quiet window); daily cap 30. Collector **v1.0.24 (code 25)**.
-- **Bug (2026-10-16)**: buttons did nothing (notification stayed; vitamin unchecked). Cause: `ReminderActionReceiver.onReceive` ran the synchronous OkHttp POST on the **main thread** → `NetworkOnMainThreadException` (silently caught), and `setAutoCancel` does not dismiss on **action-button** taps. Fix: explicit `NotificationManagerCompat.cancel(notif_id)` + `goAsync()`/worker thread for the POST; fallback to `/api/signal` when the reminder row is missing. Collector **v1.0.25 (code 26)**.
-- **Verified (2026-10-16)**: standup `interval 60 / 09:00–18:00 / always`; vitamin `interval 60 / 07:00–22:00 / count_below_target 1`; Vercel crons removed; homepage 200 with 起身/维生素 tracking; reminder-button fix released as collector **v1.0.25 (code 26)** — Play internal `completed`, CI build green.
-- **Remaining**: owner device check (hourly standup, hourly vitamin-until-done, 喝了/起身了 updates + dismiss).
-
----
 
 ### [P1-51] Fenshen architecture — Core State + configurable interfaces (ES-013)
 
@@ -860,19 +1056,6 @@
 
 ---
 
-### [P1-41] Android notification action → signal write
-
-- **Status**: In Review · **Category**: Bug · **Refs**: ES-007 §4 / P1-40 follow-up · **Opened**: 2026-10-17
-- **Report**: tapping **起身了** on an Android reminder writes no `standup` signal (the reminder row exists, no signal). Same check for **喝了** (water).
-- **Root cause (confirmed)**: `signals_source_check` allowed only `manual/usagestats/activitywatch/passive/inferred` — **not `reminder`**. Every reminder-originated signal insert was rejected (and swallowed). (`share`/`import` for session capture were rejected too.)
-- **Secondary**: the action path leaned on the server to write the habit signal; `/api/signal` hardcoded `source='manual'`.
-- **Fix**: `ReminderActionReceiver` now calls `POST /api/signal {name, source:'reminder'}` on **acted** (water/standup/vitamin) and `POST /api/reminder/act` for bookkeeping; `/api/signal` accepts `source` (`manual`/`reminder`/`passive`); `/api/reminder/act` no longer writes a habit signal (avoids double counting) — it only records `reminder_acted` + `acted_at`. Summary/home count from the habit signal alone.
-- **Acceptance**: action button → new `signals` row with `source='reminder'`; summary count updates.
-- **DB fix**: migration 014 extends `signals_source_check` to include `reminder`, `share`, `import`.
-- **Verified (2026-10-17, prod)**: `POST /api/signal {name:'brief_wake', source:'reminder'}` → row `id=448, source='reminder'` (test row deleted).
-- **Deploy**: collector **v1.0.26 (code 27)** + web — Play internal `completed` (code 27), CI build green.
-
----
 
 ### [P1-42] Feedback forwarding — GitHub issues + clipboard (ES-014)
 
@@ -887,6 +1070,7 @@
 
 ---
 
+
 ### [P1-43] System self-awareness + feedback UI (ES-015)
 
 - **Status**: In Review · **Category**: Bug (UI) + Feature (AI Self-Awareness) · **Refs**: ES-015 · **Opened**: 2026-10-17
@@ -897,6 +1081,7 @@
 
 ---
 
+
 ### [P1-45] Feedback loop fix + AI self-awareness (ES-016)
 
 - **Status**: In Review · **Category**: Bug (Integration) + Feature (AI Manifest) · **Refs**: ES-016 · **Opened**: 2026-10-17
@@ -905,6 +1090,7 @@
 - **Remaining**: owner device check.
 
 ---
+
 
 ### [P1-46] Explicit GitHub integration + UI naming (ES-017)
 
@@ -916,6 +1102,7 @@
 - **Remaining**: owner device check (Push to GitHub button).
 
 ---
+
 
 ### [P1-50] Feedback status & inbox commit (ES-018)
 
@@ -929,6 +1116,7 @@
 
 ---
 
+
 ### [P1-47] Direct message feedback — chat message actions (ES-019)
 
 - **Status**: In Review · **Category**: Feature · **Refs**: ES-019 · **Opened**: 2026-10-17
@@ -938,24 +1126,145 @@
 
 ---
 
-### [P1-48] Daily summary context & tone (ES-020)
 
-- **Status**: In Review · **Category**: Bug (prompt/logic) + Feature · **Refs**: ES-020 · **Opened**: 2026-10-18
-- **Impl**: `SummaryData` gains `conversations`; `generateSummary` reads `core/memory/conversations/<date>-*.md` (Decisions section) and keeps the day's notes. The chat prompt renders **Owner's Notes** + **AI Conversations** first and numbers as secondary context. Base prompt adds a **Daily Summaries** rule (no unsolicited health advice; reflect inner state; "No notes yesterday." when empty).
-- **Verified (2026-10-18, prod)**: `/api/summary/generate {date:2026-10-16}` returns `conversations: 1` (AI Capture & Feedback Loop, Decisions excerpt) + notes. Asking "summarize yesterday" led with the owner's notes/project context (feedback flow, Save to Inbox, steps, lost messages), numbers last, no health advice.
-- **Remaining**: owner check.
+### [P1-59] Open issue triage — push_to_dev, signal semantics, timezone, IME (#21–#25)
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling/Data/Voice) · **Refs**: Issues #21, #22, #23, #24, #25
+- **#21 / #24 — push_to_dev false success**:
+  - `lib/github.ts` now reads the created issue back with `GET /repos/{repo}/issues/{number}` before returning success; a missing/mismatched issue throws.
+  - `app/api/chat/route.ts` persists a deterministic success/failure message from the verified tool result, not a model-composed URL.
+  - `core/system-manifest.md` says a read-back-verified success is authoritative even after past failures.
+  - Verified locally: created test issue **#26** via `push_to_dev`, read-back matched, issue closed, test chat messages removed.
+- **#22 — app_usage / standup semantics**:
+  - `core/habits.md` + `docs/habits-tracking.md` now state: `app_usage` is foreground-only and not proof of being awake; `standup.source` distinguishes `manual` vs `reminder`; `reminder_acted` is bookkeeping, not a second count; standup is a check-in, not proof of physical movement.
+- **#23 — vitamin time mismatch**:
+  - RCA: signal `id=715` is `2026-10-20T11:51:02Z` = 07:51 America/New_York (UI) and 19:51 Asia/Shanghai (old prompt formatter). The reminder row was scheduled/shown/acted at 11:50:58–11:51:03Z; there was no hidden 07:51 record and no backfill code.
+  - Fix: `lib/yuanying.ts` now formats signal/reminder times in `config.timezone` instead of hardcoded `Asia/Shanghai`.
+- **#24 — input language / IME**:
+  - Chat input now ignores Enter while composing (`composition` + `isComposing` + keyCode 229) and no longer forces `lang="zh-CN"`; same forced-language removal in note/import inputs.
+- **#25 — comment tool**:
+  - Manual comparison comment added to #24; no new autonomous comment tool was added.
+- **Verification**: `tsc`, lint, build pass. Remaining: deploy and owner confirmation on the phone.
 
 ---
 
-### [P1-49] Agentic tools — function calling (ES-021)
 
-- **Status**: In Review · **Category**: Feature (Architecture) · **Refs**: ES-021 · **Opened**: 2026-10-18
-- **Impl**: DeepSeek calls now include `tools` (`get_notes`, `get_conversation_records`, `get_summary`) with a bounded tool loop (3 rounds, 20s/call); the backend executes Supabase/filesystem queries and feeds results back. Manifest gains a **Tools (法术)** section.
-- **Verified (2026-10-18, prod)**: "昨天我写了什么笔记？" → `get_notes` returned the 9 Oct-17 notes; "Fenshen 是怎么决定的？" → `get_conversation_records` returned the ES-013 decisions (Core vs Interface, shared memory, no-deploy). (Earlier misses were deploy lag + model anchoring; a forced tool call listed ES-013.)
-- **Extended by**: P1-53 / ES-022 (`push_to_dev`; shared GitHub helper).
-- **Remaining**: owner check.
+## To Do
 
----
+### [P2-15] Data portability dry run (ES-034)
+
+- **Status**: To Do (2026-10-19) · **Category**: Chore (Infrastructure Verification) · **Refs**: ES-034, ES-031 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-034-data-portability-dry-run.md`.
+- **Label note**: the handoff requested **P2-10**, but P2-10 is the completed Phase C visual-polish item; renumbered to **P2-15**.
+- **Depends on**: P2-14 (weekly SQL snapshot).
+- **Acceptance**:
+  - [ ] SQL dump imports into local Docker/Neon Postgres.
+  - [ ] App reads/writes without Supabase when `DATABASE_URL` is set.
+  - [ ] Migration completes in under 1 hour.
+
+
+### [P2-16] Capability expansion — commitments, drafts, deep memory, external reader (ES-032)
+
+- **Status**: To Do (2026-10-19) · **Category**: Feature (Tooling & Background Tasks) · **Refs**: ES-032 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-032-capability-expansion.md`.
+- **Priority**: Medium; schedule after Phase C UI.
+- **Boundary**: confirm before sending; no autonomous external actions.
+- **Depends on**: P1-09 (collector notifications), ES-030 (external reader), an embedding model for pgvector.
+
+
+### [P2-17] Legacy data ingestion — Stalio & Blinking Notes (ES-033)
+
+- **Status**: To Do (2026-10-19) · **Category**: Feature (Data Migration) · **Refs**: ES-033, ES-030, ES-002 · **Opened**: 2026-10-19
+- **Spec**: `docs/specs/ES-033-legacy-data-ingestion.md`.
+- **Boundary**: no new UI; use `scripts/` with `npm run import:legacy`, idempotent batches, provenance in `context`.
+- **Depends on**: owner-provided export formats/samples.
+
+
+## Blocked
+
+_(none — P1-22 was dropped by owner decision on 2026-10-21; see Won't Do.)_
+
+## Done
+
+### [P2-06] Phase C — Home restructure (ES-026)
+
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Spec**: `docs/specs/ES-026-phase-c-ui-restructure.md`.
+- **Label note**: the handoff requested P2-01..P2-05, but those IDs are the Opinions items; Phase C uses P2-06..P2-10.
+- **Impl**: active Fenshen avatar/name from `/api/fenshen` (tap opens Settings); five core habits in `components/HabitGrid.tsx`; steps debug modal preserved; today-only activity/chat.
+- **Acceptance**:
+  - [x] Home shows today only; empty state present.
+  - [x] Five habits in one compact grid; no new capture surface.
+  - [x] Fenshen avatar opens Settings; fallback avatar/name works.
+
+
+### [P2-07] Phase C — History restructure (ES-026)
+
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: day list now shows water/standup/steps; detail adds full notes + tags and AI conversation excerpts; raw activity and chat log remain.
+- **Acceptance**:
+  - [x] Day list + tap-to-detail.
+  - [x] Full notes and tags visible in detail.
+  - [x] Standup count included in the day aggregation.
+
+
+### [P2-08] Phase C — Chat message actions (ES-026)
+
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026, ES-019 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: `⋮` menu keeps Push to GitHub / Save to Inbox / Copy; Push shows a spinner then `Issue #N`; Save persists `metadata.inbox_path` and shows **Saved to Inbox**.
+- **Acceptance**:
+  - [x] `⋮` menu actions wired.
+  - [x] Push spinner + issue link.
+  - [x] Save to Inbox badge persists via message metadata.
+
+
+### [P2-09] Phase C — Tool-loading state (ES-026)
+
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: chat shows a spinner + context-aware status bubble while a tool-requiring message is in flight. Client-side intent hint, not a server tool trace.
+- **Acceptance**:
+  - [x] Visible loading state while waiting.
+  - [x] Does not claim a tool result before the reply arrives.
+
+
+### [P2-10] Phase C — Visual polish (ES-026)
+
+- **Status**: Done (2026-10-18) · **Category**: Feature (UI/UX) · **Refs**: ES-026 · **Opened**: 2026-10-18
+- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/17
+- **Impl**: subtle `fade-in` for chat messages; breathing Fenshen avatar; `prefers-reduced-motion` fallback; stone/green palette.
+- **Acceptance**:
+  - [x] Fade-in and breathing animations.
+  - [x] Reduced-motion fallback.
+- **Verified (2026-10-18, prod, PR #17, deploy run `39153665136`)**: home bundle contains the five habit labels and Saved-to-Inbox strings; `/api/history/days` returns `standup` (e.g., 2026-10-17: water 4, standup 6); CSS contains `fadeIn`, `breathe`, and the reduced-motion rule.
+
+
+### [P2-22] ZIP top-level truncation semantics (#39)
+
+- **Status**: Done (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issue #39, ES-038 · **Opened**: 2026-10-20
+- **Fix**: top-level ZIP `truncated` now means "at least one entry was truncated or skipped", with explicit `truncated_entries` and `skipped_entries` arrays. Per-file `meta.truncated` remains authoritative.
+- **Verified (2026-10-20, production)**: ZIP with truncated `entries.csv` + complete `routines.csv` returns top-level `truncated:true`, `truncated_entries:["entries.csv"]`, `skipped_entries:[]`, while `routines.csv` has `truncated:false` (56/56).
+
+
+### [P2-29] Automated regression tests for ES-039/043–047
+
+- **Status**: Done (2026-10-21) · **Category**: Chore (Testing) · **Refs**: ES-039, ES-043–ES-047 · **Opened**: 2026-10-21
+- **Impl**: `npm test` (Node test runner), 23 tests across CSV/JSON/ZIP parsers, GitHub read-back, SSE data parts/504, `write_markdown`, scheduler timezones, prompt/SW/manifest regression guards.
+- **CI**: `.github/workflows/tests.yml` runs tests + lint + typecheck on push/PR.
+- **Runbook**: `docs/runbooks/tests.md`.
+- **Verified (2026-10-21)**: 23/23 tests pass locally; GitHub Actions **Tests** run `39612470879` green; web deploy run `39612470889` green.
+
+
+### [P3-03] PWA version awareness + SW update (ES-050)
+
+- **Status**: Done (2026-10-21) · **Category**: Bug (Self-Awareness / Update) · **Refs**: ES-050 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-050-pwa-version-awareness.md`.
+- **Impl**: `next.config.mjs` injects `NEXT_PUBLIC_APP_VERSION`; Settings shows PWA version; runtime Body Status distinguishes LLM/PWA/Collector; SW update prompt + cache v4; `/api/health` no-store alias; Settings uses no-store.
+- **Verified (2026-10-21, production)**: `/sw.js` is v4; `/api/health` returns `Cache-Control: no-store`; “你是什么版本？” answered PWA v0.1.0, LLM deepseek-chat, collector v1.0.29 (latest v1.0.30 available). Web deploy + tests green. **Acceptance**: [x] PWA version injection; [x] version answer context; [x] SW prompt; [x] collector status no-store; [ ] owner phone/Mac update-prompt check.
+
 
 ### [P1-52] Force proactive tool use (ES-021b)
 
@@ -969,6 +1278,7 @@
   - [x] 元婴 stops giving shallow answers when deep context exists in the DB.
 
 ---
+
 
 ### [P1-53] Phase 1 agentic tools (ES-022)
 
@@ -1003,6 +1313,7 @@
 
 ---
 
+
 ### [P1-54] Feedback lifecycle & copy/send separation (ES-023, issue #14)
 
 - **Status**: Done (2026-10-18) · **Category**: Bug (UI/Architecture) + Documentation · **Refs**: Issue #14, ES-023, ES-024 (merged) · **Opened**: 2026-10-18
@@ -1029,6 +1340,7 @@
 
 ---
 
+
 ### [P1-55] Steps source merge logic + debug view (ES-025)
 
 - **Status**: Done (2026-10-18) · **Category**: Bug (Diagnostics) + Feature (Debug UI) · **Refs**: Issue #8, Issue #15 · **Opened**: 2026-10-18
@@ -1051,6 +1363,7 @@
 
 ---
 
+
 ### [P1-56] push_to_dev root cause + observability (issue #16)
 
 - **Status**: Done (2026-10-18) · **Category**: Bug (Diagnostics/Observability) · **Refs**: Issue #16, P1-53 · **Opened**: 2026-10-18
@@ -1071,195 +1384,20 @@
 
 ---
 
-### [P1-58] Prevent false behavioral judgments from missing data (ES-028)
-
-- **Status**: In Review (2026-10-19) · **Category**: Bug (Prompt/Logic) · **Refs**: ES-028 · **Opened**: 2026-10-19
-- **PR**: https://github.com/gmyky57ndd-dev/yuanying/pull/19
-- **Report**: phone steps dropped to 600 while charging; Xiaowu said "you barely moved today", ignoring 4120 watch steps.
-- **Impl**: added `## Rule: Context before Judgment` to `core/fenshen/xiaowu/profile.md` and `core/system-manifest.md`. `lib/yuanying.ts` now loads an optional `core/fenshen/<id>/profile.md` for the active Fenshen, so the rule reaches the runtime prompt.
-- **Acceptance**:
-  - [x] Rule requires checking source/window before any behavioral judgment.
-  - [x] Rule requires "I see [number] from [source]" instead of judging.
-  - [ ] Owner verifies Xiaowu does not say "you barely moved" / "you need to walk more" with partial data.
-- **Note**: `core/voice.md` still has the example `Steps: 0/5000 → 今天还没动。`, which conflicts with this rule. Left unchanged because ES-028 does not include `voice.md` in its scope; recommend a follow-up.
-
----
-
-### [P1-60] Drive MIME fallback + web search backend errors (#31/#33)
-
-- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling) · **Refs**: Issues #31, #33, ES-035, ES-036
-- **#31 — `get_drive_doc` rejected `*/*`**:
-  - RCA: file `1o5WgYgzSmtjq9sU-eQHIWR8Nt0gAjXvQ` is
-    `stalio_export_csv_1792519528276.zip`; Drive returned `mimeType:"*/*"` and
-    the strict MIME classifier rejected it. It is a ZIP, not a CSV.
-  - Fix: infer MIME from `.csv/.json/.zip/.md/.txt` when MIME is empty,
-    `*/*`, or `application/octet-stream`; log raw `{id,name,mimeType,size}`;
-    store `effective_mime_type`; include raw MIME/name in unsupported errors.
-  - Verified locally: the file now classifies as `zip`, lists `entries.csv` /
-    `routines.csv`, and returns content.
-- **#33 — web_search all backends failed**:
-  - RCA: direct DuckDuckGo returns 403 from Vercel; Tavily had no key.
-  - Fix: Jina Reader/DDG fallback (already deployed) + aggregated structured
-    error listing every backend and status.
-  - Verified locally: simulated all-403 → `All web search backends failed:
-    tavily: not configured; duckduckgo: ...403; jina/duckduckgo: ...403`.
-  - Production: `web_search` returns results and cited URLs.
-- **Acceptance**:
-  - [x] `*/*` CSV/ZIP file imports via extension fallback.
-  - [x] Raw MIME/name logging is present.
-  - [x] Web search has a working serverless fallback.
-  - [x] All-failure error names each backend and status.
-  - [ ] Deploy + owner retest of the two original files/questions.
-
-### [P1-59] Open issue triage — push_to_dev, signal semantics, timezone, IME (#21–#25)
-
-- **Status**: In Review (2026-10-20) · **Category**: Bug (Tooling/Data/Voice) · **Refs**: Issues #21, #22, #23, #24, #25
-- **#21 / #24 — push_to_dev false success**:
-  - `lib/github.ts` now reads the created issue back with `GET /repos/{repo}/issues/{number}` before returning success; a missing/mismatched issue throws.
-  - `app/api/chat/route.ts` persists a deterministic success/failure message from the verified tool result, not a model-composed URL.
-  - `core/system-manifest.md` says a read-back-verified success is authoritative even after past failures.
-  - Verified locally: created test issue **#26** via `push_to_dev`, read-back matched, issue closed, test chat messages removed.
-- **#22 — app_usage / standup semantics**:
-  - `core/habits.md` + `docs/habits-tracking.md` now state: `app_usage` is foreground-only and not proof of being awake; `standup.source` distinguishes `manual` vs `reminder`; `reminder_acted` is bookkeeping, not a second count; standup is a check-in, not proof of physical movement.
-- **#23 — vitamin time mismatch**:
-  - RCA: signal `id=715` is `2026-10-20T11:51:02Z` = 07:51 America/New_York (UI) and 19:51 Asia/Shanghai (old prompt formatter). The reminder row was scheduled/shown/acted at 11:50:58–11:51:03Z; there was no hidden 07:51 record and no backfill code.
-  - Fix: `lib/yuanying.ts` now formats signal/reminder times in `config.timezone` instead of hardcoded `Asia/Shanghai`.
-- **#24 — input language / IME**:
-  - Chat input now ignores Enter while composing (`composition` + `isComposing` + keyCode 229) and no longer forces `lang="zh-CN"`; same forced-language removal in note/import inputs.
-- **#25 — comment tool**:
-  - Manual comparison comment added to #24; no new autonomous comment tool was added.
-- **Verification**: `tsc`, lint, build pass. Remaining: deploy and owner confirmation on the phone.
-
----
-
-## To Do
-
-_(ES-008/ES-009 home + history work is in review; no open To Do items.)_
-
-### [P2-15] Data portability dry run (ES-034)
-
-- **Status**: To Do (2026-10-19) · **Category**: Chore (Infrastructure Verification) · **Refs**: ES-034, ES-031 · **Opened**: 2026-10-19
-- **Spec**: `docs/specs/ES-034-data-portability-dry-run.md`.
-- **Label note**: the handoff requested **P2-10**, but P2-10 is the completed Phase C visual-polish item; renumbered to **P2-15**.
-- **Depends on**: P2-14 (weekly SQL snapshot).
-- **Acceptance**:
-  - [ ] SQL dump imports into local Docker/Neon Postgres.
-  - [ ] App reads/writes without Supabase when `DATABASE_URL` is set.
-  - [ ] Migration completes in under 1 hour.
-
-### [P2-16] Capability expansion — commitments, drafts, deep memory, external reader (ES-032)
-
-- **Status**: To Do (2026-10-19) · **Category**: Feature (Tooling & Background Tasks) · **Refs**: ES-032 · **Opened**: 2026-10-19
-- **Spec**: `docs/specs/ES-032-capability-expansion.md`.
-- **Priority**: Medium; schedule after Phase C UI.
-- **Boundary**: confirm before sending; no autonomous external actions.
-- **Depends on**: P1-09 (collector notifications), ES-030 (external reader), an embedding model for pgvector.
-
-### [P2-17] Legacy data ingestion — Stalio & Blinking Notes (ES-033)
-
-- **Status**: To Do (2026-10-19) · **Category**: Feature (Data Migration) · **Refs**: ES-033, ES-030, ES-002 · **Opened**: 2026-10-19
-- **Spec**: `docs/specs/ES-033-legacy-data-ingestion.md`.
-- **Boundary**: no new UI; use `scripts/` with `npm run import:legacy`, idempotent batches, provenance in `context`.
-- **Depends on**: owner-provided export formats/samples.
-
-### [B-19] Date/reminder windows use fixed Asia/Shanghai, not the phone timezone `[BUG]`
-
-- **Status**: In Review · **Phase**: P0 · **Opened**: 2026-10-15 · **Refs** AGENTS §2.1/§6; commit `bc4aa12`
-- **Description**: Date boundaries and reminder windows are computed in a hardcoded `Asia/Shanghai` (collector `ReminderScheduler` TZ constant, `lib/timezone.ts` default, `config.timezone` default). On a phone whose location/timezone is not Beijing, the reminder windows map to the wrong local time and notifications fire during the user's sleeping hours.
-- **Observed**: a reminder notification fired during sleeping time.
-- **Fix (implemented)**: collector uses the **device timezone** (`TimeZone.getDefault()`) and is the **primary writer** of `config.timezone` (each hourly run); the PWA writes only on a **>1h mismatch** (exception). Added **quiet window 22:00–07:00** (`config.quiet_window`) — reminders suppressed, no backfill (ES-001 §3 / owner D5).
-- **Acceptance**:
-  - [x] Reminders evaluated in the device timezone
-  - [x] No notifications during the quiet window (no backfill)
-  - [x] `config.timezone` reflects the device timezone (collector primary)
-  - [ ] Owner device verification (collector v1.0.11)
-- **Notes**: Not a duplicate of B-16 (B-16 scoped daily counts to a *configured* tz; this makes that tz the device's). Collector **v1.0.11** (code 12) pending Play upload + device check.
-
-### [P1-15] Review & optimize self-upgrade
-
-- **Status**: In Progress
-- **Owner**: @agent
-- **Opened**: 2026-10-14
-- **Phase**: P1
-- **Refs**: AGENTS §4.4/§4.7; `docs/runbooks/self-upgrade.md`
-- **Description**: Dedicated session to review and optimize the two self-upgrade planes end-to-end and make them robust:
-  - **PWA**: GitHub Actions → `vercel deploy --prod` (currently works; token is a reused CLI OAuth token — move to a dedicated no-expiration token; add failure alerting).
-  - **Collector**: Play auto-update vs. in-app `AppUpdateManager`; ensure the release pipeline (`v*` tag → signed AAB → Play track) is automated.
-- **Acceptance**:
-  - [x] Deploy loop verified from a clean state; failures surface
-  - [x] Dedicated `VERCEL_TOKEN` (no expiration) with rotation note — **done 2026-10-18**: project-scoped token stored as the GitHub Actions secret; deploy run `39140374327` green. Rotate/revoke at https://vercel.com/account/tokens if exposed.
-  - [x] Play upload automated (service account) OR documented manual fallback — **verified**: v1.0.14 release uploaded to Play internal (draft); workflow gated on `PLAY_SERVICE_ACCOUNT_JSON`
-  - [x] A short runbook in `docs/` — `docs/runbooks/self-upgrade.md`
-- **Notes**: **Dedicated session** — do not fold into other work. **Scheduled 2026-10-15** (owner: run the manual process one more day). **Interim (owner, 2026-10-14):** use web auto-deployment (`deploy.yml`) for the PWA and **manual AAB upload to Google Play** for the collector until this session. **Observation 2026-10-15:** the Vercel Git integration is auto-deploying on push again (independent of CI); the CI `VERCEL_TOKEN` (reused CLI OAuth) rotated and was refreshed — a dedicated no-expiration token is still required. **Token update (2026-10-18):** replaced it with a dedicated project-scoped token; CI deploy is green.
-- **Bug fix (2026-10-16)** — *Play internal never updated past 1.0.9*:
-  - **Report**: owner saw the Play Store internal list still on **1.0.9**.
-  - **Diagnosis** (Play Developer API, `internal` track): `status=draft versionCodes=18` (the latest draft) alongside `status=completed versionCodes=10` (1.0.9). Every upload since 1.0.9 was a **draft**, which is never rolled out → testers stayed on 1.0.9.
-  - **Root cause**: `android-release.yml` uploaded with `status: draft`.
-  - **Fix**: upload with `status: completed`; made the GitHub Release step idempotent; fixed tag resolution for `workflow_dispatch`. Collector **v1.0.18 (code 19)**.
-  - **Verified (2026-10-16)**: release run `38941378463` green; Play `internal` now `status=completed name=1.0.18 versionCodes=19`.
-  - **Remaining**: owner confirms the phone updates 1.0.9 → 1.0.18 via Play internal.
-- **Feature (2026-10-16)** — *in-app update link*: collector home adds an **更新到最新版** button that opens the Play internal-testing page (`https://play.google.com/apps/internaltest/4701496216557819136`), so the owner can pull the latest build when the store shows no update. Collector **v1.0.19 (code 20)**. **In Review** (device verify pending).
-
----
-
-## Blocked
-
-### [P1-22] Wake detection — brief_wake vs wake
-
-- **Status**: Blocked · **Category**: Bug · **Refs**: ES-007 §2 · **Opened**: 2026-10-16
-- **Done**: `brief_wake` added to the signal-name constraint (`v3_signal_name`, migration `010_brief_wake.sql`) and to `/api/signal` accepted names; summaries count only `wake` (brief_wake excluded).
-- **Blocker**: §2 requires inferring brief-wake vs wake from an unlock/brief-wake signal and prompting once per night. The app has **no unlock/brief-wake detection source** (no unlock-access permission; HealthConnect does not expose it). Needs an owner decision on the detection source.
-- **Unblocker**: approve a detection source (or drop the auto-prompt and keep brief_wake as a manual/collector-only signal).
-
-### [P0-05] API authentication (ES-004)
-
-- **Status**: In Progress · **Phase**: P0 · **Opened**: 2026-10-15
-- **Refs**: `docs/specs/ES-004-api-authentication.md` (approved 2026-10-15)
-- **Description**: Global API access control. PWA = owner password → **httpOnly session cookie (30 days, refreshed on use)**; collector = bearer token; `/api/cron/*` keeps `CRON_SECRET`.
-- **Sub-tasks**:
-  - [x] **Logging phase** (§3.1) — live 2026-10-15; `auth_events` populated (`would_401` recorded, `enforced=false`).
-  - [ ] **Enforce phase** — set `AUTH_ENFORCE=true` after the grace (target ~2026-10-22), once legitimate clients show `would_401=false`.
-  - [x] PWA session cookie (30d, refreshed on use) + collector bearer (baked build-time).
-- **Notes**: Priority #2. Grace started **2026-10-15** → enforce on/after **2026-10-22**. `OWNER_PASSWORD`/`API_TOKEN`/`SESSION_SECRET`/`IP_SALT` set in Vercel + `.env.local` (values not recorded here). ES-001 v1.1 write endpoints depend on this.
-
-### [P1-13] Daily notes
-
-- **Status**: In Review · **Phase**: P1 · **Opened**: 2026-10-14 · **Refs** `docs/specs/ES-002-daily-notes.md` (approved 2026-10-15); commit `4527ecc`
-- **Description**: "记一笔" text note (voice transcribed at input; text only); notes stored as signals and integrated into the summary.
-- **Acceptance**:
-  - [x] `note` accepted (migration) + server validation (empty / >2000 rejected)
-  - [x] Content never logged
-  - [x] PWA 记一笔 editor + count + today's list; mic hidden if unsupported (A1)
-  - [x] Summary `notes {count, ≤10 excerpts ≤200}`; prompt labeling block (A2)
-  - [ ] Owner device verification
-- **Notes**: Verified in production (valid / empty / long; summary includes the note). Deletion UI deferred to **P2-01**.
-
-### [P1-14] Tracking visibility
-
-- **Status**: In Review · **Phase**: P1 · **Opened**: 2026-10-14 · **Refs** `docs/specs/ES-003-tracking-visibility.md` (approved 2026-10-15); commit `4036521`
-- **Description**: Home “今天” transparency panel (collapsible): 自动 / 手动 / 提醒, counts only.
-- **Acceptance**:
-  - [x] Collapsed one-line summary `今天 ▸ 自动 n · 手动 n · 提醒 n` (B1)
-  - [x] Rows count only (no app names) (B2)
-  - [x] Tap a row → prefilled editable chat; send stays explicit (no auto model call)
-  - [x] Reads `/api/summary/today`; refreshes after log/note/chat
-  - [ ] Owner device verification
-- **Notes**: Added `apps_used` to the summary; cached-summary now regenerates on schema drift. Depends on B-17 (fixed).
-
----
-
-## Done
 
 ### [P0-00] Fix PWA not loading after install
 - **Status**: Done · **Closed**: 2026-03-17 · **Notes**: Reinforced by SW v2 (network-first).
 
+
 ### [P0-00b] Android collector permission working
 - **Status**: Done · **Closed**: 2026-03-17.
+
 
 ### [F3] Collector data flow verified (audit)
 - **Status**: Done · **Closed**: 2026-10-14 · **Notes**: 11 hourly batches, 161+ `app_usage` rows confirmed.
 
 ---
+
 
 ## Backlog
 
@@ -1275,20 +1413,64 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 
 ---
 
+
 ## Won't Do
+
+### [P1-22] Wake detection — brief_wake vs wake
+- **Status**: Won't Do (2026-10-21, owner decision) · **Category**: Won't Do · **Refs**: ES-007 §2 · **Opened**: 2026-10-16
+
+- **Done**: `brief_wake` added to the signal-name constraint (`v3_signal_name`, migration `010_brief_wake.sql`) and to `/api/signal` accepted names; summaries count only `wake` (brief_wake excluded).
+- **Decision (2026-10-21, owner)**: **dropped.** Passive wake detection has no reliable source (no unlock permission, HealthConnect does not expose it) and false positives are worse than a missing prompt. Wake/sleep revert to the manual PWA buttons.
+- **Retained**: the `brief_wake` signal name stays in the constraint for historical rows; nothing auto-infers it. No further work unless the owner reopens detection.
+
 
 ### [P1-02] Reminder cron endpoints
 - **Reason**: Replaced by P1-09 (collector owns generation + delivery). External cron and Vercel Pro explicitly rejected (`docs/Dev Response 1014.md` §2.1, §5).
 - **Closed**: 2026-10-14
 
+
 ### [W-01] Habit tracking UI replicating Stelio
+
 ### [W-02] `sit` as a tracked signal
+
 ### [W-03] Multi-user / accounts / authentication
+
 ### [W-04] Analytics / growth metrics / engagement loops
 
 ---
 
+
+## Appendix — recorded diagnostics
+
+### ES-005 §E.3 — Steps diagnostic (recorded)
+
+- **Result**: **aggregation bug** (not a total HealthConnect failure). Today's `steps` snapshots: `723` then `0`; the summary used "last" → showed 0. Fix: max-of-day snapshot (`lib/summary-generator.ts`). Acceptance: today's steps reflect the day's max snapshot; steps line and summary agree.
+
+
+
+
+**Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were delivered in ES-023. No new capture surfaces.
+
 ## Changelog
+
+### 2026-10-21 — ES-045…ES-053 + verification pass
+- **ES-045** agentic loop freeze: no-promise prompt rule, Reset Chat (`POST /api/chat/reset`), 中/EN toggle → **P2-26**.
+- **ES-046** API timeout hardening: `maxDuration=60`, 8s GitHub timeout, `agent_jobs` queue drained by the reminder poll → **P2-27**.
+- **ES-047** agent tools `write_markdown` (allowlisted GitHub commit) + `scheduler` (≤3 pending) → **P2-28**.
+- **ES-040** first manifestation: `AvatarStage` 60vh, idle/thinking/speaking/listening states, hold-to-talk STT, auto-TTS toggle → **P2-30** (Live2D/VRM asset pending).
+- **ES-048–051**: collector-as-hub + floating overlay, desktop two-column layout, PWA version awareness + SW v4, silent tool readback → **P3-01…P3-04**.
+- **ES-052** chat hotfix: empty-reply data part + authoritative body-status reminder → **P3-06**. **ES-053** external AI bridge + MCP server (`/api/mcp`), `mailbox/`, `ask_external_agent` → **P3-05**.
+- **P1-61 / P1-62**: PWA client restore + collector status/update; server-triggered sync + tool-result brevity.
+- Tests 23 → **32 green**; `tests.yml` runs tests + lint + typecheck on every push/PR.
+- **Ops (2026-10-21):** `db-backup` runs on the IPv4 session pooler (GitHub runners have no IPv6); new `memory-backup.yml` commits `core/` + `memory/` daily; ES-004 enforce audit found 48% `would_401` including CORS preflights → **enforce postponed to 2026-10-25**. **P1-22 dropped** (owner: passive wake detection is too error-prone).
+
+### 2026-10-20 — ES-035…ES-044
+- **ES-035** Drive formats (txt/csv/json/zip), **ES-036** web search + Markdown reader, **ES-037** new signals `manual_work`/`body_flag` + 21:30 check-in, **ES-038** tooling upgrades (ZIP entries, truncation metadata, CSV filters, `get_issue`), **ES-039** summary tone enforcement, **ES-043/044** PWA standalone + tool-stream fixes → **P2-18…P2-25**.
+- Collector **v1.0.28** released; Play internal uploads use `status: completed`.
+
+### 2026-10-19 — ES-027…ES-034
+- **ES-027** summary tone, **ES-029** model router + `models` table, **ES-030** Drive read tool, **ES-031** data sovereignty (weekly `pg_dump` + `/api/export`), **ES-032** capability expansion, **ES-033** legacy ingestion, **ES-034** portability dry run → **P2-11…P2-17**.
+- `AGENTS.md` **v1.9** adds §12 Data Sovereignty & Backup.
 
 ### 2026-10-18 (session 36 — ES-026 Phase C UI/UX)
 - Home: Fenshen avatar/name (tap → Settings) + five-habit grid; today-only stream/chat preserved. History: day list includes standup; detail adds full notes/tags and AI conversation excerpts. Chat: spinner statuses, Save-to-Inbox badge via `messages.metadata.inbox_path`. Visual: fade-in + breathing avatar with reduced-motion fallback. Added `docs/specs/ES-026-phase-c-ui-restructure.md`; tracking P2-06..P2-10 (P2-01..P2-05 already used by Opinions). PR **#17** merged; deploy run **39153665136** green. → **P2-06..P2-10 Done**.

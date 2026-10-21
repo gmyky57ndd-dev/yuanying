@@ -1,0 +1,53 @@
+name: Daily Memory Commit
+
+# AGENTS.md §12.3 (ES-031) layer 1: core/ and memory/ Markdown are the source of
+# truth, not the database. They are committed automatically once a day.
+# The DB is a cache; this workflow keeps the durable copy in Git.
+
+on:
+  schedule:
+    # 16:00 UTC = 00:00 Asia/Shanghai
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-memory-commit
+  cancel-in-progress: false
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Commit core/ and memory/ changes
+        run: |
+          git config user.name "yuanying-memory"
+          git config user.email "yuanying-memory@users.noreply.github.com"
+
+          found=0
+          for dir in core memory; do
+            if [ -d "$dir" ]; then
+              git add "$dir"
+              found=1
+            fi
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "::error::Neither core/ nor memory/ exists in this checkout"
+            exit 1
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No memory changes to commit"
+            exit 0
+          fi
+
+          DATE=$(date -u +%F)
+          git commit -m "chore(memory): daily snapshot ${DATE}"
+          git push

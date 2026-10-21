@@ -1,7 +1,9 @@
 name: Weekly DB Backup
 
 # ES-031: weekly Supabase -> Git snapshot.
-# Requires repo secret SUPABASE_DB_URL (Supabase direct Postgres URL).
+# Requires repo secret SUPABASE_DB_URL. Use the IPv4 session pooler
+# (aws-<n>-<region>.pooler.supabase.com:5432): GitHub-hosted runners have no IPv6
+# and cannot reach db.<ref>.supabase.co.
 # Commits to backups/db/YYYY-MM-DD.sql on the current default branch.
 
 on:
@@ -39,12 +41,15 @@ jobs:
         run: |
           mkdir -p backups/db
           DATE=$(date -u +%F)
+          # Credential tables are dumped as schema only. The snapshot is committed
+          # to Git, so OAuth tokens and model API keys must never be in it
+          # (GitHub push protection rejects them, and AGENTS.md §5.2.4 forbids it).
           docker run --rm \
             -e SUPABASE_DB_URL \
             -e BACKUP_DATE="$DATE" \
             -v "$PWD/backups/db:/backups" \
             postgres:17 \
-            sh -c 'pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --clean --if-exists -f "/backups/${BACKUP_DATE}.sql"'
+            sh -c 'pg_dump "$SUPABASE_DB_URL" --no-owner --no-privileges --clean --if-exists --exclude-table-data=models --exclude-table-data=google_oauth_tokens -f "/backups/${BACKUP_DATE}.sql"'
           sudo chown -R "$(id -u):$(id -g)" backups/db
           echo "BACKUP_DATE=$DATE" >> "$GITHUB_ENV"
 
