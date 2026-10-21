@@ -167,7 +167,7 @@ public class SyncStreamService extends Service {
         }
         PendingIntent open = PendingIntent.getActivity(
                 this, 0, new Intent(this, MainActivity.class),
-                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT);
+                PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         return new NotificationCompat.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_sync)
                 .setContentTitle("元婴")
