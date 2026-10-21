@@ -70,6 +70,7 @@ export default function Settings() {
   const [collector, setCollector] = useState<CollectorStatus | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [externalMessage, setExternalMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -151,6 +152,28 @@ export default function Settings() {
       if (r.ok) setTimeout(loadCollector, 30000);
     } catch {
       setSyncMessage('同步请求失败');
+    }
+  }
+
+  async function ingestClipboard() {
+    setExternalMessage(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setExternalMessage('剪贴板是空的。');
+        return;
+      }
+      const r = await fetchWithTimeout(`${API_BASE}/api/external-chats`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'clipboard', content: text }),
+      });
+      const d = await r.json().catch(() => ({}));
+      setExternalMessage(
+        r.ok ? `已吸收 ${d?.data?.chars ?? text.length} 字到外部记忆。` : '吸收失败'
+      );
+    } catch {
+      setExternalMessage('无法读取剪贴板');
     }
   }
 
@@ -677,6 +700,22 @@ export default function Settings() {
 
         {driveMessage && (
           <p className="text-[11px] text-stone-400 mt-2">{driveMessage}</p>
+        )}
+      </div>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-1">外部 AI 记忆</h2>
+        <p className="text-[11px] text-stone-600 mb-3">
+          把 Mac 剪贴板里的外部 AI 对话吸收到长期记忆。也可以在 PWA 按 Cmd+Shift+V。
+        </p>
+        <button
+          onClick={ingestClipboard}
+          className="text-xs px-3 py-2 rounded-xl bg-emerald-800 text-white"
+        >
+          吸收剪贴板
+        </button>
+        {externalMessage && (
+          <p className="text-[11px] text-stone-400 mt-2">{externalMessage}</p>
         )}
       </div>
 

@@ -112,6 +112,27 @@ function summarize(name: string, result: any): any {
         message: 'Issue loaded.',
       };
     }
+    case 'ingest_external_chat':
+      return {
+        success: true,
+        data: result.data,
+        message: 'External chat saved.',
+      };
+    case 'query_external_chats': {
+      const chats = result.data ?? [];
+      return {
+        success: true,
+        data: chats.map((c: any) => ({
+          id: c.id,
+          source: c.source,
+          created_at: c.created_at,
+          excerpt: clip(String(c.content ?? ''), 1000),
+        })),
+        message: 'External chats found.',
+      };
+    }
+    case 'ask_claude':
+      return result;
     case 'write_markdown':
     case 'scheduler':
       return result;

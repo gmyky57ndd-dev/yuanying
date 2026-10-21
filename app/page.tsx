@@ -168,6 +168,33 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const onKeyDown = async (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || !e.shiftKey || e.key.toLowerCase() !== 'v') {
+        return;
+      }
+      e.preventDefault();
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text.trim()) {
+          alert('剪贴板是空的');
+          return;
+        }
+        const r = await fetchWithTimeout(`${API_BASE}/api/external-chats`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: 'clipboard', content: text }),
+        });
+        if (r.ok) alert('已吸收剪贴板到外部记忆');
+        else alert('吸收失败');
+      } catch {
+        alert('无法读取剪贴板');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  useEffect(() => {
     const saved = window.localStorage.getItem('yy_input_lang');
     if (saved === 'zh' || saved === 'en') setInputLang(saved);
   }, []);

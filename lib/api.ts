@@ -51,6 +51,9 @@ export async function postChat(
     },
     onDataPart: data => {
       const value = (Array.isArray(data) ? data[0] : data) as any;
+      if (value?.type === 'assistant_text' && typeof value.text === 'string') {
+        reply = value.text;
+      }
       if (value?.type === 'push_to_dev') {
         onToolEvent?.(value);
         if (value.success === false) {

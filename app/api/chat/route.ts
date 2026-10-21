@@ -23,6 +23,8 @@ import { writeMarkdown } from '@/lib/write-markdown';
 import { scheduleMessage } from '@/lib/scheduler';
 import { normalizeToolResult } from '@/lib/tool-result';
 import { APP_VERSION } from '@/lib/app-version';
+import { ingestExternalChat, queryExternalChats } from '@/lib/external-chats';
+import { askClaude } from '@/lib/external-ai';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -263,6 +265,24 @@ async function runTool(name: string, args: any): Promise<any> {
     return scheduleMessage(time, action);
   }
 
+  if (name === 'ingest_external_chat') {
+    const source = String(args?.source ?? 'external').trim();
+    const content = String(args?.content ?? '');
+    return ingestExternalChat(source || 'external', content);
+  }
+
+  if (name === 'query_external_chats') {
+    const query = String(args?.query ?? '').trim();
+    if (!query) return { success: false, error: 'query required' };
+    return queryExternalChats(query);
+  }
+
+  if (name === 'ask_claude') {
+    const prompt = String(args?.prompt ?? '').trim();
+    if (!prompt) return { success: false, error: 'prompt required' };
+    return askClaude(prompt);
+  }
+
   return { success: false, error: `unknown tool: ${name}` };
 }
 
@@ -493,7 +513,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
+          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
 
 ${bodyStatusReminder}`,
       },
@@ -623,6 +643,34 @@ ${bodyStatusReminder}`,
         execute: async ({ time, action }) =>
           runToolForModel('scheduler', { time, action }),
       }),
+      ingest_external_chat: tool({
+        description:
+          'Save an external AI conversation or long design note into persistent external memory. Use when the owner says “记住这段外部对话” or pastes a long external chat. Source is a short label such as “deepseek-web” or “clipboard”.',
+        parameters: z.object({
+          source: z.string().describe('Short source label'),
+          content: z.string().describe('The external conversation text'),
+        }),
+        execute: async ({ source, content }) =>
+          runToolForModel('ingest_external_chat', { source, content }),
+      }),
+      query_external_chats: tool({
+        description:
+          'Search imported external AI conversations by keyword. Use before answering questions about past external design discussions.',
+        parameters: z.object({
+          query: z.string().describe('Keyword or phrase to search'),
+        }),
+        execute: async ({ query }) =>
+          runToolForModel('query_external_chats', { query }),
+      }),
+      ask_claude: tool({
+        description:
+          'Ask Claude for a second opinion on a complex design/code question. Only works when ANTHROPIC_API_KEY is configured. Do not use for private data unless the owner asks.',
+        parameters: z.object({
+          prompt: z.string().describe('Question for Claude'),
+        }),
+        execute: async ({ prompt }) =>
+          runToolForModel('ask_claude', { prompt }),
+      }),
       get_issue: tool({
         description:
           'Read a GitHub issue by number, including its state, labels, body, and up to 20 comments. Use after push_to_dev to verify delivery and summarize Dev replies.',
@@ -673,7 +721,7 @@ ${bodyStatusReminder}`,
       system: systemPrompt,
       messages,
       tools,
-      maxSteps: 3,
+      maxSteps: 5,
       temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
       maxTokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
       onError: ({ error }) => {
@@ -707,7 +755,13 @@ ${bodyStatusReminder}`,
           // GitHub number/URL, never a model-composed one.
           reply = `发了。#${pushToDevResult.data.number}。\n\n${pushToDevResult.data.issue_url}`;
         } else if (!reply) {
-          reply = '…（没有收到回复，请重试）';
+          reply = '我拿到了结果，但这次没组织好回复。再问我一次？';
+        }
+
+        if (!text.trim()) {
+          // ES-052: guarantee the client receives a visible fallback text even
+          // when the model ends with only tool calls (empty final content).
+          streamData.append({ type: 'assistant_text', text: reply });
         }
 
         const { error: insErr } = await supabase.from('messages').insert([
