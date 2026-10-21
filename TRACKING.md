@@ -423,7 +423,7 @@
 - **Status**: In Review (2026-10-21) · **Category**: Bug (Self-Awareness / Update) · **Refs**: ES-050 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-050-pwa-version-awareness.md`.
 - **Impl**: `next.config.mjs` injects `NEXT_PUBLIC_APP_VERSION`; Settings shows PWA version; runtime Body Status distinguishes LLM/PWA/Collector; SW update prompt + cache v4; `/api/health` no-store alias; Settings uses no-store.
-- **Acceptance**: [x] PWA version injection; [x] version answer context; [x] SW prompt; [x] collector status no-store; [ ] owner phone/Mac verification.
+- **Verified (2026-10-21, production)**: `/sw.js` is v4; `/api/health` returns `Cache-Control: no-store`; “你是什么版本？” answered PWA v0.1.0, LLM deepseek-chat, collector v1.0.29 (latest v1.0.30 available). Web deploy + tests green. **Acceptance**: [x] PWA version injection; [x] version answer context; [x] SW prompt; [x] collector status no-store; [ ] owner phone/Mac update-prompt check.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
