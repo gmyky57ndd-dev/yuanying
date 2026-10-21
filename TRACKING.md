@@ -332,12 +332,12 @@
   - `push_to_dev` result is streamed as a data part; the client alerts on failure.
   - Persisted success/failure uses the verified tool result.
   - Runtime prompt requires 「没发成功」 on failure and forbids invented issue URLs.
-- **Verified (2026-10-20, local)**: `tsc`, lint, build pass; all client API calls use `API_BASE` absolute paths.
+- **Verified (2026-10-20)**: `tsc`, lint, build pass; all client API calls use `API_BASE` absolute paths. Production `/sw.js` is v3 and `/api/` bypasses the worker. `push_to_dev` success streamed `success:true` (#46, test issue closed); a forced bad-repo failure streamed `success:false,error:"Not Found"`. Client data-part extraction returns the failure reason.
 - **Acceptance**:
-  - [ ] Browser chat works.
-  - [ ] Installed PWA chat works.
-  - [ ] Installed PWA `push_to_dev` succeeds or shows a visible failure.
-  - [ ] `/api/` is not intercepted by the SW.
+  - [x] Browser chat works.
+  - [x] `/api/` is not intercepted by the SW (production sw.js v3).
+  - [x] `push_to_dev` success and failure data parts verified.
+  - [ ] Installed PWA chat + `push_to_dev` on the phone (owner).
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 

@@ -50,11 +50,11 @@ uses `${API_BASE}/api/...`. No relative `/api/...` fetch remains in
 
 ### 2.4 Test cases
 
-- [ ] Browser chat responds normally.
-- [ ] Installed PWA (home screen) chat responds normally.
-- [ ] Installed PWA `push_to_dev` creates a real issue, or shows a visible
-      failure.
-- [ ] SW does not intercept `/api/` (check DevTools → Network / Service Worker).
+- [x] Browser chat responds normally.
+- [x] SW does not intercept `/api/` (production `sw.js` is v3).
+- [x] `push_to_dev` success streams a verified number; failure streams
+      `success:false` + error.
+- [ ] Installed PWA (home screen) chat + `push_to_dev` on the phone.
 
 ## 3. Implementation
 
