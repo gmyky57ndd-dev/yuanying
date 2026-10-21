@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-047 (highest assigned: **ES-047**)
+**Range:** ES-001 → ES-047 (highest assigned: **ES-047**; ES-040 now assigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -52,7 +52,7 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-037 | New Signals: manual_work & body_flag | Approved | 2026-10-20 | P2-21 |
 | ES-038 | Agentic Tooling Upgrades (renamed from duplicate ES-036) | Approved | 2026-10-20 | P2-20 |
 | ES-039 | Daily Summary Tone Enforcement | Approved | 2026-10-20 | P2-23 |
-| ES-040 | — | — (no document) | — | — |
+| ES-040 | First Manifestation (Avatar & Voice) | Approved (placeholder stage) | 2026-10-21 | P2-30 |
 | ES-041 | — | — (no document) | — | — |
 | ES-042 | — | — (no document) | — | — |
 | ES-043 | Fix PWA Standalone Mode API Failures | Urgent Bug | 2026-10-20 | P2-24 |

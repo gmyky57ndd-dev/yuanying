@@ -10,6 +10,7 @@ import {
 } from '@/lib/activity-stream';
 import { formatForAI, formatForDev, feedbackTitle } from '@/lib/feedback-format';
 import { FeedbackStatusBadge } from '@/components/FeedbackStatusBadge';
+import { AvatarStage } from '@/components/AvatarStage';
 
 type Message = {
   id?: number;
@@ -115,6 +116,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [inputLang, setInputLang] = useState<'zh' | 'en'>('zh');
   const [resetting, setResetting] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [stageCollapsed, setStageCollapsed] = useState(false);
   const [steps, setSteps] = useState<StepsInfo | null>(null);
   const [stepsDetailOpen, setStepsDetailOpen] = useState(false);
   const [notes, setNotes] = useState<Array<{ id: number; text: string }>>([]);
@@ -525,6 +529,7 @@ export default function Home() {
       });
       if (d.reply) {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
+        void speakReply(d.reply);
       } else {
         setMessages(m => [
           ...m,
@@ -683,6 +688,56 @@ export default function Home() {
     }
   }
 
+  function stopVoice() {
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    setListening(false);
+  }
+
+  function toggleTts() {
+    setTtsEnabled(current => {
+      if (current && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+      return !current;
+    });
+  }
+
+  function speakableText(text: string): string {
+    return text
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/https?:\/\/\S+/g, ' ')
+      .replace(/[*_#`>]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 600);
+  }
+
+  async function speakReply(text: string) {
+    if (!ttsEnabled || !('speechSynthesis' in window)) return;
+    const clean = speakableText(text);
+    if (!clean) return;
+    setSpeaking(true);
+    try {
+      await new Promise<void>(resolve => {
+        const utterance = new SpeechSynthesisUtterance(clean);
+        utterance.lang = 'zh-CN';
+        utterance.rate = 0.95;
+        utterance.volume = 0.9;
+        const voices = window.speechSynthesis.getVoices();
+        const zhVoice = voices.find(v => v.lang.startsWith('zh'));
+        if (zhVoice) utterance.voice = zhVoice;
+        utterance.onend = () => resolve();
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(utterance);
+      });
+    } finally {
+      setSpeaking(false);
+    }
+  }
+
   function startVoice() {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
@@ -708,39 +763,26 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-[100dvh] bg-stone-950 text-stone-100">
-      {/* Fenshen & vitals */}
-      <div className="flex flex-col items-center pt-4 pb-2 shrink-0">
-        <a
-          href="/settings"
-          className="flex flex-col items-center"
-          title="设置"
-        >
-          <img
-            src={fenshen?.avatar_url || '/avatar.png'}
-            alt={fenshen?.display_name || '元婴'}
-            className="w-16 h-16 rounded-full bg-stone-800 object-cover breathe"
-            onError={e => {
-              const img = e.currentTarget;
-              if (img.src.endsWith('/avatar.png')) return;
-              img.src = '/avatar.png';
-            }}
-          />
-          <div className="text-[10px] text-stone-500 mt-1 tracking-widest">
-            {fenshen?.display_name || '元婴'}
-          </div>
-        </a>
-        <div className="absolute right-4 top-5 flex gap-3 text-xs">
-          <a href="/history" className="text-stone-500">
-            历史
-          </a>
-          <a href="/feedback" className="text-stone-500">
-            反馈
-          </a>
-          <a href="/settings" className="text-stone-500">
-            设置
-          </a>
-        </div>
-      </div>
+      <AvatarStage
+        name={fenshen?.display_name || '元婴'}
+        avatarUrl={fenshen?.avatar_url || '/avatar.png'}
+        state={
+          listening
+            ? 'listening'
+            : sending
+              ? 'thinking'
+              : speaking
+                ? 'speaking'
+                : 'idle'
+        }
+        listening={listening}
+        ttsEnabled={ttsEnabled}
+        collapsed={stageCollapsed}
+        onToggleCollapse={() => setStageCollapsed(v => !v)}
+        onMicStart={startVoice}
+        onMicEnd={stopVoice}
+        onToggleTts={toggleTts}
+      />
 
       <HabitGrid signals={todaySignals} onLog={logSignal} />
 

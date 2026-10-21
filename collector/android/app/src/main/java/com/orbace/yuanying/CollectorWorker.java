@@ -10,6 +10,11 @@ import androidx.work.WorkerParameters;
 
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
+
 public class CollectorWorker extends Worker {
 
     private static final String TAG = "CollectorWorker";
@@ -22,6 +27,21 @@ public class CollectorWorker extends Worker {
     @Override
     public Result doWork() {
         Context ctx = getApplicationContext();
+
+        // ES-040 / Issue #54: heartbeat so the PWA can show version + last report.
+        try {
+            JSONObject heartbeat = new JSONObject();
+            heartbeat.put("collector_version", BuildConfig.VERSION_NAME);
+            heartbeat.put("collector_version_code", BuildConfig.VERSION_CODE);
+            SimpleDateFormat fmt = new SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+            fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
+            heartbeat.put("collector_last_report_at", fmt.format(new Date()));
+            new ApiClient().put(ApiClient.BASE_URL + "/api/config", heartbeat);
+        } catch (Exception e) {
+            Log.w(TAG, "heartbeat failed", e);
+        }
+
         try {
             // 1. 检查开关
             ConfigClient config = new ConfigClient();
