@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-043 (highest assigned: **ES-043**)
+**Range:** ES-001 → ES-044 (highest assigned: **ES-044**)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -56,3 +56,4 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-041 | — | — (no document) | — | — |
 | ES-042 | — | — (no document) | — | — |
 | ES-043 | Fix PWA Standalone Mode API Failures | Urgent Bug | 2026-10-20 | P2-24 |
+| ES-044 | Fix PWA Tool Calling Stream Failure | Urgent Bug | 2026-10-20 | P2-25 |

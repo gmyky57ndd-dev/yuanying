@@ -17,7 +17,11 @@ export async function fetchWithTimeout(
   }
 }
 
-export async function postChat(message: string, session_id?: string) {
+export async function postChat(
+  message: string,
+  session_id?: string,
+  onToolEvent?: (event: any) => void
+) {
   const res = await fetchWithTimeout(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -44,8 +48,11 @@ export async function postChat(message: string, session_id?: string) {
     },
     onDataPart: data => {
       const value = (Array.isArray(data) ? data[0] : data) as any;
-      if (value?.type === 'push_to_dev' && value.success === false) {
-        pushFailure = String(value.error ?? 'unknown error');
+      if (value?.type === 'push_to_dev') {
+        onToolEvent?.(value);
+        if (value.success === false) {
+          pushFailure = String(value.error ?? 'unknown error');
+        }
       }
     },
   });
