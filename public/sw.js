@@ -1,8 +1,9 @@
 // 元婴 Service Worker v2
 // Navigations are network-first so the installed PWA never runs stale code.
 // Hashed /_next/static assets are cache-first; API is never cached.
+// ES-043: any /api/ request MUST bypass the service worker entirely.
 
-const CACHE_NAME = 'yuanying-v2';
+const CACHE_NAME = 'yuanying-v3';
 const STATIC_ASSETS = ['/', '/manifest.json', '/avatar.png'];
 
 self.addEventListener('install', event => {
@@ -29,6 +30,7 @@ self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
   if (url.origin !== self.location.origin) return;
+  // ES-043: network-only. Never intercept, cache, or wrap API requests.
   if (url.pathname.startsWith('/api/')) return;
   if (event.request.method !== 'GET') return;
 

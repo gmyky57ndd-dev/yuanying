@@ -32,6 +32,7 @@ export async function postChat(message: string, session_id?: string) {
 
   let reply = '';
   let streamError: string | null = null;
+  let pushFailure: string | null = null;
 
   await processDataStream({
     stream: res.body,
@@ -41,9 +42,18 @@ export async function postChat(message: string, session_id?: string) {
     onErrorPart: error => {
       streamError = error;
     },
+    onDataPart: data => {
+      const value = data as any;
+      if (value?.type === 'push_to_dev' && value.success === false) {
+        pushFailure = String(value.error ?? 'unknown error');
+      }
+    },
   });
 
   if (streamError) throw new Error(streamError);
+  if (pushFailure) {
+    throw new Error(`GitHub Issue 未创建：${pushFailure}`);
+  }
 
   return { reply };
 }

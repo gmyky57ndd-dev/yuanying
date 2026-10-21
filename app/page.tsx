@@ -483,6 +483,7 @@ export default function Home() {
     } catch (err) {
       const reason = err instanceof Error ? err.message : '连接失败';
       setError(reason);
+      if (/GitHub Issue/i.test(reason)) alert(reason);
       setMessages(m => [
         ...m,
         { role: 'assistant', content: `…（${reason}）` },
