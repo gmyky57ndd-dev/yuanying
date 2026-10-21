@@ -13,10 +13,20 @@ test('ES-039 daily summary rules are present', () => {
   assert.match(src, /不给任何未经请求的健康建议/);
 });
 
-test('ES-043 service worker bypasses API and uses cache v3', () => {
+test('ES-043/ES-050 service worker bypasses API and uses cache v4', () => {
   const src = read('public/sw.js');
   assert.match(src, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(src, /CACHE_NAME = 'yuanying-v3'/);
+  assert.match(src, /CACHE_NAME = 'yuanying-v4'/);
+});
+
+test('ES-050 injects PWA/collector body status', () => {
+  const prompt = read('lib/yuanying.ts');
+  const config = read('next.config.mjs');
+  assert.match(prompt, /Body Status/);
+  assert.match(prompt, /NEXT_PUBLIC_APP_VERSION/);
+  assert.match(config, /NEXT_PUBLIC_APP_VERSION/);
+  const settings = read('app/settings/page.tsx');
+  assert.match(settings, /\/api\/health/);
 });
 
 test('ES-044/045/046 chat route has timeout, reset, and tool lifecycle guards', () => {

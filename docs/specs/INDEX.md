@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-049 (highest assigned: **ES-049**; ES-040 now assigned)
+**Range:** ES-001 → ES-050 (highest assigned: **ES-050**; ES-040 now assigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -62,3 +62,4 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-047 | Agent Tools: write_markdown & scheduler | Approved | 2026-10-21 | P2-28 |
 | ES-048 | Collector as Hub & PWA Lifesaver | Approved | 2026-10-21 | P3-01 |
 | ES-049 | Desktop PWA Layout (Responsive Fix) | Approved | 2026-10-21 | P3-02 |
+| ES-050 | PWA Version Awareness & Service Worker Update | Approved | 2026-10-21 | P3-03 |

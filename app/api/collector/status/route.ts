@@ -98,21 +98,24 @@ export async function GET() {
     ? Date.now() - new Date(lastSeen).getTime() < 2 * 60 * 60 * 1000
     : false;
 
-  return NextResponse.json({
-    installed_version: installedVersion,
-    installed_code:
-      typeof config.collector_version_code === 'number'
-        ? config.collector_version_code
-        : null,
-    last_report_at: lastReportAt,
-    last_signal_at: lastSignalAt,
-    overlay_active: config.collector_overlay_active === true,
-    online,
-    latest_version: latestVersion,
-    update_available:
-      !!installedVersion &&
-      !!latestVersion &&
-      isNewer(latestVersion, installedVersion),
-    update_url: PLAY_INTERNAL_URL,
-  });
+  return NextResponse.json(
+    {
+      installed_version: installedVersion,
+      installed_code:
+        typeof config.collector_version_code === 'number'
+          ? config.collector_version_code
+          : null,
+      last_report_at: lastReportAt,
+      last_signal_at: lastSignalAt,
+      overlay_active: config.collector_overlay_active === true,
+      online,
+      latest_version: latestVersion,
+      update_available:
+        !!installedVersion &&
+        !!latestVersion &&
+        isNewer(latestVersion, installedVersion),
+      update_url: PLAY_INTERNAL_URL,
+    },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }
