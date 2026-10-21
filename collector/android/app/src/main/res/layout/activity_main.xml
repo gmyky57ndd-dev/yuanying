@@ -35,7 +35,23 @@
         android:id="@+id/open_pwa_button"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="打开元婴（聊天与打卡）"
+        android:text="启动元婴"
+        android:layout_marginBottom="8dp" />
+
+    <Switch
+        android:id="@+id/overlay_switch"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="开启悬浮元婴"
+        android:textColor="#f5f5f4"
+        android:layout_marginBottom="4dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="悬浮窗会在其他应用之上显示一个小悟气泡，点击可快速记一句。"
+        android:textColor="#78716c"
+        android:textSize="12sp"
         android:layout_marginBottom="12dp" />
 
     <Button

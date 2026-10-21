@@ -31,6 +31,7 @@ export async function GET() {
       'collector_version',
       'collector_version_code',
       'collector_last_report_at',
+      'collector_overlay_active',
     ]);
 
   const config = Object.fromEntries(
@@ -87,17 +88,26 @@ export async function GET() {
     }
   }
 
+  const lastReportAt =
+    typeof config.collector_last_report_at === 'string'
+      ? config.collector_last_report_at
+      : null;
+  const lastSignalAt = lastSignal?.created_at ?? null;
+  const lastSeen = lastReportAt || lastSignalAt;
+  const online = lastSeen
+    ? Date.now() - new Date(lastSeen).getTime() < 2 * 60 * 60 * 1000
+    : false;
+
   return NextResponse.json({
     installed_version: installedVersion,
     installed_code:
       typeof config.collector_version_code === 'number'
         ? config.collector_version_code
         : null,
-    last_report_at:
-      typeof config.collector_last_report_at === 'string'
-        ? config.collector_last_report_at
-        : null,
-    last_signal_at: lastSignal?.created_at ?? null,
+    last_report_at: lastReportAt,
+    last_signal_at: lastSignalAt,
+    overlay_active: config.collector_overlay_active === true,
+    online,
     latest_version: latestVersion,
     update_available:
       !!installedVersion &&

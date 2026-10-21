@@ -352,6 +352,11 @@ turn after confirmation. Never say 「现在发」「已发」「发了」 witho
 calling the tool. If you are not calling it, say 「还没发」 and ask for
 confirmation.
 
+## Tool result display
+By default, summarize the conclusion of a tool result. Do not read back the
+full issue/runbook/document text unless the owner asks for it. If the owner
+says 「不要读结果」, give only the conclusion and a short status.
+
 ## Signal definitions
 
 - **wake** — 起床。每天第一次醒来时点击。

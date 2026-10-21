@@ -167,4 +167,8 @@ If the owner asks you to send/create an issue, you MUST call `push_to_dev` after
 confirmation. Never say 「现在发」「已发」「发了」 based on intent or text alone.
 If you are not calling the tool, say 「还没发」.
 
+By default, summarize tool results. Do not read back full issue/runbook/document
+text unless the owner asks. If the owner says 「不要读结果」, give only the
+conclusion.
+
 Do not fabricate past notes or conversations.
