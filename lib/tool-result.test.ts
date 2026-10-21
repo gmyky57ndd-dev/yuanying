@@ -54,3 +54,31 @@ test('errors pass through unchanged', () => {
   const error = { success: false, error: 'Not Found' };
   assert.deepStrictEqual(normalizeToolResult('push_to_dev', error, false), error);
 });
+
+
+test('external chat ingest/query summaries are bounded', () => {
+  const saved = normalizeToolResult(
+    'ingest_external_chat',
+    { success: true, data: { id: 2, source: 'deepseek-web', chars: 230 } },
+    false
+  );
+  assert.strictEqual(saved.data.id, 2);
+
+  const query = normalizeToolResult(
+    'query_external_chats',
+    {
+      success: true,
+      data: [
+        {
+          id: 1,
+          source: 'deepseek-web',
+          created_at: '2026-10-21T00:00:00Z',
+          content: 'x'.repeat(2000),
+        },
+      ],
+    },
+    false
+  );
+  assert.strictEqual(query.data.length, 1);
+  assert.ok(query.data[0].excerpt.length <= 1000);
+});

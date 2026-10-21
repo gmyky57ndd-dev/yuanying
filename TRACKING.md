@@ -433,6 +433,22 @@
 - **Verified (2026-10-21, production)**: silent `get_notes` returned `count:5` + 80-char titles only; the reply summarized the notes without dumping full text. `tool_readback_enabled` defaults false; Settings toggle persists. **Tests**: `lib/tool-result.test.ts` + full suite 28/28.
 - **Acceptance**: [x] default silent; [x] Settings toggle; [x] normalized results; [x] 800-char cap; [x] frontend collapse; [ ] owner real push/verbose check.
 
+### [P3-05] External AI bridge & context ingestion (ES-053)
+
+- **Status**: In Review (2026-10-21) · **Category**: Feature (Tool Integration) · **Refs**: ES-053 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-053-external-ai-bridge.md`.
+- **Impl**: `external_chats` table + full-text index (migration 022); `ingest_external_chat` / `query_external_chats` tools; `/api/external-chats`; Settings **吸收剪贴板**; Home `Cmd+Shift+V`; optional `ask_claude`.
+- **Verified locally**: ingest/search API returned the saved chat; explicit `ingest_external_chat` call saved 230 chars; `query_external_chats` returned an excerpt.
+- **Acceptance**: [x] save external chat; [x] retrieve by keyword; [x] clipboard button + shortcut; [x] optional Claude tool; [ ] owner confirms a real external import.
+
+### [P3-06] Chat API broken hotfix (ES-052) — P0
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Backend / Frontend Bridge) · **Refs**: ES-052, ES-049, ES-051 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-052-chat-api-broken.md`.
+- **Root cause**: model ended tool turns with no final text; stale history also overrode version answers.
+- **Fix**: maxSteps 5; “answer after tool result” prompt; authoritative Body Status reminder; empty-reply server fallback + `assistant_text` data part; client no longer shows “信号中断”.
+- **Verified**: normal production chat returned text; version answer PWA v0.2.0 / collector v1.0.31; 31/31 tests.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---

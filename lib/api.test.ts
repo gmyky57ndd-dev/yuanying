@@ -53,3 +53,18 @@ test('postChat surfaces push_to_dev data-part failures', async () => {
     globalThis.fetch = previous;
   }
 });
+
+
+test('postChat accepts an assistant_text fallback when the stream has no text', async () => {
+  const previous = globalThis.fetch;
+  globalThis.fetch = (async () =>
+    streamResponse(
+      '2:[{"type":"assistant_text","text":"fallback reply"}]\nd:{"finishReason":"stop"}\n'
+    )) as typeof fetch;
+  try {
+    const result = await postChat('hi');
+    assert.strictEqual(result.reply, 'fallback reply');
+  } finally {
+    globalThis.fetch = previous;
+  }
+});
