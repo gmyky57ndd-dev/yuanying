@@ -53,7 +53,15 @@ If Settings shows **有新版本 vX**:
 3. Update the collector, reopen it once, then reopen the PWA.
 4. Settings should show the new version and a fresh report time.
 
-## 5. Re-add icon / prevent accidental removal
+## 5. Floating Xiaowu (optional)
+
+1. Open **元婴采集器** → **开启悬浮元婴**.
+2. Grant **显示在其他应用上层** / **SYSTEM_ALERT_WINDOW**.
+3. A draggable **元婴** bubble appears. Drag it anywhere.
+4. Tap the bubble to open a one-line note input; **记下** saves it to your notes without opening the PWA.
+5. The PWA Settings → 采集器与客户端 shows **悬浮元婴: 开启**.
+
+## 6. Re-add icon / prevent accidental removal
 
 Browsers own the uninstall action; the PWA cannot block it. If the icon is
 removed:
@@ -64,7 +72,7 @@ removed:
 
 Do not uninstall the **元婴采集器** app; it is separate from the PWA icon.
 
-## 6. Acceptance checklist
+## 7. Acceptance checklist
 
 - [ ] PWA icon restored and opens.
 - [ ] Settings shows collector version + last report.

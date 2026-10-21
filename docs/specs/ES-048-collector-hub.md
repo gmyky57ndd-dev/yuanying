@@ -56,4 +56,5 @@ an always-on-top Xiaowu bubble that the browser cannot.
 - [x] Settings shows collector version/online/overlay and PWA version.
 - [x] Update prompt for collector and PWA.
 - [x] Server sync request marker + 15-min sync check.
+- [x] Collector v1.0.30 (code 31) built/uploaded to Play internal.
 - [ ] Owner verifies overlay and restore on the phone.
