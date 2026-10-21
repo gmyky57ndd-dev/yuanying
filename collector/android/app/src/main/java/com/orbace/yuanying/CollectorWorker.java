@@ -74,8 +74,13 @@ public class CollectorWorker extends Worker {
                 if (steps.sdkAvailable() && steps.hasPermission()) {
                     try {
                         JSONObject stepsPayload = steps.collectToday();
-                        boolean okSteps = api.post(ApiClient.BASE_URL + "/api/steps", stepsPayload);
-                        Log.i(TAG, "steps posted: " + okSteps);
+                        boolean hasOrigins = stepsPayload.optInt("sources_count", 1) > 0;
+                        if (!hasOrigins) {
+                            Log.i(TAG, "steps: no HealthConnect origins, skip post");
+                        } else {
+                            boolean okSteps = api.post(ApiClient.BASE_URL + "/api/steps", stepsPayload);
+                            Log.i(TAG, "steps posted: " + okSteps);
+                        }
                     } catch (Exception se) {
                         Log.w(TAG, "steps collect failed", se);
                     }

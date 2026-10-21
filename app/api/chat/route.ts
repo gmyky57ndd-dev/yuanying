@@ -205,7 +205,8 @@ async function runTool(name: string, args: any): Promise<any> {
     const pool = corrected.length > 0 ? corrected : rows;
     const num = (r: any) => (typeof r?.value === 'number' ? r.value : 0);
     const best = pool.reduce((m: any, r: any) => (num(r) > num(m) ? r : m), null as any);
-    const latest = rows[0] ?? null;
+    const lastSync = rows[0] ?? null;
+    const latest = rows.find(r => num(r) > 0) ?? null;
     return {
       success: true,
       data: {
@@ -214,6 +215,8 @@ async function runTool(name: string, args: any): Promise<any> {
         as_of: best?.created_at ?? null,
         latest_value: latest ? num(latest) : null,
         latest_at: latest?.created_at ?? null,
+        last_sync_at: lastSync?.created_at ?? null,
+        last_sync_value: lastSync ? num(lastSync) : null,
         source: best?.context?.source ?? 'collector',
         aggregation: best?.context?.aggregation ?? null,
         timezone: tz,
@@ -221,8 +224,8 @@ async function runTool(name: string, args: any): Promise<any> {
         window_end: end.toISOString(),
         rows_today: rows.length,
         warning:
-          latest && num(latest) === 0 && num(best) > 0
-            ? 'The newest row is 0 (sync delay); value is today\'s max snapshot.'
+          lastSync && num(lastSync) === 0 && num(best) > 0
+            ? 'The most recent sync returned 0 (no HealthConnect origins); value is today\'s max snapshot, as_of is the last real reading.'
             : undefined,
       },
     };

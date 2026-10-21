@@ -14,8 +14,8 @@ android {
         applicationId "com.orbace.yuanying"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 33
-        versionName "1.0.32"
+        versionCode 34
+        versionName "1.0.33"
         buildConfigField "String", "API_TOKEN",
             "\"${System.getenv('YUANYING_API_TOKEN') ?: ''}\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"

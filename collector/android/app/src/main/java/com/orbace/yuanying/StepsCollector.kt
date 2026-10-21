@@ -90,6 +90,7 @@ class StepsCollector(private val ctx: Context) {
                 put("timezone", zone.id)
                 put("steps", total)
                 put("platform", "android")
+                put("device", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
                 // ES-011 §3 provenance: enough for 元婴 to explain the value.
                 put("source", "merged")
                 put("aggregation", "max_per_origin")

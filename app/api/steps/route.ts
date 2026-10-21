@@ -27,6 +27,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'invalid window' }, { status: 400 });
     }
 
+    // Issue #68: a payload with zero HealthConnect origins carries no
+    // information (a second device with no permission writes 0 every few
+    // minutes and used to become the "latest" row). Accept but do not store it.
+    const originCount = Array.isArray(sources) ? sources.length : null;
+    if (steps === 0 && originCount === 0) {
+      return NextResponse.json({ ok: true, skipped: 'no_origins' });
+    }
+
     // P1-23 diagnostic: persist the window, per-source counts and the
     // aggregation mode alongside the total. `value` is unchanged.
     const { error } = await supabase.from('signals').insert({

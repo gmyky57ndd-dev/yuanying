@@ -40,8 +40,10 @@ public class SyncCheckWorker extends Worker {
             if (android.os.Build.VERSION.SDK_INT >= 26) {
                 StepsCollector steps = new StepsCollector(ctx);
                 if (steps.sdkAvailable() && steps.hasPermission()) {
-                    new ApiClient().post(
-                        ApiClient.BASE_URL + "/api/steps", steps.collectToday());
+                    org.json.JSONObject payload = steps.collectToday();
+                    if (payload.optInt("sources_count", 1) > 0) {
+                        new ApiClient().post(ApiClient.BASE_URL + "/api/steps", payload);
+                    }
                 }
             }
         } catch (Exception e) {
