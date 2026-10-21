@@ -197,6 +197,17 @@ never by the section they happened to be written under.
 - **Fix**: revoke after 60 s, and the message now names the file and points at ⌘⇧L / the 下载 folder. Button absence on Mac still needs one check after a hard reload (stale SW bundle is the likely cause).
 - **Open**: if it is genuinely absent on Mac, capture the Settings section list.
 
+### [P2-34] 输入法焦点拦截 + Toggle 删除 (ES-056) — P0
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Frontend / IME) · **Refs**: ES-056, B-25
+- **Spec**: `docs/specs/ES-056-ime-focus.md`.
+- **Report**: in the installed Android PWA the system keyboard cannot switch zh/en inside the input; the owner has to switch in another app and come back.
+- **Investigation**: no global `preventDefault` on typing (only the ⌘⇧V clipboard shortcut, which returns early); no `contenteditable`; no `user-select:none`. Found three contributors: `lang="zh-CN"` **on the field** (pins the IME language hint), a React re-render during composition (`setComposing`), and a single-line `<input>`.
+- **Fixed**: native `<textarea rows={1}>` with auto-grow (max 120 px), Enter sends / Shift+Enter newline, `enterKeyHint="send"`; `lang` removed; composition tracked with a ref (no render mid-composition); `keyCode 229` / `isComposing` respected. The `中/EN` button was already removed in ES-055.
+- **Manifest**: new `## 语言输入` section (元婴 does not control the IME; no toggle by design).
+- **Acceptance**: no toggle; keyboard's own language key works inside the field; long text scrolls without focus loss; sending keeps focus.
+- **Verification**: `tsc` clean, 32/32 tests. Needs the owner's Android PWA check after deploy (web-only change, no collector build).
+
 ### [P2-33] 步数停滞可见性 + 语言按钮移除 (ES-055) — P0
 
 - **Status**: In Review (2026-10-21) · **Category**: Bug (Collector + UI) · **Refs**: ES-055, B-25, B-26

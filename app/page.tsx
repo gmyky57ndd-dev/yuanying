@@ -106,7 +106,7 @@ export default function Home() {
   const [msgMenu, setMsgMenu] = useState<number | null>(null);
   const longPressRef = useRef<any>(null);
   const [input, setInput] = useState('');
-  const [composing, setComposing] = useState(false);
+  const composingRef = useRef(false);
   const [sending, setSending] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [pushingMsg, setPushingMsg] = useState<number | null>(null);
@@ -140,7 +140,7 @@ export default function Home() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [expandedMsgs, setExpandedMsgs] = useState<Record<string, boolean>>({});
   const noteRecRef = useRef<any>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -541,6 +541,7 @@ export default function Home() {
     const content = (text ?? input).trim();
     if (!content || sending) return;
     setInput('');
+    if (inputRef.current) inputRef.current.style.height = 'auto';
     setError(null);
     setToolStatus(toolStatusFor(content));
     setMessages(m => [...m, { role: 'user', content }]);
@@ -1444,33 +1445,43 @@ export default function Home() {
         >
           ◉
         </button>
-        <input
+        <textarea
           ref={inputRef}
           value={input}
-          onChange={e => setInput(e.target.value)}
-          onCompositionStart={() => setComposing(true)}
+          rows={1}
+          onChange={e => {
+            setInput(e.target.value);
+            const el = e.currentTarget;
+            el.style.height = 'auto';
+            el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+          }}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
           onCompositionEnd={e => {
-            setComposing(false);
-            setInput((e.target as HTMLInputElement).value);
+            composingRef.current = false;
+            setInput((e.target as HTMLTextAreaElement).value);
           }}
           onKeyDown={e => {
+            // Enter sends; Shift+Enter is a newline. Never intercept while the
+            // IME is composing (keyCode 229 / isComposing) or it eats Chinese
+            // candidate selection.
             if (
               e.key === 'Enter' &&
-              !composing &&
+              !e.shiftKey &&
+              !composingRef.current &&
               !e.nativeEvent.isComposing &&
               e.keyCode !== 229
             ) {
+              e.preventDefault();
               send();
             }
           }}
           placeholder="…"
-          lang="zh-CN"
-          inputMode="text"
+          enterKeyHint="send"
           autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
           spellCheck={false}
-          className="flex-1 bg-stone-900 border border-stone-800 rounded-full px-4 py-2 text-[15px] md:text-base outline-none focus:border-stone-600"
+          className="flex-1 resize-none bg-stone-900 border border-stone-800 rounded-2xl px-4 py-2 text-[15px] md:text-base outline-none focus:border-stone-600 max-h-[120px] leading-6"
         />
         <button
           onClick={() => send()}

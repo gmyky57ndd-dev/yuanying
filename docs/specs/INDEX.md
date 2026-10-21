@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-055 (highest assigned: **ES-055**; ES-040 now assigned)
+**Range:** ES-001 → ES-056 (highest assigned: **ES-056**; ES-040 now assigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -68,3 +68,4 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-053 | External AI Bridge & Context Ingestion | Approved | 2026-10-21 | P3-05 |
 | ES-054 | Collector SSE Refresh Channel | Approved | 2026-10-21 | P2-32 |
 | ES-055 | Steps Stall Visibility & Language Toggle Removal | Urgent Bug (P0) | 2026-10-21 | P2-33 |
+| ES-056 | Remove Language Toggle & Fix PWA IME Focus | Urgent Bug (P0) | 2026-10-21 | P2-34 |

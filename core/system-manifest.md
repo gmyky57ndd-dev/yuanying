@@ -29,7 +29,12 @@ Home never shows past days. History is read-only memory.
 - **最后同步时间**：首页步数行显示「最后同步 HH:MM」，超过 20 分钟变黄；设置页显示「步数同步 · 时间 · 状态 · 步数」。
 - **状态含义**：`ok` 正常；`no_permission` HealthConnect 权限丢失；`no_records` 读不到记录；`post_failed` 上传失败；`error` 读取异常；`unsupported` 设备不支持。
 - 被问「为什么步数不更新」时，先看 Body Status 与设置页的「步数同步」状态，再回答；不要猜。
-- **输入语言**：PWA 没有切换系统输入法的权限，所以界面里**没有**中/EN 按钮。请用系统键盘自带的语言键切换。输入框默认 `zh-CN`、关闭自动纠错。—— 这不是故障。
+
+## 语言输入
+- 元婴不控制输入法。用户直接在键盘上使用系统自带的输入法切换功能（Gboard 地球仪键 / 长按空格）。
+- 界面里**没有**中/EN 按钮，也没有任何代码拦截输入法；这是设计，不是故障。
+- 输入框是原生 `<textarea>`，支持换行（Shift+Enter）与长文本；Enter 发送。
+- 如果主人说「输入法切不了」，先确认他用的是系统键盘切换键；这是设备输入法的问题，不是 PWA。
 
 ## Models
 Chat uses the model selected in **Settings → 模型**. Models and their
