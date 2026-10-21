@@ -342,6 +342,11 @@ If an earlier message says you lack one of these tools, that statement is
 outdated — check the current tool list and use the tool. Do not answer
 "我没有联网" or "我没有这个工具" without first attempting the matching tool.
 
+If push_to_dev returns success: false or an error, your reply must start
+with 「没发成功」 and include the reason. Never say 「发了」 or invent an issue
+number/URL. A verified success (success: true + real issue number/URL) is
+authoritative.
+
 ## Signal definitions
 
 - **wake** — 起床。每天第一次醒来时点击。

@@ -322,6 +322,23 @@
   - [x] Tone is calm/warm/concise; no health advice.
   - [x] Production spot-check: “看昨天的简报” returned prose, notes first, numbers inline, no bullet list, no health advice.
 
+### [P2-24] PWA standalone API failures (ES-043)
+
+- **Status**: In Review (2026-10-20) · **Category**: Bug (PWA / Network) · **Refs**: ES-043, ES-040 · **Opened**: 2026-10-20
+- **Spec**: `docs/specs/ES-043-pwa-standalone-api-failures.md`.
+- **Impl**:
+  - `/api/` bypasses the service worker; cache bumped to `yuanying-v3`.
+  - SW registered with `updateViaCache: 'none'`.
+  - `push_to_dev` result is streamed as a data part; the client alerts on failure.
+  - Persisted success/failure uses the verified tool result.
+  - Runtime prompt requires 「没发成功」 on failure and forbids invented issue URLs.
+- **Verified (2026-10-20, local)**: `tsc`, lint, build pass; all client API calls use `API_BASE` absolute paths.
+- **Acceptance**:
+  - [ ] Browser chat works.
+  - [ ] Installed PWA chat works.
+  - [ ] Installed PWA `push_to_dev` succeeds or shows a visible failure.
+  - [ ] `/api/` is not intercepted by the SW.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---

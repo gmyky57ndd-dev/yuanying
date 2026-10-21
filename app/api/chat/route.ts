@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { streamText, tool } from 'ai';
+import { StreamData, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
@@ -415,6 +415,7 @@ export async function POST(req: NextRequest) {
     }
 
     let pushToDevResult: any = null;
+    const streamData = new StreamData();
 
     const tools = {
       get_notes: tool({
@@ -528,6 +529,12 @@ export async function POST(req: NextRequest) {
             already: result?.data?.already ?? null,
             error: result?.error ?? null,
           });
+          streamData.append({
+            type: 'push_to_dev',
+            success: result?.success === true,
+            number: result?.data?.number ?? null,
+            error: result?.error ?? null,
+          });
           return result;
         },
       }),
@@ -543,6 +550,7 @@ export async function POST(req: NextRequest) {
       maxTokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
       onError: ({ error }) => {
         console.error('model stream error:', error);
+        streamData.close().catch(() => {});
       },
       onFinish: async ({ text }) => {
         let reply = text.trim() || '…';
@@ -572,11 +580,13 @@ export async function POST(req: NextRequest) {
 
         if (insErr) console.error('insert failed:', insErr);
 
+        await streamData.close();
         console.log(`chat ok in ${Date.now() - startTime}ms`);
       },
     });
 
     return result.toDataStreamResponse({
+      data: streamData,
       getErrorMessage: e =>
         e instanceof Error ? e.message : 'model request failed',
     });

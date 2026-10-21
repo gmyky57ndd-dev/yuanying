@@ -16,7 +16,7 @@ export function SWRegister() {
     });
 
     navigator.serviceWorker
-      .register('/sw.js')
+      .register('/sw.js', { updateViaCache: 'none' })
       .then(reg => {
         console.log('SW registered:', reg.scope);
         reg.update();
