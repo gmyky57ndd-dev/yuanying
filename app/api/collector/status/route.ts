@@ -3,6 +3,7 @@ import { supabase } from '@/lib/db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const PLAY_INTERNAL_URL =
   'https://play.google.com/apps/internaltest/4701496216557819136';

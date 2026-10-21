@@ -98,7 +98,8 @@ insert into config (key, value) values
   ('activity_collection_enabled', 'true'::jsonb),
   ('timezone', '"Asia/Shanghai"'::jsonb),
   ('reminders_enabled', '{"water":true,"standup":true,"vitamin":true,"evening_checkin":true}'::jsonb),
-  ('steps_goal', '5000'::jsonb)
+  ('steps_goal', '5000'::jsonb),
+  ('tool_readback_enabled', 'false'::jsonb)
 on conflict (key) do nothing;
 
 -- =============================================

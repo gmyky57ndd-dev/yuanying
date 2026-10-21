@@ -137,6 +137,7 @@ export default function Home() {
   const [bodySaving, setBodySaving] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [expandedMsgs, setExpandedMsgs] = useState<Record<string, boolean>>({});
   const noteRecRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -1257,6 +1258,14 @@ export default function Home() {
         )}
         {messages.map((m, i) => {
           const isAssistant = m.role === 'assistant';
+          const msgKey = String(m.id ?? `i${i}`);
+          const isLong =
+            isAssistant &&
+            (m.content.length > 150 || m.content.split('\n').length > 4);
+          const showFull = !isLong || !!expandedMsgs[msgKey];
+          const displayContent = showFull
+            ? m.content
+            : `${m.content.slice(0, 150).replace(/\s+$/, '')}…`;
           return (
             <div
               key={m.id ?? i}
@@ -1280,8 +1289,21 @@ export default function Home() {
                 onTouchEnd={isAssistant ? cancelLongPress : undefined}
                 onTouchMove={isAssistant ? cancelLongPress : undefined}
               >
-                {m.content}
+                {displayContent}
               </div>
+              {isLong && (
+                <button
+                  onClick={() =>
+                    setExpandedMsgs(prev => ({
+                      ...prev,
+                      [msgKey]: !prev[msgKey],
+                    }))
+                  }
+                  className="text-[10px] text-stone-500 mt-1"
+                >
+                  {showFull ? '收起' : '展开全文'}
+                </button>
+              )}
               {isAssistant && (
                 <div className="flex items-center gap-2 mt-1">
                   {m.id && (

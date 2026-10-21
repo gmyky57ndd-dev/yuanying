@@ -21,6 +21,7 @@ import { webSearch } from '@/lib/web-search';
 import { readMarkdown } from '@/lib/read-markdown';
 import { writeMarkdown } from '@/lib/write-markdown';
 import { scheduleMessage } from '@/lib/scheduler';
+import { normalizeToolResult } from '@/lib/tool-result';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -353,6 +354,13 @@ export async function POST(req: NextRequest) {
     const resetAt =
       typeof resetCfg?.value === 'string' ? resetCfg.value : null;
 
+    const { data: readbackCfg } = await supabase
+      .from('config')
+      .select('value')
+      .eq('key', 'tool_readback_enabled')
+      .maybeSingle();
+    const verboseTools = readbackCfg?.value === true;
+
     let historyQuery = supabase
       .from('messages')
       .select('role, content')
@@ -449,6 +457,7 @@ export async function POST(req: NextRequest) {
       timezone: tz,
       today: getDateInTimezone(tz),
       message,
+      toolReadback: verboseTools,
     });
 
     // 4. Assemble messages
@@ -481,6 +490,11 @@ export async function POST(req: NextRequest) {
     let pushToDevResult: any = null;
     const streamData = new StreamData();
 
+    const runToolForModel = async (
+      name: string,
+      args: Record<string, unknown>
+    ) => normalizeToolResult(name, await runToolSafely(name, args), verboseTools);
+
     const tools = {
       get_notes: tool({
         description:
@@ -488,7 +502,7 @@ export async function POST(req: NextRequest) {
         parameters: z.object({
           date: z.string().describe('Date in YYYY-MM-DD format'),
         }),
-        execute: async ({ date }) => runToolSafely('get_notes', { date }),
+        execute: async ({ date }) => runToolForModel('get_notes', { date }),
       }),
       get_conversation_records: tool({
         description:
@@ -497,7 +511,7 @@ export async function POST(req: NextRequest) {
           keyword: z.string().describe('Topic or keyword to search'),
         }),
         execute: async ({ keyword }) =>
-          runToolSafely('get_conversation_records', { keyword }),
+          runToolForModel('get_conversation_records', { keyword }),
       }),
       get_summary: tool({
         description:
@@ -505,7 +519,7 @@ export async function POST(req: NextRequest) {
         parameters: z.object({
           date: z.string().describe('Date in YYYY-MM-DD format'),
         }),
-        execute: async ({ date }) => runToolSafely('get_summary', { date }),
+        execute: async ({ date }) => runToolForModel('get_summary', { date }),
       }),
       get_drive_doc: tool({
         description:
@@ -541,7 +555,7 @@ export async function POST(req: NextRequest) {
         description:
           'Return the active chat model (id, provider, model name, base URL, whether a key is available). Use when the owner asks which model is active, how model switching works, or why behavior changed. Never reveal API keys.',
         parameters: z.object({}),
-        execute: async () => runToolSafely('get_model_info', {}),
+        execute: async () => runToolForModel('get_model_info', {}),
       }),
       web_search: tool({
         description:
@@ -549,7 +563,7 @@ export async function POST(req: NextRequest) {
         parameters: z.object({
           query: z.string().describe('The search query'),
         }),
-        execute: async ({ query }) => runToolSafely('web_search', { query }),
+        execute: async ({ query }) => runToolForModel('web_search', { query }),
       }),
       read_markdown: tool({
         description:
@@ -561,7 +575,7 @@ export async function POST(req: NextRequest) {
               'Relative path, e.g. docs/specs/ES-036-web-search.md'
             ),
         }),
-        execute: async ({ path }) => runToolSafely('read_markdown', { path }),
+        execute: async ({ path }) => runToolForModel('read_markdown', { path }),
       }),
       write_markdown: tool({
         description:
@@ -571,7 +585,7 @@ export async function POST(req: NextRequest) {
           content: z.string().describe('Full new file content'),
         }),
         execute: async ({ path, content }) =>
-          runToolSafely('write_markdown', { path, content }),
+          runToolForModel('write_markdown', { path, content }),
       }),
       scheduler: tool({
         description:
@@ -581,7 +595,7 @@ export async function POST(req: NextRequest) {
           action: z.string().describe('What to say, one short sentence'),
         }),
         execute: async ({ time, action }) =>
-          runToolSafely('scheduler', { time, action }),
+          runToolForModel('scheduler', { time, action }),
       }),
       get_issue: tool({
         description:
@@ -590,7 +604,7 @@ export async function POST(req: NextRequest) {
           issue_number: z.number().int().positive().describe('GitHub issue number'),
         }),
         execute: async ({ issue_number }) =>
-          runToolSafely('get_issue', { issue_number }),
+          runToolForModel('get_issue', { issue_number }),
       }),
       push_to_dev: tool({
         description:
@@ -623,7 +637,7 @@ export async function POST(req: NextRequest) {
             number: result?.data?.number ?? null,
             error: result?.error ?? null,
           });
-          return result;
+          return normalizeToolResult('push_to_dev', result, verboseTools);
         },
       }),
     };

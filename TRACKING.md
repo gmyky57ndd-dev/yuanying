@@ -420,10 +420,18 @@
 
 ### [P3-03] PWA version awareness + SW update (ES-050)
 
-- **Status**: In Review (2026-10-21) · **Category**: Bug (Self-Awareness / Update) · **Refs**: ES-050 · **Opened**: 2026-10-21
+- **Status**: Done (2026-10-21) · **Category**: Bug (Self-Awareness / Update) · **Refs**: ES-050 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-050-pwa-version-awareness.md`.
 - **Impl**: `next.config.mjs` injects `NEXT_PUBLIC_APP_VERSION`; Settings shows PWA version; runtime Body Status distinguishes LLM/PWA/Collector; SW update prompt + cache v4; `/api/health` no-store alias; Settings uses no-store.
 - **Verified (2026-10-21, production)**: `/sw.js` is v4; `/api/health` returns `Cache-Control: no-store`; “你是什么版本？” answered PWA v0.1.0, LLM deepseek-chat, collector v1.0.29 (latest v1.0.30 available). Web deploy + tests green. **Acceptance**: [x] PWA version injection; [x] version answer context; [x] SW prompt; [x] collector status no-store; [ ] owner phone/Mac update-prompt check.
+
+### [P3-04] Config-driven tool readback / silent mode (ES-051)
+
+- **Status**: In Review (2026-10-21) · **Category**: Feature (Agent Config) · **Refs**: ES-051 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-051-tool-readback.md`.
+- **Impl**: `tool_readback_enabled` config (default false); Settings toggle; `lib/tool-result.ts` silent normalization + 800-char verbose cap; chat prompt silent/verbose injection; long assistant replies collapse with 展开全文.
+- **Tests**: `lib/tool-result.test.ts` covers silent push/get_notes, verbose truncation, error passthrough.
+- **Acceptance**: [x] default silent; [x] Settings toggle; [x] normalized results; [x] 800-char cap; [x] frontend collapse; [ ] owner real push/verbose check.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
