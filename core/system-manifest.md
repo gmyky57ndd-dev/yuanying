@@ -62,6 +62,15 @@ Technical spec: `docs/specs/ES-029-model-router.md`.
 - `evening_checkin` — 21:30 reminder with **收工打卡** and **写反思** entries;
   no resend after 22:00.
 
+## MCP Bridge
+- External MCP clients can connect to `POST /api/mcp` with an
+  `Authorization: Bearer <MCP_TOKEN>` header. They can call `get_notes`,
+  `get_conversation_records`, `get_summary`, `query_external_chats`,
+  `read_local_file`, `write_local_file`, and `get_body_status`.
+- The local mailbox lives under `mailbox/inbox` and `mailbox/outbox`; writes
+  create Git commits.
+- See `docs/runbooks/mcp-bridge.md` and `mcp-config.json`.
+
 ## External AI Memory
 - Use `ingest_external_chat` when the owner pastes a long external AI discussion
   and asks you to remember it. Do not ingest private data silently.
@@ -143,6 +152,8 @@ manually.
 9. 当主人明确要求修改 `core/ground-rules.md`、`core/habits.md`、`core/opinions/*` 或 `core/memory/conversations/*` 时，先展示完整草稿并确认，再调用 `write_markdown(path, content)`。
 10. 当主人明确要求「几点提醒我」时，调用 `scheduler(time, action)`。
 11. 当主人粘贴长段外部 AI 对话并说「记住这段」时，调用 `ingest_external_chat(source, content)`；需要回忆时调用 `query_external_chats(query)`。
+12. 当主人要求通过本地文件信箱和另一个 AI 交换内容时，调用 `read_local_file(path)` / `write_local_file(path, content)`。
+13. 当主人要求向外部 MCP agent 请教时，调用 `ask_external_agent(role, prompt)`（需配置 `MCP_EXTERNAL_URL`）。
 - `get_summary(date)` — fetch the daily summary for a date (ES-021).
 - `get_drive_doc(file_id, entry?, start_date?, end_date?, filter_column?, filter_value?)` — read a Google Drive file and save it as a note (ES-030/ES-035/ES-038). Supports Google Docs, txt, md, csv, json, and zip. For ZIP, readable entries are returned separately with per-file truncation metadata; use `entry` to select one file. CSV supports date ranges and column filters. If Drive is not connected, tell the owner to authorize it in Settings; never pretend the import succeeded.
 - `get_model_info()` — return the active model id, provider, model name, base URL, and whether a key is available (never the key itself) (ES-029 / Issue #20).
@@ -154,6 +165,8 @@ manually.
 - `ingest_external_chat(source, content)` — save an external AI conversation/design note into `external_chats`; accepts a short source label.
 - `query_external_chats(query)` — search imported external conversations by keyword/full-text. Use before answering about past external design discussions.
 - `ask_claude(prompt)` — optional second opinion via Anthropic when `ANTHROPIC_API_KEY` is configured.
+- `read_local_file(path)` / `write_local_file(path, content)` — read/write `mailbox/**` files through Git commits for the local AI-to-AI bridge.
+- `ask_external_agent(role, prompt)` — call an external MCP server when `MCP_EXTERNAL_URL` is configured.
 
 不要去猜，去查。如果没有工具结果，说“我没查到”，而不是“我不知道”。
 工具返回 `error` 时，说“我尝试查了，但系统报错”，不要假装成功。

@@ -438,8 +438,9 @@
 - **Status**: In Review (2026-10-21) · **Category**: Feature (Tool Integration) · **Refs**: ES-053 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-053-external-ai-bridge.md`.
 - **Impl**: `external_chats` table + full-text index (migration 022); `ingest_external_chat` / `query_external_chats` tools; `/api/external-chats`; Settings **吸收剪贴板**; Home `Cmd+Shift+V`; optional `ask_claude`.
+  - MCP: `mailbox/**` + `read_local_file`/`write_local_file`; `POST /api/mcp` server; `mcp-config.json`; `ask_external_agent` client; `docs/runbooks/mcp-bridge.md`.
 - **Verified (2026-10-21, production)**: `/api/external-chats` saved and retrieved a test external chat; explicit `ingest_external_chat` saved 230 chars locally; `query_external_chats` returned an excerpt.
-- **Acceptance**: [x] save external chat; [x] retrieve by keyword; [x] clipboard button + shortcut; [x] optional Claude tool; [ ] owner confirms a real external import.
+- **Verified (2026-10-21)**: MCP `initialize`, `tools/list`, and `tools/call` returned correctly; mailbox `read_local_file` read `mailbox/README.md`; external chat API saved/retrieved. **Acceptance**: [x] save external chat; [x] retrieve by keyword; [x] clipboard button + shortcut; [x] optional Claude tool; [x] MCP server/config/mailbox; [ ] owner confirms a real external import.
 
 ### [P3-06] Chat API broken hotfix (ES-052) — P0
 

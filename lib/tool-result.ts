@@ -132,6 +132,15 @@ function summarize(name: string, result: any): any {
       };
     }
     case 'ask_claude':
+    case 'ask_external_agent':
+      return result;
+    case 'read_local_file':
+      return {
+        success: true,
+        data: { path: result.data?.path, chars: result.data?.chars },
+        message: 'Mailbox file loaded.',
+      };
+    case 'write_local_file':
       return result;
     case 'write_markdown':
     case 'scheduler':

@@ -39,3 +39,33 @@ partners and 元婴.
 - [x] Clipboard button + `Cmd+Shift+V` shortcut wired.
 - [x] `ask_claude` is available only when configured.
 - [ ] Owner confirms a real external chat import and retrieval.
+
+## 6. MCP architecture (phase update)
+
+The same ES-053 now also covers the MCP bridge:
+
+### Phase A — mailbox files
+- `mailbox/inbox/`, `mailbox/outbox/`.
+- Tools `read_local_file(path)` / `write_local_file(path, content)`, restricted
+  to `mailbox/**` with `.md/.txt/.json`.
+- Production writes go through the GitHub Contents API and create a commit; the
+  deploy workflow ignores `mailbox/**`, so mailbox updates do not redeploy.
+
+### Phase B — Yuanying MCP Server
+- `POST /api/mcp` (Streamable HTTP, JSON response).
+- Auth: `Authorization: Bearer <MCP_TOKEN>` (falls back to `API_TOKEN`).
+- Tools: `get_notes`, `get_conversation_records`, `get_summary`,
+  `query_external_chats`, `read_local_file`, `write_local_file`,
+  `get_body_status`.
+- `mcp-config.json` + `docs/runbooks/mcp-bridge.md` for Claude Desktop/Cursor.
+
+### Phase C — MCP Client
+- `ask_external_agent(role, prompt)` connects to `MCP_EXTERNAL_URL` and calls the
+  first tool matching `ask|chat|prompt|agent`.
+- Requires `MCP_EXTERNAL_URL` (and optional `MCP_EXTERNAL_TOKEN`).
+
+### Additional acceptance
+- [x] `mcp-config.json` exists.
+- [x] `read_local_file` / `write_local_file` work on the mailbox.
+- [x] MCP `initialize`, `tools/list`, and `tools/call` verified locally.
+- [x] `ask_external_agent` wired; requires an external MCP URL.
