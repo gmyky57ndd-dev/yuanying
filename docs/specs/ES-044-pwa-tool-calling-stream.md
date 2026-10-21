@@ -55,7 +55,7 @@ with no explicit error.
 
 ## 4. Acceptance
 
-- [x] Tool execution emits a `sending` data part and a `done` part.
+- [x] Tool execution emits a `sending` data part and a `done` part (verified in production).
 - [x] Success/failure data parts are verified in the stream.
 - [x] GitHub API calls time out after 8s instead of hanging.
 - [x] Client shows “正在发送到 GitHub…” and alerts on failure/network error.

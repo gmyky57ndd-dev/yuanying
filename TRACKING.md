@@ -348,9 +348,9 @@
   - `push_to_dev` streams `sending` / `done` data parts; client shows “⚙️ 正在发送到 GitHub…” and alerts on failure/network error.
   - GitHub API calls have an 8s AbortController timeout; `maxDuration = 60` remains.
   - Persisted success/failure still uses the verified tool result.
-- **Verified (2026-10-20, local)**: success data part (`success:true`, number) and forced-failure data part (`success:false`, `Not Found`) both parsed by the client; `tsc`, lint, build pass.
+- **Verified (2026-10-20, production)**: `push_to_dev` streamed `{status:'sending'}` then `{status:'done',success:true,number:49}` (test issue closed); forced bad-repo failure streamed `success:false,error:'Not Found'`; client extraction confirmed. `tsc`, lint, build pass.
 - **Acceptance**:
-  - [x] Tool sending/done events are streamed and parsed.
+  - [x] Tool sending/done events are streamed and parsed in production.
   - [x] GitHub calls cannot hang the stream indefinitely.
   - [x] Visible failure/network alerts are wired.
   - [ ] Installed PWA phone test: send an issue, confirm a real issue or visible error.
