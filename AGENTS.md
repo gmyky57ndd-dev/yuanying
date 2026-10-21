@@ -14,7 +14,7 @@
 
 **One sentence:** *Not a chatbot. Not an assistant. Your second self, growing with you.*
 
-Before implementation, read `AGENTS.md`, `TRACKING.md`, and the relevant code and project documentation. The PRD and engineering-spec files cited in older versions were not present in the repository when v1.3 was drafted. Check the current repository (including `docs/`) for the source of truth; do not assume a cited path exists. Ask the tech lead or owner if a required product decision cannot be found. Read `core/identity.md`, `core/voice.md`, and `core/values.md` when the task touches the companion's identity, voice, or values.
+Before implementation, read `AGENTS.md`, `TRACKING.md`, and the relevant code and project documentation. Product intent lives in `docs/yuanying-prd-v1.1.md.md`; the original engineering spec is `docs/yuanying-engineering-spec-v2.md.md`; numbered engineering specs live in `docs/specs/` and are indexed in `docs/specs/INDEX.md`. Check the current repository for the source of truth; do not assume a cited path still exists. Ask the tech lead or owner if a required product decision cannot be found. Read `core/identity.md`, `core/voice.md`, and `core/values.md` when the task touches the companion's identity, voice, or values.
 
 ---
 
@@ -434,4 +434,4 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ---
 
-**End of AGENTS.md v1.9**
+**End of AGENTS.md v1.10**

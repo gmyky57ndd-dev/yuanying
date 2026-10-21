@@ -138,7 +138,10 @@ Three layers (`AGENTS.md` §12, ES-031):
 1. **Daily Git memory** — `.github/workflows/memory-backup.yml` commits `core/`
    and `memory/` every day at 00:00 Asia/Shanghai.
 2. **Weekly DB snapshot** — `.github/workflows/db-backup.yml` runs `pg_dump`
-   every Sunday and commits `backups/db/YYYY-MM-DD.sql`.
+   every Sunday and uploads `db-snapshot-YYYY-MM-DD` as a workflow artifact
+   (90 days). It is **not committed**: this repository is public and the dump
+   contains the owner's messages and signals. Credential tables
+   (`models`, `google_oauth_tokens`) are dumped as schema only.
 3. **Owner export** — `GET /api/export` (Settings → 导出我的元婴) returns a ZIP
    of all user tables plus `core/**`, excluding `models.api_key` and OAuth tokens.
 

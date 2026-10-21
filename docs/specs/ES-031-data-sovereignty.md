@@ -28,7 +28,14 @@
 - **隐患**：如果 Supabase 倒闭，这部分数据会丢。
 - **解决方案**：`.github/workflows/db-backup.yml` 每周日 00:00 UTC 运行
   `pg_dump`（`postgres:17` Docker 镜像，避免 runner 客户端版本不匹配），
-  将 Supabase 表导出为 `backups/db/YYYY-MM-DD.sql`，并自动 commit 到仓库。
+  将 Supabase 表导出为 `backups/db/YYYY-MM-DD.sql`，并作为 **workflow
+  artifact**（保留 90 天）上传。
+- **为什么不再 commit 到仓库（2026-10-21 修正）**：本仓库是 **public**，dump
+  包含 owner 的 `messages` / `signals` / `summaries`（私人数据）。直连
+  `db.<ref>.supabase.co` 只有 IPv6，GitHub runner 无法访问，必须用 IPv4
+  session pooler（`aws-<n>-<region>.pooler.supabase.com:5432`）。
+  凭据表（`models`、`google_oauth_tokens`）只导出结构，不含数据。
+- **长期离线副本**：用一键导出 ZIP 或把 dump 放到私有仓库/私有存储。
 - **恢复**：换用其他 Postgres 数据库（Neon、AWS RDS、本地 Docker）后直接
   导入该 SQL 备份即可。
 - **Required GitHub secret**: `SUPABASE_DB_URL`（Supabase direct Postgres
@@ -62,12 +69,13 @@
 File: `.github/workflows/db-backup.yml`.
 
 - `schedule: cron '0 0 * * 0'`（每周日 00:00 UTC）+ `workflow_dispatch`。
-- `permissions: contents: write`.
+- `permissions: contents: read`（不再需要写权限）。
 - 使用 `docker run --rm postgres:17 pg_dump ...`，输出
-  `backups/db/YYYY-MM-DD.sql`。
-- 配置 git user，`git add` + `git commit` + `git push` 到当前分支。
-- 没有变化时跳过 commit；push 被 branch protection 拒绝时 workflow 失败并
-  暴露原因。
+  `backups/db/YYYY-MM-DD.sql`，`--exclude-table-data=models
+  --exclude-table-data=google_oauth_tokens`。
+- `actions/upload-artifact@v4` 上传 `db-snapshot-YYYY-MM-DD`，保留 90 天；
+  `if-no-files-found: error`。
+- **不 commit**：公共仓库不得包含 owner 的私人消息/信号。
 
 ### 4.2 一键导出 API (PWA)
 
@@ -100,18 +108,21 @@ File: `app/settings/page.tsx`.
 
 ## 5. Acceptance
 
-- [x] GitHub Actions workflow exists and produces
-      `backups/db/YYYY-MM-DD.sql` when `SUPABASE_DB_URL` is set.
+- [x] GitHub Actions workflow exists and uploads a
+      `db-snapshot-YYYY-MM-DD` artifact when `SUPABASE_DB_URL` is set.
+- [x] The snapshot is not committed to the public repository.
 - [x] Settings page has an export button that downloads a ZIP.
 - [x] The ZIP contains all exported tables + `core/` Markdown.
 - [x] Secrets (`models.api_key`, `google_oauth_tokens`) are excluded.
 - [x] A local export can be inspected/rebuilt without Supabase.
-- [ ] First scheduled workflow run verified in GitHub Actions.
+- [ ] First *scheduled* (Sunday cron) run verified — manual dispatch already green (2026-10-21).
 - [ ] Owner downloads the ZIP on the phone.
 
 ## 6. Restore outline
 
 1. Create an empty Postgres database.
-2. `psql "$DATABASE_URL" -f backups/db/YYYY-MM-DD.sql`.
+2. Download the `db-snapshot-YYYY-MM-DD` artifact (repo → Actions → run), then
+   `psql "$DATABASE_URL" -f YYYY-MM-DD.sql`. Re-enter model API keys and
+   Google Drive authorization afterwards (they are excluded by design).
 3. Point the app at the new database (ES-034 / DAL work).
 4. Keep `core/` from the Git checkout or the ZIP.

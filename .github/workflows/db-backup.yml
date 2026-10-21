@@ -4,7 +4,10 @@ name: Weekly DB Backup
 # Requires repo secret SUPABASE_DB_URL. Use the IPv4 session pooler
 # (aws-<n>-<region>.pooler.supabase.com:5432): GitHub-hosted runners have no IPv6
 # and cannot reach db.<ref>.supabase.co.
-# Commits to backups/db/YYYY-MM-DD.sql on the current default branch.
+# The snapshot is uploaded as a workflow artifact, NOT committed: this repo is
+# PUBLIC and the dump contains the owner's messages/signals (personal data).
+# Artifacts are downloadable by repo admins for 90 days.
+# For an off-GitHub copy, use Settings -> 导出我的元婴 (ZIP) or a private repo.
 
 on:
   schedule:
@@ -41,9 +44,9 @@ jobs:
         run: |
           mkdir -p backups/db
           DATE=$(date -u +%F)
-          # Credential tables are dumped as schema only. The snapshot is committed
-          # to Git, so OAuth tokens and model API keys must never be in it
-          # (GitHub push protection rejects them, and AGENTS.md §5.2.4 forbids it).
+          # Credential tables are dumped as schema only: the artifact is
+          # downloadable by admins, and tokens/keys must never leave the DB
+          # (AGENTS.md §5.2.4).
           docker run --rm \
             -e SUPABASE_DB_URL \
             -e BACKUP_DATE="$DATE" \
@@ -53,14 +56,10 @@ jobs:
           sudo chown -R "$(id -u):$(id -g)" backups/db
           echo "BACKUP_DATE=$DATE" >> "$GITHUB_ENV"
 
-      - name: Commit snapshot
-        run: |
-          git config user.name "yuanying-backup"
-          git config user.email "yuanying-backup@users.noreply.github.com"
-          git add "backups/db/${BACKUP_DATE}.sql"
-          if git diff --cached --quiet; then
-            echo "No backup changes to commit"
-            exit 0
-          fi
-          git commit -m "chore(backup): db snapshot ${BACKUP_DATE}"
-          git push
+      - name: Upload snapshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-snapshot-${{ env.BACKUP_DATE }}
+          path: backups/db/*.sql
+          retention-days: 90
+          if-no-files-found: error

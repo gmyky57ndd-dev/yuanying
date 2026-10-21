@@ -2,7 +2,7 @@
 
 **Purpose**: Single source of truth for what's done, in progress, and to do.
 **Owner**: Tech lead (final authority on state); agents update their own items.
-**Refs**: `AGENTS.md` v1.3, `docs/Dev Response 1014.md`, `docs/APPENDIX for 1014 response.md`.
+**Refs**: `AGENTS.md` v1.10, `docs/Dev Response 1014.md`, `docs/APPENDIX for 1014 response.md`.
 
 ---
 
@@ -1012,6 +1012,13 @@ never by the section they happened to be written under.
   - [x] `tsc`, lint, and build pass.
   - [ ] First scheduled workflow run verified in GitHub Actions.
   - [ ] Owner downloads the ZIP on the phone.
+- **Verified (2026-10-21, manual dispatch)** — three defects found and fixed before the first green run:
+  1. `db.<ref>.supabase.co` resolves to IPv6 only; GitHub runners have no IPv6 → connection refused. Fix: IPv4 **session pooler** (`aws-1-us-west-2.pooler.supabase.com:5432`, user `postgres.<ref>`).
+  2. The dump contained `auth.*` and `google_oauth_tokens` data → GitHub push protection rejected the commit. Fix: `--exclude-table-data=models --exclude-table-data=google_oauth_tokens`.
+  3. **Privacy:** a green run committed a 1.7 MB dump containing 412 messages, 874 signals, 15 summaries to this **public** repo (commit `8dfff78`). The file was removed in `9eeb03a`; the workflow now uploads `db-snapshot-YYYY-MM-DD` as a 90-day artifact and commits nothing. **History rewrite is pending owner approval** — the blob is still reachable at `8dfff78` until then.
+  - Runs: `39652101638` (fail, IPv6) → `39653015877` (fail, push protection) → `39655263332` (green, artifact uploaded).
+- **Remaining**: first *scheduled* Sunday run; owner downloads a snapshot or the ZIP once.
+
 - **Restore**: see `docs/specs/ES-031-data-sovereignty.md` §6.
 
 
@@ -1462,7 +1469,7 @@ Unscheduled. Do not start without owner/tech-lead scheduling.
 - **ES-052** chat hotfix: empty-reply data part + authoritative body-status reminder → **P3-06**. **ES-053** external AI bridge + MCP server (`/api/mcp`), `mailbox/`, `ask_external_agent` → **P3-05**.
 - **P1-61 / P1-62**: PWA client restore + collector status/update; server-triggered sync + tool-result brevity.
 - Tests 23 → **32 green**; `tests.yml` runs tests + lint + typecheck on every push/PR.
-- **Ops (2026-10-21):** `db-backup` runs on the IPv4 session pooler (GitHub runners have no IPv6); new `memory-backup.yml` commits `core/` + `memory/` daily; ES-004 enforce audit found 48% `would_401` including CORS preflights → **enforce postponed to 2026-10-25**. **P1-22 dropped** (owner: passive wake detection is too error-prone).
+- **Ops (2026-10-21):** `db-backup` now uses the IPv4 session pooler (GitHub runners have no IPv6) and uploads a 90-day artifact instead of committing the dump — this repo is public and the dump contains messages/signals; new `memory-backup.yml` commits `core/` + `memory/` daily; ES-004 enforce audit found 48% `would_401` including CORS preflights → **enforce postponed to 2026-10-25**. **P1-22 dropped** (owner: passive wake detection is too error-prone).
 
 ### 2026-10-20 — ES-035…ES-044
 - **ES-035** Drive formats (txt/csv/json/zip), **ES-036** web search + Markdown reader, **ES-037** new signals `manual_work`/`body_flag` + 21:30 check-in, **ES-038** tooling upgrades (ZIP entries, truncation metadata, CSV filters, `get_issue`), **ES-039** summary tone enforcement, **ES-043/044** PWA standalone + tool-stream fixes → **P2-18…P2-25**.
