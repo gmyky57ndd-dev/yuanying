@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "yuanying": {
+      "url": "https://yuanying-rust.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_MCP_TOKEN"
+      }
+    }
+  }
+}

@@ -25,6 +25,8 @@ import { normalizeToolResult } from '@/lib/tool-result';
 import { APP_VERSION } from '@/lib/app-version';
 import { ingestExternalChat, queryExternalChats } from '@/lib/external-chats';
 import { askClaude } from '@/lib/external-ai';
+import { askExternalAgent } from '@/lib/mcp-client';
+import { readMailbox, writeMailbox } from '@/lib/mailbox';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -283,6 +285,27 @@ async function runTool(name: string, args: any): Promise<any> {
     return askClaude(prompt);
   }
 
+  if (name === 'ask_external_agent') {
+    const role = String(args?.role ?? 'architect').trim();
+    const prompt = String(args?.prompt ?? '').trim();
+    if (!prompt) return { success: false, error: 'prompt required' };
+    return askExternalAgent(role || 'architect', prompt);
+  }
+
+  if (name === 'read_local_file') {
+    const filePath = String(args?.path ?? '').trim();
+    if (!filePath) return { success: false, error: 'path required' };
+    return readMailbox(filePath);
+  }
+
+  if (name === 'write_local_file') {
+    const filePath = String(args?.path ?? '').trim();
+    const content = String(args?.content ?? '');
+    if (!filePath) return { success: false, error: 'path required' };
+    if (!content.trim()) return { success: false, error: 'content required' };
+    return writeMailbox(filePath, content);
+  }
+
   return { success: false, error: `unknown tool: ${name}` };
 }
 
@@ -513,7 +536,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
+          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
 
 ${bodyStatusReminder}`,
       },
@@ -643,6 +666,25 @@ ${bodyStatusReminder}`,
         execute: async ({ time, action }) =>
           runToolForModel('scheduler', { time, action }),
       }),
+      read_local_file: tool({
+        description:
+          'Read a file from the mailbox/ directory. Use for the local AI-to-AI file bridge.',
+        parameters: z.object({
+          path: z.string().describe('Path under mailbox/, e.g. mailbox/inbox/x.md'),
+        }),
+        execute: async ({ path }) =>
+          runToolForModel('read_local_file', { path }),
+      }),
+      write_local_file: tool({
+        description:
+          'Write a file under mailbox/ through a Git commit. Use only when the owner asks to hand a message to another AI. Allowed: mailbox/**.md/.txt/.json.',
+        parameters: z.object({
+          path: z.string().describe('Path under mailbox/'),
+          content: z.string().describe('Full file content'),
+        }),
+        execute: async ({ path, content }) =>
+          runToolForModel('write_local_file', { path, content }),
+      }),
       ingest_external_chat: tool({
         description:
           'Save an external AI conversation or long design note into persistent external memory. Use when the owner says “记住这段外部对话” or pastes a long external chat. Source is a short label such as “deepseek-web” or “clipboard”.',
@@ -661,6 +703,16 @@ ${bodyStatusReminder}`,
         }),
         execute: async ({ query }) =>
           runToolForModel('query_external_chats', { query }),
+      }),
+      ask_external_agent: tool({
+        description:
+          'Ask an external MCP agent for architecture/code advice. Only works when MCP_EXTERNAL_URL is configured. Forward the role and prompt; return the external result.',
+        parameters: z.object({
+          role: z.string().describe('Role, e.g. architect or code-reviewer'),
+          prompt: z.string().describe('Question for the external agent'),
+        }),
+        execute: async ({ role, prompt }) =>
+          runToolForModel('ask_external_agent', { role, prompt }),
       }),
       ask_claude: tool({
         description:
