@@ -398,6 +398,19 @@
 - **Impl**: Settings shows collector version + last report; `/api/collector/status` compares the latest GitHub release; update button opens Play internal testing; **添加到主屏幕** install prompt/instructions; collector heartbeat + v1.0.29.
 - **Verified (2026-10-21, production)**: `/api/collector/status` reports installed **v1.0.29 (30)**, last report `2026-10-21T15:06:22Z`, latest `1.0.29`, no update needed. Collector v1.0.29 (code 30) is completed on Play internal; GitHub release assets available. **Acceptance**: [x] runbook; [x] version/last report UI; [x] update prompt; [x] add-to-home path; [ ] owner restores icon and confirms a signal.
 
+### [P3-01] Collector as hub & PWA lifesaver (ES-048)
+
+- **Status**: In Review (2026-10-21) · **Category**: Architecture / Android Client · **Refs**: ES-048, Issue #54, Issue #56 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-048-collector-hub.md`.
+- **Impl**: Collector **启动元婴** launchpad with WebAPK detection/restore dialog; `OverlayService` (draggable bubble + quick note input) and overlay switch; heartbeat `overlay_active`; Settings online/overlay/PWA version; collector/PWA update prompts; server sync request + 15-min `SyncCheckWorker`.
+- **Acceptance**: [x] launchpad; [x] overlay; [x] health/version UI; [x] update prompts; [x] sync request; [ ] owner phone verification.
+
+### [P1-62] Server-triggered sync + tool-result brevity + language toggle (Issue #56)
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug/Feature (Ops/UI) · **Refs**: Issue #56 · **Opened**: 2026-10-21
+- **Impl**: `collector_sync_requested_at` + **立即同步采集器** + `SyncCheckWorker` (15-min WorkManager limit); prompt/manifest “summarize tool results, do not read back full docs by default”; language toggle now focuses the input and changes the placeholder, while OS keyboard language remains system-controlled.
+- **Acceptance**: [x] sync request path; [x] tool-result brevity rule; [x] language toggle UX; [ ] true <30s sync requires FCM (documented).
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---

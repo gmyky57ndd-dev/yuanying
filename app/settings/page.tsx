@@ -31,7 +31,11 @@ type CollectorStatus = {
   latest_version: string | null;
   update_available: boolean;
   update_url: string;
+  overlay_active: boolean;
+  online: boolean;
 };
+
+const PWA_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0';
 
 const MODEL_PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'];
 
@@ -63,6 +67,7 @@ export default function Settings() {
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const [collector, setCollector] = useState<CollectorStatus | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -121,6 +126,45 @@ export default function Settings() {
       const d = await r.json();
       setCollector(d);
     } catch {}
+  }
+
+  async function requestCollectorSync() {
+    setSyncMessage(null);
+    try {
+      const r = await fetchWithTimeout(`${API_BASE}/api/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          collector_sync_requested_at: new Date().toISOString(),
+        }),
+      });
+      setSyncMessage(
+        r.ok
+          ? '已请求同步；采集器会在下次后台唤醒时执行。'
+          : '同步请求失败'
+      );
+      if (r.ok) setTimeout(loadCollector, 30000);
+    } catch {
+      setSyncMessage('同步请求失败');
+    }
+  }
+
+  async function checkPwaUpdate() {
+    if (!('serviceWorker' in navigator)) {
+      alert('此浏览器不支持 Service Worker');
+      return;
+    }
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      alert('Service Worker 未注册');
+      return;
+    }
+    await reg.update();
+    if (reg.waiting) {
+      if (window.confirm('发现新版本，立即刷新？')) window.location.reload();
+    } else {
+      alert('已检查，当前已是最新版本。');
+    }
   }
 
   async function addToHome() {
@@ -397,6 +441,37 @@ export default function Settings() {
                 : '没有记录'}
             </span>
           </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-stone-500">后台采集</span>
+            <span className={collector?.online ? 'text-emerald-400' : 'text-amber-500'}>
+              {collector?.online ? '在线' : '已停止'}
+            </span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-stone-500">悬浮元婴</span>
+            <span>{collector?.overlay_active ? '开启' : '关闭'}</span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-stone-500">PWA 版本</span>
+            <span>{PWA_VERSION}</span>
+          </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <button
+              onClick={requestCollectorSync}
+              className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-200"
+            >
+              立即同步采集器
+            </button>
+            <button
+              onClick={checkPwaUpdate}
+              className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-200"
+            >
+              检查 PWA 更新
+            </button>
+          </div>
+          {syncMessage && (
+            <p className="text-[11px] text-stone-500">{syncMessage}</p>
+          )}
           {collector?.update_available && (
             <a
               href={collector.update_url}

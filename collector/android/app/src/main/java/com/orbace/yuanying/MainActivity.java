@@ -1,16 +1,19 @@
 package com.orbace.yuanying;
 
+import android.app.AlertDialog;
 import android.app.AppOpsManager;
 import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
+import android.content.pm.ResolveInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.widget.Button;
+import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -26,6 +29,7 @@ import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +59,36 @@ public class MainActivity extends AppCompatActivity {
         Button openPwaBtn = findViewById(R.id.open_pwa_button);
         Button grantStepsBtn = findViewById(R.id.grant_steps_button);
         Button updateBtn = findViewById(R.id.update_button);
+        Switch overlaySwitch = findViewById(R.id.overlay_switch);
+        overlaySwitch.setChecked(
+            Settings.canDrawOverlays(this)
+                && getSharedPreferences("yuanying_overlay", MODE_PRIVATE)
+                    .getBoolean("active", false)
+        );
+        overlaySwitch.setOnCheckedChangeListener((button, checked) -> {
+            if (checked) {
+                if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(this)) {
+                    overlaySwitch.setChecked(false);
+                    startActivity(new Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:" + getPackageName())
+                    ));
+                    Toast.makeText(
+                        this,
+                        "请先允许「显示在其他应用上层」，再开启悬浮元婴。",
+                        Toast.LENGTH_LONG
+                    ).show();
+                } else {
+                    startService(new Intent(this, OverlayService.class));
+                    getSharedPreferences("yuanying_overlay", MODE_PRIVATE)
+                        .edit().putBoolean("active", true).apply();
+                }
+            } else {
+                stopService(new Intent(this, OverlayService.class));
+                getSharedPreferences("yuanying_overlay", MODE_PRIVATE)
+                    .edit().putBoolean("active", false).apply();
+            }
+        });
 
         // HealthConnect is API 26+ only. Do not reference its classes on older
         // devices so the app keeps minSdk 24 (Play device-support requirement).
@@ -75,7 +109,7 @@ public class MainActivity extends AppCompatActivity {
 
         grantBtn.setOnClickListener(v -> openUsageAccessSettings());
         testBtn.setOnClickListener(v -> runOnce());
-        openPwaBtn.setOnClickListener(v -> openPwa());
+        openPwaBtn.setOnClickListener(v -> launchYuanying());
         updateBtn.setOnClickListener(v -> openInternalTest());
         grantStepsBtn.setOnClickListener(v -> {
             if (stepsPermissionLauncher != null) {
@@ -87,6 +121,7 @@ public class MainActivity extends AppCompatActivity {
 
         handleOpenPanel(getIntent());
         schedulePeriodicWork();
+        scheduleSyncCheck();
         refreshStatus();
         refreshStepsStatus();
 
@@ -111,11 +146,36 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void openPwa() {
+    private boolean hasPwaWebApk() {
+        try {
+            Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(PWA_URL));
+            List<ResolveInfo> handlers = getPackageManager()
+                .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
+            for (ResolveInfo info : handlers) {
+                if (info.activityInfo != null
+                    && info.activityInfo.packageName.startsWith("org.chromium.webapk")) {
+                    return true;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
+    }
+
+    /** ES-048: launch the installed PWA or guide the owner to restore it. */
+    private void launchYuanying() {
         try {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(PWA_URL));
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
+            if (!hasPwaWebApk()) {
+                new AlertDialog.Builder(this)
+                    .setTitle("恢复元婴化身")
+                    .setMessage(
+                        "未检测到主屏幕图标。浏览器已打开，请点击浏览器菜单 →「添加到主屏幕」，即可恢复元婴。")
+                    .setPositiveButton("知道了", null)
+                    .show();
+            }
         } catch (Exception e) {
             Toast.makeText(this, "无法打开浏览器", Toast.LENGTH_SHORT).show();
         }
@@ -206,6 +266,23 @@ public class MainActivity extends AppCompatActivity {
             final String t = text;
             runOnUiThread(() -> stepsStatus.setText(t));
         }).start();
+    }
+
+    private void scheduleSyncCheck() {
+        PeriodicWorkRequest request = new PeriodicWorkRequest.Builder(
+            SyncCheckWorker.class,
+            15, TimeUnit.MINUTES
+        )
+        .setConstraints(new Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build())
+        .build();
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "yuanying_sync_check",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        );
     }
 
     private void schedulePeriodicWork() {

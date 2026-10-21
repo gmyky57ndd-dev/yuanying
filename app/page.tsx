@@ -138,6 +138,7 @@ export default function Home() {
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const noteRecRef = useRef<any>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -481,6 +482,7 @@ export default function Home() {
       window.localStorage.setItem('yy_input_lang', next);
       return next;
     });
+    setTimeout(() => inputRef.current?.focus(), 0);
   }
 
   async function resetChat() {
@@ -1322,6 +1324,7 @@ export default function Home() {
           ◉
         </button>
         <input
+          ref={inputRef}
           value={input}
           onChange={e => setInput(e.target.value)}
           onCompositionStart={() => setComposing(true)}
@@ -1339,7 +1342,7 @@ export default function Home() {
               send();
             }
           }}
-          placeholder="…"
+          placeholder={inputLang === 'zh' ? '…' : 'Type…'}
           lang={inputLang === 'zh' ? 'zh-CN' : 'en'}
           inputMode="text"
           autoComplete="off"

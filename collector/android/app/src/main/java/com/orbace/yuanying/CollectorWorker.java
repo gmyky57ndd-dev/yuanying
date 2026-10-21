@@ -37,6 +37,11 @@ public class CollectorWorker extends Worker {
                 "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
             fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
             heartbeat.put("collector_last_report_at", fmt.format(new Date()));
+            heartbeat.put(
+                "overlay_active",
+                ctx.getSharedPreferences("yuanying_overlay", Context.MODE_PRIVATE)
+                    .getBoolean("active", false)
+            );
             new ApiClient().put(ApiClient.BASE_URL + "/api/config", heartbeat);
         } catch (Exception e) {
             Log.w(TAG, "heartbeat failed", e);

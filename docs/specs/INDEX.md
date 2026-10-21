@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-047 (highest assigned: **ES-047**; ES-040 now assigned)
+**Range:** ES-001 → ES-048 (highest assigned: **ES-048**; ES-040 now assigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -60,3 +60,4 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-045 | Fix Agentic Tool Call Loop Freeze | Urgent Bug (P0) | 2026-10-21 | P2-26 |
 | ES-046 | Fix API Timeout & Tool Call Stream Disconnect | Urgent Bug (P0) | 2026-10-21 | P2-27 |
 | ES-047 | Agent Tools: write_markdown & scheduler | Approved | 2026-10-21 | P2-28 |
+| ES-048 | Collector as Hub & PWA Lifesaver | Approved | 2026-10-21 | P3-01 |
