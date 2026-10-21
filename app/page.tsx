@@ -534,9 +534,10 @@ export default function Home() {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
         void speakReply(d.reply);
       } else {
+        setError('没有收到回复，请重试');
         setMessages(m => [
           ...m,
-          { role: 'assistant', content: '…（信号中断）' },
+          { role: 'assistant', content: '…（没有收到回复，请重试）' },
         ]);
       }
     } catch (err) {
