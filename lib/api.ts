@@ -43,7 +43,7 @@ export async function postChat(message: string, session_id?: string) {
       streamError = error;
     },
     onDataPart: data => {
-      const value = data as any;
+      const value = (Array.isArray(data) ? data[0] : data) as any;
       if (value?.type === 'push_to_dev' && value.success === false) {
         pushFailure = String(value.error ?? 'unknown error');
       }
