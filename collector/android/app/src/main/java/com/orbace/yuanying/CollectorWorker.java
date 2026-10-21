@@ -93,6 +93,13 @@ public class CollectorWorker extends Worker {
                 Log.w(TAG, "reminder check failed", re);
             }
 
+            // Issue #68: low-steps nudge (once/day, 16:00-21:00 local).
+            try {
+                ReminderScheduler.INSTANCE.maybeWalkNudge(ctx);
+            } catch (Exception we) {
+                Log.w(TAG, "walk nudge failed", we);
+            }
+
             return okUsage ? Result.success() : Result.retry();
         } catch (Exception e) {
             Log.e(TAG, "collect failed", e);

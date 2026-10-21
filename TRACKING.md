@@ -182,12 +182,12 @@ never by the section they happened to be written under.
 - **Report**: same moment — collector 522, PWA 57, AI 0.
 - **Evidence (DB, 2026-10-21)**: `signals` got `value=522` at **19:07:11Z**; the cached `summaries` row for today was written at **19:06:35Z** with `steps=57` (36 s earlier). The AI answered from that cache; the UI polled once at load.
 - **Second defect found**: `summaries` has **duplicate rows for the same date** (two rows for 2026-10-20, different `updated_at`), and `readOrGenerate` selected without ordering → a stale duplicate could win. Fix in same commit: `.order('updated_at',{ascending:false}).limit(1)`.
-- **Still open**: (a) no live refresh after a collector POST — UI needs a poll/`/api/steps/latest`; (b) the AI needs a `get_steps` tool that reads the newest row instead of the cached summary; (c) why the collector posts `America/Los_Angeles` timezone rows (15:17–17:43Z today) — collector tz detection flips.
-- **Design proposal**: on owner step questions, AI calls `get_steps()` → newest `signals.value` + `created_at` + source; UI polls `/api/steps` every 60 s and after 立即同步采集器.
+- **Implemented (2026-10-21, owner approved)**: `get_steps()` tool (today's max + `as_of` + `latest_at`, never the cached summary), prompt + `core/system-manifest.md` rule, UI polls `/api/steps` every 60 s, collector **v1.0.32** posts steps on the 15-minute `SyncCheckWorker` cadence (no manual 上报), and a once-a-day **walk nudge** at 16:00–21:00 when steps < 60% of goal ("今天 X 步，离 Y 还差 Z。趁天还没黑，走一段？"). Quiet window respected.
+- **Still open**: collector tz rows sometimes report `America/Los_Angeles` (15:17–17:43Z today) — device tz detection flips; needs a device log. Phone verification of v1.0.32 pending.
 
 ### [B-27] macOS 没有「导出我的元婴」+ 下载去向不明 `[BUG]`
 
-- **Status**: In Review (2026-10-21) · **Category**: Bug (PWA / macOS)
+- **Status**: Done (2026-10-21, owner found the ZIP after the fix) · **Category**: Bug (PWA / macOS)
 - **Report**: the button is absent on the Mac PWA; on the phone it says 已生成下载 but the file cannot be found.
 - **Evidence**: the string is present in the built `settings` chunk, and `exportData()` uses a blob + `a.download`. Two problems: (1) on macOS PWAs the save is silent (usually `~/Downloads`), (2) `URL.revokeObjectURL()` ran immediately after `click()`, which aborts the download in WebKit.
 - **Fix**: revoke after 60 s, and the message now names the file and points at ⌘⇧L / the 下载 folder. Button absence on Mac still needs one check after a hard reload (stale SW bundle is the likely cause).
@@ -195,9 +195,10 @@ never by the section they happened to be written under.
 
 ### [P2-31] Drive 大文档分段读取 (ES-030/ES-035 follow-up)
 
-- **Status**: To Do (2026-10-21) · **Category**: Feature (Tool) · **Refs**: ES-030, ES-035, P2-13, P2-18
+- **Status**: In Review (2026-10-21, owner chose option A) · **Category**: Feature (Tool) · **Refs**: ES-030, ES-035, P2-13, P2-18
 - **Report**: Mac read a 1.46M-char doc; `get_drive_doc` caps at **20,000 chars** (`MAX_MODEL_CHARS`), so 元婴 saw only the first ~1.4% and had to ask whether to continue.
-- **Proposal**: add `offset`/`max_chars` to `get_drive_doc` (default 20k, hard cap per call), return `total_chars` + `next_offset` + `truncated`, and let 元婴 page through on request; keep the 20k per-call budget so context stays bounded. Owner decision: is paging enough, or should large docs be indexed into `notes` and queried by section?
+- **Implemented (option A)**: `get_drive_doc(file_id, offset)` pages long text: each call returns ≈20k chars plus `meta.total_chars` / `meta.next_offset` / `meta.truncated`, and the message states the returned character range and the next offset. The stored note keeps the full text; paging only limits what the model reads.
+- **Verification**: `tsc` + 32/32 tests. Owner to retry the 1.46M-char doc: the first call should now say "characters 1–20000 of 1460000" and offer `offset=20000`.
 
 #### 模块 A — 提醒与采集器 (Reminders & collector) (13)
 

@@ -214,13 +214,20 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, sending]);
 
-  // Refresh today's steps when the app returns to the foreground.
+  // Refresh today's steps when the app returns to the foreground, and poll
+  // once a minute so a collector upload shows up without a manual reload.
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') loadSteps();
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') loadSteps();
+    }, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(timer);
+    };
   }, []);
 
   // B-19: exception timezone writer — the collector is the primary writer;

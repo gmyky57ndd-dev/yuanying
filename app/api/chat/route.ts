@@ -183,6 +183,51 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, date, data };
   }
 
+  if (name === 'get_steps') {
+    const tz = await getConfigTimezone();
+    const { start, end } = getTodayRange(tz);
+    const { data } = await supabase
+      .from('signals')
+      .select('value, context, created_at')
+      .eq('name', 'steps')
+      .gte('created_at', start.toISOString())
+      .lt('created_at', end.toISOString())
+      .order('created_at', { ascending: false });
+    const rows = (data ?? []) as any[];
+    const { data: cfg } = await supabase
+      .from('config')
+      .select('value')
+      .eq('key', 'steps_goal')
+      .maybeSingle();
+    const goal = typeof (cfg as any)?.value === 'number' ? (cfg as any).value : 5000;
+    // Same rule as /api/steps: prefer the corrected aggregation, max snapshot.
+    const corrected = rows.filter(r => r.context?.aggregation === 'max_per_origin');
+    const pool = corrected.length > 0 ? corrected : rows;
+    const num = (r: any) => (typeof r?.value === 'number' ? r.value : 0);
+    const best = pool.reduce((m: any, r: any) => (num(r) > num(m) ? r : m), null as any);
+    const latest = rows[0] ?? null;
+    return {
+      success: true,
+      data: {
+        value: num(best),
+        goal,
+        as_of: best?.created_at ?? null,
+        latest_value: latest ? num(latest) : null,
+        latest_at: latest?.created_at ?? null,
+        source: best?.context?.source ?? 'collector',
+        aggregation: best?.context?.aggregation ?? null,
+        timezone: tz,
+        window_start: start.toISOString(),
+        window_end: end.toISOString(),
+        rows_today: rows.length,
+        warning:
+          latest && num(latest) === 0 && num(best) > 0
+            ? 'The newest row is 0 (sync delay); value is today\'s max snapshot.'
+            : undefined,
+      },
+    };
+  }
+
   if (name === 'get_drive_doc') {
     const file = String(args?.file_id ?? '').trim();
     if (!file) return { success: false, error: 'file_id required' };
@@ -536,7 +581,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
+          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_steps, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
 
 ${bodyStatusReminder}`,
       },
@@ -592,7 +637,7 @@ ${bodyStatusReminder}`,
       }),
       get_drive_doc: tool({
         description:
-          'Read a Google Drive file by ID or URL and save it as a note. Supports Google Docs, txt, md, csv, json, and zip archives. For ZIP files, readable entries are returned separately with per-file truncation metadata; use `entry` to select one file. CSV supports date ranges and column filters. If Drive is not connected, tell the owner to authorize it in Settings.',
+          'Read a Google Drive file by ID or URL and save it as a note. Supports Google Docs, txt, md, csv, json, and zip archives. For ZIP files, readable entries are returned separately with per-file truncation metadata; use `entry` to select one file. CSV supports date ranges and column filters. Long text/Google Docs are paged: each call returns at most ~20k characters plus meta.total_chars and meta.next_offset — call again with offset to continue, and tell the owner when you have only read part of the file. If Drive is not connected, tell the owner to authorize it in Settings.',
         parameters: z.object({
           file_id: z
             .string()
@@ -617,8 +662,20 @@ ${bodyStatusReminder}`,
             .string()
             .optional()
             .describe('CSV filter value; supports <, <=, >, >=, !=, ='),
+          offset: z
+            .number()
+            .optional()
+            .describe(
+              'Character offset for paging long text/Google Docs. Use meta.next_offset from the previous call; never guess.'
+            ),
         }),
         execute: async args => runToolSafely('get_drive_doc', args),
+      }),
+      get_steps: tool({
+        description:
+          "Read the owner's step count for today: today's max snapshot, the goal, the timestamp it was reported at, and the newest raw row. Call this for any question about current steps ('how many steps do I have now?'). Never answer steps from the cached daily summary; quote as_of so the owner knows how fresh the number is.",
+        parameters: z.object({}),
+        execute: async () => runToolForModel('get_steps', {}),
       }),
       get_model_info: tool({
         description:

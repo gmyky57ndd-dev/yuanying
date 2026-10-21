@@ -49,6 +49,9 @@ type FileMeta = {
   truncated: boolean;
   truncated_at: string | null;
   message: string;
+  /** Text reads only: where this page started and where the next one starts. */
+  offset?: number;
+  next_offset?: number | null;
 };
 
 type FileResult = {
@@ -357,11 +360,14 @@ function buildCsvPreview(
 
 function buildTextPreview(
   raw: string,
-  format: 'text' | 'json'
+  format: 'text' | 'json',
+  offset = 0
 ): { data: string; meta: FileMeta } {
   const pretty = format === 'json' ? parseJsonText(raw) : raw;
-  const data = truncateText(pretty, MAX_MODEL_CHARS);
-  const truncated = data.length < pretty.length;
+  const start = Math.max(0, Math.floor(offset) || 0);
+  const slice = pretty.slice(start);
+  const data = truncateText(slice, MAX_MODEL_CHARS);
+  const truncated = start + data.length < pretty.length;
   const totalLines = raw.split('\n').length;
   const returnedLines = data.split('\n').length;
 
@@ -385,8 +391,10 @@ function buildTextPreview(
       truncated,
       truncated_at: null,
       message: truncated
-        ? `Data truncated at ${MAX_MODEL_CHARS} characters.`
-        : 'Complete content returned.',
+        ? `Returned characters ${start + 1}-${start + data.length} of ${pretty.length}. Call again with offset=${start + data.length} for the next page.`
+        : `Complete content returned (${pretty.length} characters).`,
+      offset: start,
+      next_offset: truncated ? start + data.length : null,
     },
   };
 }
@@ -413,7 +421,7 @@ async function readZipEntry(
 
 async function readZipContent(
   buffer: Buffer,
-  options: { entry?: string; filter: CsvFilter }
+  options: { entry?: string; filter: CsvFilter; offset?: number }
 ): Promise<DriveContent> {
   const zip = await JSZip.loadAsync(buffer);
   const entries = Object.values(zip.files).filter(entry => !entry.dir);
@@ -542,7 +550,7 @@ async function readZipContent(
 async function exportContent(
   file: DriveFile,
   accessToken: string,
-  options: { entry?: string; filter: CsvFilter }
+  options: { entry?: string; filter: CsvFilter; offset?: number }
 ): Promise<DriveContent> {
   const rawMime = file.mimeType;
   const mime =
@@ -562,7 +570,7 @@ async function exportContent(
       throw new Error(await googleError(res, 'Google Drive export failed'));
     }
     const raw = stripBom(await res.text());
-    const preview = buildTextPreview(raw, 'text');
+    const preview = buildTextPreview(raw, 'text', options.offset);
     return {
       format: 'gdoc',
       storeText: truncateText(raw, MAX_STORE_CHARS),
@@ -628,7 +636,7 @@ async function exportContent(
     };
   }
 
-  const preview = buildTextPreview(raw, 'text');
+  const preview = buildTextPreview(raw, 'text', options.offset);
   return {
     format: 'text',
     storeText: truncateText(raw, MAX_STORE_CHARS),
@@ -639,6 +647,7 @@ async function exportContent(
 
 export type DriveImportOptions = {
   entry?: string;
+  offset?: number;
   start_date?: string;
   end_date?: string;
   filter_column?: string;
@@ -705,6 +714,7 @@ export async function importDriveDoc(
   const content = await exportContent(file, accessToken, {
     entry: options.entry,
     filter,
+    offset: options.offset,
   });
   const storedText = content.storeText.trim();
   if (!storedText) throw new Error('The Drive document is empty.');

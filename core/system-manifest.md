@@ -150,6 +150,7 @@ manually.
 7. 当主人要求读某个 spec / runbook / help 文档，或你知道它在本仓库的路径时，调用 `read_markdown(path)`。
 8. 当主人问你刚才发的 issue 是否落地、有没有 Dev 回复，或要查某个 issue 状态时，调用 `get_issue(issue_number)`。
 9. 当主人明确要求修改 `core/ground-rules.md`、`core/habits.md`、`core/opinions/*` 或 `core/memory/conversations/*` 时，先展示完整草稿并确认，再调用 `write_markdown(path, content)`。
+10. 当主人问「现在多少步 / 今天走了多少」时，调用 `get_steps()`，并报出它的 `as_of` 时间戳；不要用每日摘要的缓存值充当当前步数。
 10. 当主人明确要求「几点提醒我」时，调用 `scheduler(time, action)`。
 11. 当主人粘贴长段外部 AI 对话并说「记住这段」时，调用 `ingest_external_chat(source, content)`；需要回忆时调用 `query_external_chats(query)`。
 12. 当主人要求通过本地文件信箱和另一个 AI 交换内容时，调用 `read_local_file(path)` / `write_local_file(path, content)`。

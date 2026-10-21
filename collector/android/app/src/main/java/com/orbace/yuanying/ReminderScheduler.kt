@@ -265,6 +265,58 @@ object ReminderScheduler {
         "evening_checkin" to "收工打卡",
     )
 
+    /**
+     * Issue #68 follow-up: one quiet nudge when the day is running out of
+     * daylight and the step goal is far away. At most once per day, 16:00-21:00
+     * local, skipped in the quiet window and when there is no fresh reading.
+     */
+    fun maybeWalkNudge(context: Context) {
+        try {
+            if (Build.VERSION.SDK_INT < 26) return
+            val steps = StepsCollector(context)
+            if (!steps.sdkAvailable() || !steps.hasPermission()) return
+
+            val now = Calendar.getInstance()
+            val minutes = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+            if (minutes < 16 * 60 || minutes > 21 * 60) return
+
+            val payload = steps.collectToday()
+            val count = payload.optInt("steps", 0)
+            val goal = try {
+                ConfigClient().getConfig().optInt("steps_goal", 5000)
+            } catch (e: Exception) {
+                5000
+            }
+            if (count <= 0 || count >= (goal * 0.6).toInt()) return
+
+            val prefs = context.getSharedPreferences("yuanying_nudge", Context.MODE_PRIVATE)
+            val key = "walk_" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            if (prefs.getBoolean(key, false)) return
+            prefs.edit().putBoolean(key, true).apply()
+
+            ensureChannel(context)
+            val openIntent = Intent(context, MainActivity::class.java)
+            val openPi = PendingIntent.getActivity(
+                context, 9001, openIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val remaining = (goal - count).coerceAtLeast(0)
+            val message = "今天 $count 步，离 $goal 还差 $remaining。趁天还没黑，走一段？"
+            val notif = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.ic_menu_directions)
+                .setContentTitle("元婴")
+                .setContentText(message)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setContentIntent(openPi)
+                .build()
+            NotificationManagerCompat.from(context).notify(9001, notif)
+        } catch (e: Exception) {
+            Log.w("ReminderScheduler", "walk nudge failed", e)
+        }
+    }
+
     private fun notify(context: Context, id: Int, name: String, message: String) {
         ensureChannel(context)
 

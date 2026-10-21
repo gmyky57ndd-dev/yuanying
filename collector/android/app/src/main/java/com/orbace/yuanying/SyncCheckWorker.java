@@ -34,6 +34,20 @@ public class SyncCheckWorker extends Worker {
         SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         String processed = prefs.getString("processed_at", "");
 
+        // Issue #68: keep steps fresh on the 15-minute cadence instead of
+        // waiting for the owner to press 上报步数 in the collector UI.
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                StepsCollector steps = new StepsCollector(ctx);
+                if (steps.sdkAvailable() && steps.hasPermission()) {
+                    new ApiClient().post(
+                        ApiClient.BASE_URL + "/api/steps", steps.collectToday());
+                }
+            }
+        } catch (Exception e) {
+            android.util.Log.w("SyncCheckWorker", "steps post failed", e);
+        }
+
         if (!requested.isEmpty() && !requested.equals(processed)) {
             OneTimeWorkRequest collect = new OneTimeWorkRequest.Builder(CollectorWorker.class)
                 .setConstraints(new Constraints.Builder()
