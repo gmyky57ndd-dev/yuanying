@@ -38,7 +38,7 @@ public class CollectorWorker extends Worker {
             fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
             heartbeat.put("collector_last_report_at", fmt.format(new Date()));
             heartbeat.put(
-                "overlay_active",
+                "collector_overlay_active",
                 ctx.getSharedPreferences("yuanying_overlay", Context.MODE_PRIVATE)
                     .getBoolean("active", false)
             );

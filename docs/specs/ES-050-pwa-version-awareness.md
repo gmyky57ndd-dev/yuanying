@@ -17,7 +17,7 @@
 
 ### 2.1 Inject the PWA version
 
-- `next.config.mjs` reads `package.json.version` and exposes
+- `package.json` is now **0.2.0**. `next.config.mjs` reads `package.json.version` and exposes
   `NEXT_PUBLIC_APP_VERSION`.
 - Settings shows **PWA 版本**.
 - `lib/yuanying.ts` injects a runtime **Body Status**:

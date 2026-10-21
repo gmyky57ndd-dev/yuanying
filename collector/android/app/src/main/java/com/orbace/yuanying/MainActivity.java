@@ -30,6 +30,7 @@ import org.json.JSONObject;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -219,8 +220,29 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        sendHeartbeat();
         refreshStatus();
         refreshStepsStatus();
+    }
+
+    /** Immediately publish version/presence when the collector is opened. */
+    private void sendHeartbeat() {
+        try {
+            JSONObject heartbeat = new JSONObject();
+            heartbeat.put("collector_version", BuildConfig.VERSION_NAME);
+            heartbeat.put("collector_version_code", BuildConfig.VERSION_CODE);
+            SimpleDateFormat fmt = new SimpleDateFormat(
+                "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+            fmt.setTimeZone(TimeZone.getTimeZone("UTC"));
+            heartbeat.put("collector_last_report_at", fmt.format(new Date()));
+            heartbeat.put(
+                "collector_overlay_active",
+                getSharedPreferences("yuanying_overlay", MODE_PRIVATE)
+                    .getBoolean("active", false)
+            );
+            new ApiClient().put(ApiClient.BASE_URL + "/api/config", heartbeat);
+        } catch (Exception ignored) {
+        }
     }
 
     private boolean hasUsageAccess() {

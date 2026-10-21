@@ -41,6 +41,7 @@ const MODEL_PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'];
 
 export default function Settings() {
   const [enabled, setEnabled] = useState(true);
+  const [verboseTools, setVerboseTools] = useState(false);
   const [reminders, setReminders] = useState<Reminders>({
     water: true,
     standup: true,
@@ -75,6 +76,7 @@ export default function Settings() {
       .then(r => r.json())
       .then(d => {
         setEnabled(d.activity_collection_enabled ?? true);
+        setVerboseTools(d.tool_readback_enabled === true);
         setReminders({
           water: true,
           standup: true,
@@ -355,6 +357,16 @@ export default function Settings() {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id }),
+    });
+  }
+
+  async function toggleVerboseTools() {
+    const next = !verboseTools;
+    setVerboseTools(next);
+    await fetchWithTimeout(`${API_BASE}/api/config`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool_readback_enabled: next }),
     });
   }
 
@@ -702,6 +714,28 @@ export default function Settings() {
       <p className="text-xs text-stone-500 mt-2 leading-relaxed">
         关闭后，Android 采集器会在下一次运行时停止上报，已有数据保留。
       </p>
+
+      <div className="mt-4 flex justify-between items-center">
+        <div>
+          <div className="text-sm">详细工具输出</div>
+          <div className="text-[11px] text-stone-500">
+            Verbose Tool Output · 开启后会返回完整工具结果，默认只汇报结论。
+          </div>
+        </div>
+        <button
+          onClick={toggleVerboseTools}
+          className={`w-12 h-6 rounded-full shrink-0 transition-colors ${
+            verboseTools ? 'bg-emerald-700' : 'bg-stone-700'
+          }`}
+          aria-label="toggle verbose tool output"
+        >
+          <span
+            className={`block w-5 h-5 rounded-full bg-white transition-transform ${
+              verboseTools ? 'translate-x-6' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
+      </div>
 
       <div className="mt-6 border-t border-stone-800 pt-4">
         <h2 className="text-sm text-stone-300 mb-3">语音提醒</h2>

@@ -13,10 +13,10 @@ test('ES-039 daily summary rules are present', () => {
   assert.match(src, /不给任何未经请求的健康建议/);
 });
 
-test('ES-043/ES-050 service worker bypasses API and uses cache v4', () => {
+test('ES-043/ES-050 service worker bypasses API and uses cache v5', () => {
   const src = read('public/sw.js');
   assert.match(src, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(src, /CACHE_NAME = 'yuanying-v4'/);
+  assert.match(src, /CACHE_NAME = 'yuanying-v5'/);
 });
 
 test('ES-050 injects PWA/collector body status', () => {

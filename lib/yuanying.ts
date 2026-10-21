@@ -29,6 +29,7 @@ interface BuildOptions {
     issue_url?: string | null;
   }>;
   waterCount?: number;
+  toolReadback?: boolean;
   recentReminders?: Array<{
     name: string;
     scheduled_at: string;
@@ -378,6 +379,8 @@ confirmation.
 By default, summarize the conclusion of a tool result. Do not read back the
 full issue/runbook/document text unless the owner asks for it. If the owner
 says 「不要读结果」, give only the conclusion and a short status.
+
+${opts.toolReadback ? '详细工具输出已开启：可以引用更完整的工具结果。' : '当前处于静默模式。只汇报结论，不要解释过程，不要复述原始 JSON 或长文本。'}
 
 ## Body Status
 
