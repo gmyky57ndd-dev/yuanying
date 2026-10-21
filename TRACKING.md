@@ -376,6 +376,14 @@
 - **Impl**: allowlisted `write_markdown` via GitHub Contents API commit; `scheduler(HH:MM, action)` creates a `scheduled_message` reminder (max 3 pending).
 - **Verified (2026-10-21, local + deployed)**: write path guards reject traversal/non-allowlisted paths; scheduler created a 21:30 reminder (test reminder removed). Web deploy green. **Acceptance**: [x] path whitelist/validation; [x] limits; [ ] owner confirms a real write/reminder.
 
+### [P2-29] Automated regression tests for ES-039/043–047
+
+- **Status**: Done (2026-10-21) · **Category**: Chore (Testing) · **Refs**: ES-039, ES-043–ES-047 · **Opened**: 2026-10-21
+- **Impl**: `npm test` (Node test runner), 23 tests across CSV/JSON/ZIP parsers, GitHub read-back, SSE data parts/504, `write_markdown`, scheduler timezones, prompt/SW/manifest regression guards.
+- **CI**: `.github/workflows/tests.yml` runs tests + lint + typecheck on push/PR.
+- **Runbook**: `docs/runbooks/tests.md`.
+- **Verified**: 23/23 tests pass; `tsc`, lint, build pass.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---
