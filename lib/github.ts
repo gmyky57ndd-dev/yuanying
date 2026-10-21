@@ -28,6 +28,9 @@ async function githubFetch(
 ): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GITHUB_TIMEOUT_MS);
+  const external = init.signal;
+  const onAbort = () => controller.abort();
+  external?.addEventListener('abort', onAbort);
   try {
     return await fetch(input, {
       ...init,
@@ -36,6 +39,7 @@ async function githubFetch(
     });
   } finally {
     clearTimeout(timer);
+    external?.removeEventListener('abort', onAbort);
   }
 }
 
@@ -47,7 +51,8 @@ export type CreatedIssue = {
 
 export async function findOrCreateIssue(
   title: string,
-  body: string
+  body: string,
+  opts: { signal?: AbortSignal } = {}
 ): Promise<CreatedIssue> {
   const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO;
@@ -67,7 +72,7 @@ export async function findOrCreateIssue(
   try {
     const listRes = await githubFetch(
       `https://api.github.com/repos/${repo}/issues?state=all&per_page=100&sort=created&direction=desc`,
-      { headers }
+      { headers, signal: opts.signal }
     );
     if (listRes.ok) {
       const list = await listRes.json();
@@ -102,6 +107,7 @@ export async function findOrCreateIssue(
 
   const res = await githubFetch(`https://api.github.com/repos/${repo}/issues`, {
     method: 'POST',
+    signal: opts.signal,
     headers,
     body: JSON.stringify({
       title: expectedTitle,
@@ -145,7 +151,7 @@ export async function findOrCreateIssue(
   // The returned number/URL must come from a real GET, not just the POST body.
   const verifyRes = await githubFetch(
     `https://api.github.com/repos/${repo}/issues/${data.number}`,
-    { headers }
+    { headers, signal: opts.signal }
   );
   if (!verifyRes.ok) {
     console.error('github issue readback failed', {

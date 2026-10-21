@@ -14,10 +14,13 @@ import {
 } from '@/lib/timezone';
 import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 import { findOrCreateIssue, getIssue } from '@/lib/github';
+import { enqueuePushToDev } from '@/lib/jobs';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
 import { webSearch } from '@/lib/web-search';
 import { readMarkdown } from '@/lib/read-markdown';
+import { writeMarkdown } from '@/lib/write-markdown';
+import { scheduleMessage } from '@/lib/scheduler';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -113,8 +116,13 @@ async function runTool(name: string, args: any): Promise<any> {
     const body = String(args?.body ?? '').trim();
     if (!title) return { success: false, error: 'title required' };
     if (!body) return { success: false, error: 'body required' };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const issue = await findOrCreateIssue(title, body);
+      const issue = await findOrCreateIssue(title, body, {
+        signal: controller.signal,
+      });
       return {
         success: true,
         data: {
@@ -124,10 +132,39 @@ async function runTool(name: string, args: any): Promise<any> {
         },
       };
     } catch (e) {
-      return {
-        success: false,
-        error: e instanceof Error ? e.message : 'github error',
-      };
+      const reason = e instanceof Error ? e.message : 'github error';
+
+      // ES-046: if GitHub is slow/unreachable, enqueue instead of blocking the
+      // SSE stream. The queue is processed by the PWA reminder poll.
+      if (/abort|timeout|network|fetch failed|ECONN|ETIMEDOUT/i.test(reason)) {
+        try {
+          const job = await enqueuePushToDev(
+            title,
+            body,
+            typeof args?.session_id === 'string' ? args.session_id : undefined
+          );
+          return {
+            success: true,
+            data: {
+              queued: true,
+              job_id: job.id,
+              message: '任务已进入后台队列，稍后确认',
+            },
+          };
+        } catch (queueError) {
+          return {
+            success: false,
+            error:
+              queueError instanceof Error
+                ? `GitHub timeout and queue failed: ${queueError.message}`
+                : 'GitHub timeout and queue failed',
+          };
+        }
+      }
+
+      return { success: false, error: reason };
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -206,6 +243,22 @@ async function runTool(name: string, args: any): Promise<any> {
     }
     const issue = await getIssue(issueNumber);
     return { success: true, data: issue };
+  }
+
+  if (name === 'write_markdown') {
+    const filePath = String(args?.path ?? '').trim();
+    const content = String(args?.content ?? '');
+    if (!filePath) return { success: false, error: 'path required' };
+    if (!content.trim()) return { success: false, error: 'content required' };
+    return writeMarkdown(filePath, content);
+  }
+
+  if (name === 'scheduler') {
+    const time = String(args?.time ?? '').trim();
+    const action = String(args?.action ?? '').trim();
+    if (!time) return { success: false, error: 'time required' };
+    if (!action) return { success: false, error: 'action required' };
+    return scheduleMessage(time, action);
   }
 
   return { success: false, error: `unknown tool: ${name}` };
@@ -291,13 +344,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ reply, session_id });
     }
 
-    // 1. Load history
-    const { data: history, error: histErr } = await supabase
+    // 1. Load history (ES-045: respect the last Chat Reset).
+    const { data: resetCfg } = await supabase
+      .from('config')
+      .select('value')
+      .eq('key', 'chat_reset_at')
+      .maybeSingle();
+    const resetAt =
+      typeof resetCfg?.value === 'string' ? resetCfg.value : null;
+
+    let historyQuery = supabase
       .from('messages')
       .select('role, content')
       .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .limit(20);
+    if (resetAt) historyQuery = historyQuery.gt('created_at', resetAt);
+
+    const { data: history, error: histErr } = await historyQuery;
 
     if (histErr) {
       console.error('history load failed:', histErr);
@@ -396,7 +460,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          'Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, get_issue, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.',
+          'Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.',
       },
       { role: 'user' as const, content: message },
     ];
@@ -499,6 +563,26 @@ export async function POST(req: NextRequest) {
         }),
         execute: async ({ path }) => runToolSafely('read_markdown', { path }),
       }),
+      write_markdown: tool({
+        description:
+          'Write or update an allowlisted core Markdown file through a Git commit. Only use after the owner explicitly asks to change that file AND confirms the content. Allowed: core/ground-rules.md, core/habits.md, core/opinions/*.md, core/memory/conversations/*.md. The previous version remains in Git history.',
+        parameters: z.object({
+          path: z.string().describe('Relative path, e.g. core/ground-rules.md'),
+          content: z.string().describe('Full new file content'),
+        }),
+        execute: async ({ path, content }) =>
+          runToolSafely('write_markdown', { path, content }),
+      }),
+      scheduler: tool({
+        description:
+          'Schedule one short reminder at a local HH:MM time using the existing reminder poller. Max 3 pending scheduled messages; cannot edit/delete existing timers.',
+        parameters: z.object({
+          time: z.string().describe('Local time HH:MM, e.g. 21:30'),
+          action: z.string().describe('What to say, one short sentence'),
+        }),
+        execute: async ({ time, action }) =>
+          runToolSafely('scheduler', { time, action }),
+      }),
       get_issue: tool({
         description:
           'Read a GitHub issue by number, including its state, labels, body, and up to 20 comments. Use after push_to_dev to verify delivery and summarize Dev replies.',
@@ -521,7 +605,7 @@ export async function POST(req: NextRequest) {
         }),
         execute: async ({ title, body }) => {
           streamData.append({ type: 'push_to_dev', status: 'sending' });
-          const result = await runToolSafely('push_to_dev', { title, body });
+          const result = await runToolSafely('push_to_dev', { title, body, session_id });
           pushToDevResult = result;
           // Structured, body-free result log for future incident review.
           console.log('tool_result push_to_dev', {
@@ -534,6 +618,8 @@ export async function POST(req: NextRequest) {
             type: 'push_to_dev',
             status: 'done',
             success: result?.success === true,
+            queued: result?.data?.queued === true,
+            job_id: result?.data?.job_id ?? null,
             number: result?.data?.number ?? null,
             error: result?.error ?? null,
           });
@@ -565,6 +651,8 @@ export async function POST(req: NextRequest) {
         ) {
           const reason = pushToDevResult.error ?? 'unknown error';
           reply = `没发成功。系统报错：${reason}`;
+        } else if (pushToDevResult?.data?.queued === true) {
+          reply = `已提交后台队列，稍后确认。（job #${pushToDevResult.data.job_id}）`;
         } else if (
           pushToDevResult?.success === true &&
           typeof pushToDevResult.data?.number === 'number' &&

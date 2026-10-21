@@ -29,6 +29,9 @@ export async function postChat(
   });
 
   if (!res.ok) {
+    if (res.status === 504) {
+      throw new Error('服务器处理超时，请重试');
+    }
     const data = await res.json().catch(() => ({}));
     throw new Error(data?.error ?? `HTTP ${res.status}`);
   }
