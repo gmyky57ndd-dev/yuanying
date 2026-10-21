@@ -173,8 +173,7 @@ never by the section they happened to be written under.
 - **Status**: In Review (2026-10-21) · **Category**: Bug (UI regression) · **Refs**: issue #67, ES-045/ES-052
 - **Report**: the 中/EN toggle next to the composer is gone on the phone.
 - **Root cause**: `app/page.tsx` rendered it with `className="hidden md:hidden"` — `hidden` hides it at every breakpoint. Introduced when the desktop layout (P3-02) hid the toggle for `md` and up.
-- **Fix**: class is now `md:hidden` (visible on phone, still hidden on desktop by design). Commit `fix(ui): restore language toggle...`.
-- **Verification**: `tsc` + 32/32 tests; needs a phone check after deploy.
+- **Superseded (2026-10-21, ES-055)**: the button was **removed**. The PWA cannot switch the OS keyboard, so toggling a placeholder is false affordance; the owner switches languages with the keyboard's own key. `core/system-manifest.md` documents this, so 元婴 can answer why it is absent. Closed by ES-055.
 
 ### [B-26] 步数三处读数不一致 `[BUG]` (issue #68)
 
@@ -197,6 +196,20 @@ never by the section they happened to be written under.
 - **Evidence**: the string is present in the built `settings` chunk, and `exportData()` uses a blob + `a.download`. Two problems: (1) on macOS PWAs the save is silent (usually `~/Downloads`), (2) `URL.revokeObjectURL()` ran immediately after `click()`, which aborts the download in WebKit.
 - **Fix**: revoke after 60 s, and the message now names the file and points at ⌘⇧L / the 下载 folder. Button absence on Mac still needs one check after a hard reload (stale SW bundle is the likely cause).
 - **Open**: if it is genuinely absent on Mac, capture the Settings section list.
+
+### [P2-33] 步数停滞可见性 + 语言按钮移除 (ES-055) — P0
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Collector + UI) · **Refs**: ES-055, B-25, B-26
+- **Spec**: `docs/specs/ES-055-steps-stall-visibility.md`.
+- **Report**: steps frozen at 777 (16:40) while the collector heartbeat stayed green; 中/EN only changed the placeholder.
+- **Evidence (DB)**: no `steps` rows at all after **20:40Z** — the collector was failing silently (no permission / no records / exception produce no POST and no status).
+- **Fixed**:
+  - `StepsCollector` follows `pageToken` (was single-page, could truncate) and reports `records_count`.
+  - `CollectorWorker` always writes `collector_steps_status` (`ok|no_records|no_permission|post_failed|error|unsupported`), `collector_steps_at`, value, records, and a short error.
+  - Settings shows `步数同步 · 时间 · 状态 · 步数`; home shows `最后同步 HH:MM` (amber after 20 min). `/api/steps` adds `last_sync_at`; `/api/collector/status` exposes the new fields.
+  - 中/EN button **removed** (PWA cannot switch the OS keyboard); manifest documents why and the input defaults.
+- **Frequency (documented)**: 15 min automatic, ~1–2 s on demand via SSE (v1.0.34+).
+- **Acceptance**: steps advance without pressing anything; last-sync label present; no language button; manifest updated. Phone verification of v1.0.35 pending.
 
 ### [P2-32] Collector SSE refresh channel (ES-054)
 

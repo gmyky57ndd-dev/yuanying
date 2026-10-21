@@ -68,27 +68,57 @@ public class CollectorWorker extends Worker {
                 Log.i(TAG, "no apps to report");
             }
 
-            // 3. Steps (HealthConnect) — API 26+ only
+            // 3. Steps (HealthConnect) — API 26+ only.
+            // Issue #68: report the outcome either way, so a silent stop can be
+            // told apart from "the phone is offline".
+            String stepsStatus = "skipped";
+            String stepsError = null;
+            int stepsValue = -1;
+            int stepsRecords = -1;
             if (Build.VERSION.SDK_INT >= 26) {
                 StepsCollector steps = new StepsCollector(ctx);
                 if (steps.sdkAvailable() && steps.hasPermission()) {
                     try {
                         JSONObject stepsPayload = steps.collectToday();
-                        boolean hasOrigins = stepsPayload.optInt("sources_count", 1) > 0;
-                        if (!hasOrigins) {
-                            Log.i(TAG, "steps: no HealthConnect origins, skip post");
+                        stepsValue = stepsPayload.optInt("steps", 0);
+                        stepsRecords = stepsPayload.optInt("records_count", 0);
+                        int origins = stepsPayload.optInt("sources_count", 1);
+                        if (origins == 0) {
+                            stepsStatus = "no_records";
+                            Log.i(TAG, "steps: HealthConnect returned no origins");
                         } else {
                             boolean okSteps = api.post(ApiClient.BASE_URL + "/api/steps", stepsPayload);
+                            stepsStatus = okSteps ? "ok" : "post_failed";
                             Log.i(TAG, "steps posted: " + okSteps);
                         }
                     } catch (Exception se) {
+                        stepsStatus = "error";
+                        stepsError = se.getMessage();
                         Log.w(TAG, "steps collect failed", se);
                     }
                 } else {
+                    stepsStatus = "no_permission";
                     Log.w(TAG, "steps unavailable or permission not granted");
                 }
             } else {
-                Log.i(TAG, "steps require API 26+");
+                stepsStatus = "unsupported";
+            }
+            try {
+                JSONObject stepsBeat = new JSONObject();
+                SimpleDateFormat sfmt = new SimpleDateFormat(
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
+                sfmt.setTimeZone(TimeZone.getTimeZone("UTC"));
+                stepsBeat.put("collector_steps_status", stepsStatus);
+                stepsBeat.put("collector_steps_at", sfmt.format(new Date()));
+                if (stepsValue >= 0) stepsBeat.put("collector_steps_value", stepsValue);
+                if (stepsRecords >= 0) stepsBeat.put("collector_steps_records", stepsRecords);
+                if (stepsError != null) {
+                    stepsBeat.put("collector_steps_error",
+                        stepsError.length() > 140 ? stepsError.substring(0, 140) : stepsError);
+                }
+                api.put(ApiClient.BASE_URL + "/api/config", stepsBeat);
+            } catch (Exception be) {
+                Log.w(TAG, "steps heartbeat failed", be);
             }
 
             // 4. Reminders (P1-09): generate + deliver in the collector.

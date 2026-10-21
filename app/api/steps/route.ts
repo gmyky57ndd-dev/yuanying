@@ -107,6 +107,8 @@ export async function GET() {
     steps,
     goal: goalConfig?.value ?? 5000,
     updated_at: best?.created_at ?? null,
+    // Issue #68: when the last sync happened, even if it carried no new value.
+    last_sync_at: rows[0]?.created_at ?? null,
     // ES-025: expose the source breakdown behind the displayed value.
     source: ctx.source ?? null,
     aggregation: ctx.aggregation ?? null,

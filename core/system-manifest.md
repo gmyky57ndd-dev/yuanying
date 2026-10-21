@@ -23,6 +23,14 @@ Home never shows past days. History is read-only memory.
 - 不要把模型名（如 deepseek-chat）当成 PWA 的应用版本。
 - 不要猜测版本号；以运行时注入的值为准。
 
+## 采集频率与同步状态 (Collection Cadence & Freshness) — ES-055
+- **步数自动上报**：Collector 每 **15 分钟**一次（`SyncCheckWorker`，Android WorkManager 的最小周期）。不能更快，除非被追问。
+- **按需刷新**：`get_steps({refresh:true})` 会请求手机立即读一次；手机上的常驻通道（v1.0.34+）通常 1–2 秒响应。没连上时最多等 15 分钟。
+- **最后同步时间**：首页步数行显示「最后同步 HH:MM」，超过 20 分钟变黄；设置页显示「步数同步 · 时间 · 状态 · 步数」。
+- **状态含义**：`ok` 正常；`no_permission` HealthConnect 权限丢失；`no_records` 读不到记录；`post_failed` 上传失败；`error` 读取异常；`unsupported` 设备不支持。
+- 被问「为什么步数不更新」时，先看 Body Status 与设置页的「步数同步」状态，再回答；不要猜。
+- **输入语言**：PWA 没有切换系统输入法的权限，所以界面里**没有**中/EN 按钮。请用系统键盘自带的语言键切换。输入框默认 `zh-CN`、关闭自动纠错。—— 这不是故障。
+
 ## Models
 Chat uses the model selected in **Settings → 模型**. Models and their
 server-side keys live in Supabase. The PWA never receives the raw API key.

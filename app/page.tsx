@@ -52,6 +52,7 @@ type StepsInfo = {
   window_end?: string | null;
   timezone?: string | null;
   updated_at?: string | null;
+  last_sync_at?: string | null;
 };
 
 function hm(iso: string): string {
@@ -114,12 +115,12 @@ export default function Home() {
   const [todaySignals, setTodaySignals] = useState<Signal[]>([]);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [inputLang, setInputLang] = useState<'zh' | 'en'>('zh');
   const [resetting, setResetting] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [stageCollapsed, setStageCollapsed] = useState(false);
   const [steps, setSteps] = useState<StepsInfo | null>(null);
+  const [stepsAgeMin, setStepsAgeMin] = useState<number | null>(null);
   const [stepsDetailOpen, setStepsDetailOpen] = useState(false);
   const [notes, setNotes] = useState<Array<{ id: number; text: string }>>([]);
   const [noteOpen, setNoteOpen] = useState(false);
@@ -192,11 +193,6 @@ export default function Home() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
-
-  useEffect(() => {
-    const saved = window.localStorage.getItem('yy_input_lang');
-    if (saved === 'zh' || saved === 'en') setInputLang(saved);
   }, []);
 
   // ES-037: the 21:30 notification can deep-link to the note or work panel.
@@ -368,7 +364,14 @@ export default function Home() {
         window_end: d.window_end ?? null,
         timezone: d.timezone ?? null,
         updated_at: d.updated_at ?? null,
+        last_sync_at: d.last_sync_at ?? null,
       });
+      const lastIso = d.last_sync_at ?? d.updated_at ?? null;
+      setStepsAgeMin(
+        lastIso
+          ? Math.max(0, Math.round((Date.now() - new Date(lastIso).getTime()) / 60000))
+          : null
+      );
     } catch {}
   }
 
@@ -509,15 +512,6 @@ export default function Home() {
       return '⚙️ 正在发送到 GitHub…';
     }
     return '正在想…';
-  }
-
-  function toggleInputLang() {
-    setInputLang(current => {
-      const next = current === 'zh' ? 'en' : 'zh';
-      window.localStorage.setItem('yy_input_lang', next);
-      return next;
-    });
-    setTimeout(() => inputRef.current?.focus(), 0);
   }
 
   async function resetChat() {
@@ -899,6 +893,20 @@ export default function Home() {
           title="查看步数来源明细"
         >
           步数 {steps.value} / {steps.goal}
+          {steps.last_sync_at && (
+            <span
+              className={`ml-1 ${
+                stepsAgeMin !== null && stepsAgeMin > 20
+                  ? 'text-amber-500'
+                  : 'text-stone-600'
+              }`}
+            >
+              · 最后同步 {hm(steps.last_sync_at)}
+              {stepsAgeMin !== null && stepsAgeMin > 20
+                ? `（${stepsAgeMin} 分钟前）`
+                : ''}
+            </span>
+          )}
           {steps.sources.length > 0 && (
             <span className="ml-1 text-stone-600">
               · 来源 {steps.sources.length}
@@ -1426,14 +1434,6 @@ export default function Home() {
       {/* Input */}
       <div className="flex gap-2 p-3 border-t border-stone-800 shrink-0">
         <button
-          onClick={toggleInputLang}
-          className="md:hidden text-[10px] px-2 rounded-full border border-stone-700 text-stone-400"
-          aria-label="toggle input language"
-          title="切换输入法语言"
-        >
-          {inputLang === 'zh' ? '中/EN' : 'EN/中'}
-        </button>
-        <button
           onClick={startVoice}
           className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
             listening
@@ -1463,13 +1463,13 @@ export default function Home() {
               send();
             }
           }}
-          placeholder={inputLang === 'zh' ? '…' : 'Type…'}
-          lang={inputLang === 'zh' ? 'zh-CN' : 'en'}
+          placeholder="…"
+          lang="zh-CN"
           inputMode="text"
           autoComplete="off"
-          autoCorrect={inputLang === 'zh' ? 'off' : 'on'}
-          autoCapitalize={inputLang === 'zh' ? 'off' : 'sentences'}
-          spellCheck={inputLang === 'en'}
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           className="flex-1 bg-stone-900 border border-stone-800 rounded-full px-4 py-2 text-[15px] md:text-base outline-none focus:border-stone-600"
         />
         <button

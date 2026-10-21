@@ -33,6 +33,11 @@ export async function GET() {
       'collector_version_code',
       'collector_last_report_at',
       'collector_overlay_active',
+      'collector_steps_status',
+      'collector_steps_at',
+      'collector_steps_value',
+      'collector_steps_records',
+      'collector_steps_error',
     ]);
 
   const config = Object.fromEntries(
@@ -108,6 +113,26 @@ export async function GET() {
           : null,
       last_report_at: lastReportAt,
       last_signal_at: lastSignalAt,
+      steps_status:
+        typeof config.collector_steps_status === 'string'
+          ? config.collector_steps_status
+          : null,
+      steps_at:
+        typeof config.collector_steps_at === 'string'
+          ? config.collector_steps_at
+          : null,
+      steps_value:
+        typeof config.collector_steps_value === 'number'
+          ? config.collector_steps_value
+          : null,
+      steps_records:
+        typeof config.collector_steps_records === 'number'
+          ? config.collector_steps_records
+          : null,
+      steps_error:
+        typeof config.collector_steps_error === 'string'
+          ? config.collector_steps_error
+          : null,
       overlay_active: config.collector_overlay_active === true,
       online,
       latest_version: latestVersion,

@@ -34,6 +34,11 @@ type CollectorStatus = {
   update_url: string;
   overlay_active: boolean;
   online: boolean;
+  steps_status: string | null;
+  steps_at: string | null;
+  steps_value: number | null;
+  steps_records: number | null;
+  steps_error: string | null;
 };
 
 const PWA_VERSION = APP_VERSION;
@@ -481,6 +486,16 @@ export default function Settings() {
                       ''
                   ).toLocaleString()
                 : '没有记录'}
+            </span>
+          </div>
+          <div className="flex justify-between gap-3">
+            <span className="text-stone-500">步数同步</span>
+            <span className={collector?.steps_status === 'ok' ? '' : 'text-amber-500'}>
+              {collector?.steps_at
+                ? `${new Date(collector.steps_at).toLocaleTimeString()} · ${
+                    collector.steps_status ?? 'unknown'
+                  }${collector.steps_value != null ? ` · ${collector.steps_value} 步` : ''}`
+                : '未上报'}
             </span>
           </div>
           <div className="flex justify-between gap-3">

@@ -59,13 +59,30 @@ class StepsCollector(private val ctx: Context) {
                 recordType = StepsRecord::class,
                 timeRangeFilter = TimeRangeFilter.between(startOfDay, now)
             )
-            val response = c.readRecords(request)
+            // Issue #68: read every page. A full day can exceed the default
+            // page size, and ignoring pageToken silently truncated the count.
+            val allRecords = mutableListOf<StepsRecord>()
+            var pageToken: String? = null
+            var pages = 0
+            do {
+                val response = c.readRecords(
+                    ReadRecordsRequest(
+                        recordType = StepsRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(startOfDay, now),
+                        pageSize = 1000,
+                        pageToken = pageToken
+                    )
+                )
+                allRecords.addAll(response.records)
+                pageToken = response.pageToken
+                pages++
+            } while (pageToken != null && pages < 10)
 
             // P1-23 / issue #8: the phone and Fit (and a watch) can each write
             // steps into HealthConnect. Summing origins double-counts (e.g.
             // 4054 + 4317 = 8371). Take the MAX per origin instead; keep the
             // raw sum for audit.
-            val grouped = response.records.groupBy { it.metadata.dataOrigin.packageName }
+            val grouped = allRecords.groupBy { it.metadata.dataOrigin.packageName }
             val originSums = grouped.mapValues { (_, recs) -> recs.sumOf { it.count } }
             val rawTotal = originSums.values.sum()
             val total = originSums.values.maxOrNull() ?: 0
@@ -97,6 +114,7 @@ class StepsCollector(private val ctx: Context) {
                 put("raw_value", rawTotal)
                 put("sources", sources)
                 put("sources_count", byOrigin.size)
+                put("records_count", allRecords.size)
             }
         }
     }
