@@ -22,6 +22,7 @@ import { readMarkdown } from '@/lib/read-markdown';
 import { writeMarkdown } from '@/lib/write-markdown';
 import { scheduleMessage } from '@/lib/scheduler';
 import { normalizeToolResult } from '@/lib/tool-result';
+import { APP_VERSION } from '@/lib/app-version';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -460,6 +461,29 @@ export async function POST(req: NextRequest) {
       toolReadback: verboseTools,
     });
 
+    const modelInfo = await getActiveModelInfo().catch(() => null);
+    const { data: bodyRows } = await supabase
+      .from('config')
+      .select('key, value')
+      .in('key', ['collector_version', 'collector_last_report_at']);
+    const bodyCfg = Object.fromEntries(
+      (bodyRows ?? []).map((row: { key: string; value: unknown }) => [
+        row.key,
+        row.value,
+      ])
+    );
+    const collectorVersion =
+      typeof bodyCfg.collector_version === 'string'
+        ? bodyCfg.collector_version
+        : '未上报';
+    const collectorLastReport =
+      typeof bodyCfg.collector_last_report_at === 'string'
+        ? bodyCfg.collector_last_report_at
+        : 'unknown';
+    const bodyStatusReminder = `Authoritative current versions for this request: PWA v${APP_VERSION}; LLM ${
+      modelInfo ? `${modelInfo.provider}/${modelInfo.model_name}` : 'unknown'
+    }; Collector v${collectorVersion} (last report ${collectorLastReport}). When asked about versions, use these values and ignore any earlier version claims in chat history.`;
+
     // 4. Assemble messages
     const messages = [
       ...((history ?? []).slice().reverse() as Array<{
@@ -469,7 +493,9 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          'Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown. For version questions, use the current Body Status section in the system prompt, not earlier messages.',
+          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
+
+${bodyStatusReminder}`,
       },
       { role: 'user' as const, content: message },
     ];
@@ -655,7 +681,12 @@ export async function POST(req: NextRequest) {
         streamData.close().catch(() => {});
       },
       onFinish: async ({ text }) => {
-        let reply = text.trim() || '…';
+        let reply = text.trim();
+        if (!reply) {
+          console.warn('empty model reply', {
+            pushToDev: !!pushToDevResult,
+          });
+        }
 
         // ES-022 guard: if the last push_to_dev attempt failed, never let the
         // persisted message claim success or invent an issue URL.
@@ -675,6 +706,8 @@ export async function POST(req: NextRequest) {
           // Issue #21/#24: the persisted success message uses the verified
           // GitHub number/URL, never a model-composed one.
           reply = `发了。#${pushToDevResult.data.number}。\n\n${pushToDevResult.data.issue_url}`;
+        } else if (!reply) {
+          reply = '…（没有收到回复，请重试）';
         }
 
         const { error: insErr } = await supabase.from('messages').insert([

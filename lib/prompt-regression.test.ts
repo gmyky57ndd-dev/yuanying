@@ -29,6 +29,15 @@ test('ES-050 injects PWA/collector body status', () => {
   assert.match(settings, /\/api\/health/);
 });
 
+test('ES-050 version reminder overrides stale history', () => {
+  const route = read('app/api/chat/route.ts');
+  const page = read('app/page.tsx');
+  assert.match(route, /bodyStatusReminder/);
+  assert.match(route, /Authoritative current versions for this request/);
+  assert.match(page, /没有收到回复，请重试/);
+  assert.doesNotMatch(page, /信号中断/);
+});
+
 test('ES-044/045/046 chat route has timeout, reset, and tool lifecycle guards', () => {
   const src = read('app/api/chat/route.ts');
   assert.match(src, /maxDuration = 60/);
