@@ -64,9 +64,11 @@ owner: "现在多少步"
 
 ## 4. Acceptance
 
-- [ ] `GET /api/collector/stream` without a bearer token returns `401`.
-- [ ] With a token it holds the connection and emits `event: sync` within ~2 s of
-      a new `collector_sync_requested_at`.
+- [x] `GET /api/collector/stream` without a bearer token returns `401`
+      (verified 2026-10-21 in production).
+- [x] With a token it holds the connection and emits `event: sync` within ~2 s of
+      a new `collector_sync_requested_at` (verified: connected, set the marker
+      from another request, received `event: sync` in ~2 s).
 - [ ] With the collector service running, "现在多少步" returns a value whose
       `as_of` is within a few seconds.
 - [ ] The service survives backgrounding the collector app; killing it falls back

@@ -200,11 +200,12 @@ never by the section they happened to be written under.
 
 ### [P2-32] Collector SSE refresh channel (ES-054)
 
-- **Status**: In Progress (2026-10-21, owner approved option A) · **Category**: Feature (Real-time sync) · **Refs**: ES-054, B-26
+- **Status**: In Review (2026-10-21, server verified; phone check pending) · **Category**: Feature (Real-time sync) · **Refs**: ES-054, B-26
 - **Spec**: `docs/specs/ES-054-collector-sse-refresh.md`.
 - **Why**: `get_steps({refresh:true})` can only wait 16 s while the collector polls the sync marker every 15 minutes, so the answer is usually stale.
 - **Plan**: `GET /api/collector/stream` (bearer, SSE, 2 s config poll, 50 s lifetime) + Android `SyncStreamService` (foreground `dataSync`, silent notification) that enqueues `CollectorWorker` on `event: sync`; backoff reconnect; 15-min `SyncCheckWorker` remains the fallback.
-- **Acceptance**: 401 without token; `event: sync` within ~2 s; "现在多少步" returns a value seconds old; service survives backgrounding; battery = one connection, no wake locks.
+- **Verified (2026-10-21, production)**: `/api/collector/stream` → **401** without a token; with a token it holds the stream, and setting `collector_sync_requested_at` from another request produced `event: sync` in ~2 s. Collector **v1.0.34** built, signed, and published (AAB + APK); Play internal upload completed.
+- **Remaining**: install v1.0.34 and confirm "现在多少步" returns a value whose `as_of` is seconds old, and that the 元婴同步 foreground notification behaves.
 
 ### [P2-31] Drive 大文档分段读取 (ES-030/ES-035 follow-up)
 
