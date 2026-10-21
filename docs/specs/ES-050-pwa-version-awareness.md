@@ -17,8 +17,9 @@
 
 ### 2.1 Inject the PWA version
 
-- `package.json` is now **0.2.0**. `next.config.mjs` reads `package.json.version` and exposes
-  `NEXT_PUBLIC_APP_VERSION`.
+- `package.json` is now **0.2.0**. `lib/app-version.ts` imports `package.json`
+  directly, so server and client use the same version. `next.config.mjs` also
+  exposes `NEXT_PUBLIC_APP_VERSION` for build-time consumers.
 - Settings shows **PWA 版本**.
 - `lib/yuanying.ts` injects a runtime **Body Status**:
   - 大脑 (LLM): provider/model from `getActiveModelInfo()`.
@@ -33,7 +34,7 @@
 - If an existing controller is present, it asks:
   “元婴有新版本了，现在刷新以获取最新化形？”
 - Re-checks when the PWA becomes visible.
-- `public/sw.js` cache bumped to `yuanying-v4` so installed clients detect the
+- `public/sw.js` cache bumped to `yuanying-v5` so installed clients detect the
   new worker.
 
 ### 2.3 Collector status freshness

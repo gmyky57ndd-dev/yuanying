@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { fetchWithTimeout, API_BASE } from '@/lib/api';
+import { APP_VERSION } from '@/lib/app-version';
 
 type Reminders = { water: boolean; standup: boolean; vitamin: boolean };
 type Habit = {
@@ -35,7 +36,7 @@ type CollectorStatus = {
   online: boolean;
 };
 
-const PWA_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0';
+const PWA_VERSION = APP_VERSION;
 
 const MODEL_PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'];
 
