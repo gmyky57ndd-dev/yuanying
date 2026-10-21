@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-053 (highest assigned: **ES-053**; ES-040 now assigned)
+**Range:** ES-001 → ES-054 (highest assigned: **ES-054**; ES-040 now assigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -66,3 +66,4 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-051 | Config-Driven Tool Readback (Silent Mode) | Approved | 2026-10-21 | P3-04 |
 | ES-052 | Hotfix: Chat API Broken After Upgrade | Urgent Bug (P0) | 2026-10-21 | P3-06 |
 | ES-053 | External AI Bridge & Context Ingestion | Approved | 2026-10-21 | P3-05 |
+| ES-054 | Collector SSE Refresh Channel | Approved | 2026-10-21 | P2-32 |

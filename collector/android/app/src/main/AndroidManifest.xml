@@ -38,6 +38,12 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
+        <!-- ES-054: SSE refresh channel (foreground, dataSync) -->
+        <service
+            android:name=".SyncStreamService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+
         <!-- ES-048: always-on-top Xiaowu bubble -->
         <service
             android:name=".OverlayService"

@@ -52,6 +52,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // ES-054: open the refresh stream while we are in the foreground
+        // (Android 12+ forbids starting a foreground service from background).
+        if (Build.VERSION.SDK_INT >= 26) {
+            SyncStreamService.start(this);
+        }
+
         statusText = findViewById(R.id.status_text);
         stepsStatus = findViewById(R.id.steps_status);
         TextView versionText = findViewById(R.id.version_text);

@@ -198,6 +198,14 @@ never by the section they happened to be written under.
 - **Fix**: revoke after 60 s, and the message now names the file and points at ⌘⇧L / the 下载 folder. Button absence on Mac still needs one check after a hard reload (stale SW bundle is the likely cause).
 - **Open**: if it is genuinely absent on Mac, capture the Settings section list.
 
+### [P2-32] Collector SSE refresh channel (ES-054)
+
+- **Status**: In Progress (2026-10-21, owner approved option A) · **Category**: Feature (Real-time sync) · **Refs**: ES-054, B-26
+- **Spec**: `docs/specs/ES-054-collector-sse-refresh.md`.
+- **Why**: `get_steps({refresh:true})` can only wait 16 s while the collector polls the sync marker every 15 minutes, so the answer is usually stale.
+- **Plan**: `GET /api/collector/stream` (bearer, SSE, 2 s config poll, 50 s lifetime) + Android `SyncStreamService` (foreground `dataSync`, silent notification) that enqueues `CollectorWorker` on `event: sync`; backoff reconnect; 15-min `SyncCheckWorker` remains the fallback.
+- **Acceptance**: 401 without token; `event: sync` within ~2 s; "现在多少步" returns a value seconds old; service survives backgrounding; battery = one connection, no wake locks.
+
 ### [P2-31] Drive 大文档分段读取 (ES-030/ES-035 follow-up)
 
 - **Status**: In Review (2026-10-21, owner chose option A) · **Category**: Feature (Tool) · **Refs**: ES-030, ES-035, P2-13, P2-18
