@@ -389,14 +389,14 @@
 - **Status**: In Review (2026-10-21) · **Category**: Feature (Phase C) · **Refs**: ES-040, Issue #54 · **Opened**: 2026-10-21
 - **Spec**: `docs/specs/ES-040-first-manifestation.md`.
 - **Impl**: `AvatarStage` at 60vh (collapsible); idle/thinking/speaking/listening animations; hold-to-talk STT; auto-TTS with 声/静 toggle; stage nav. Placeholder avatar image pending the owner's Live2D/VRM asset.
-- **Acceptance**: [x] stage; [x] hold-to-talk; [x] TTS; [x] animation states; [ ] Live2D/VRM model swap; [ ] phone visual/voice check.
+- **Verified (2026-10-21, deployed)**: web deploy green; stage/voice/TTS code compiles and ships. **Acceptance**: [x] stage; [x] hold-to-talk; [x] TTS; [x] animation states; [ ] Live2D/VRM model swap; [ ] phone visual/voice check.
 
 ### [P1-61] PWA client restore + collector status/update (Issue #54)
 
 - **Status**: In Review (2026-10-21) · **Category**: Bug/Feature (PWA Ops) · **Refs**: Issue #54 · **Opened**: 2026-10-21
 - **Runbook**: `docs/runbooks/pwa-client-restore.md`.
 - **Impl**: Settings shows collector version + last report; `/api/collector/status` compares the latest GitHub release; update button opens Play internal testing; **添加到主屏幕** install prompt/instructions; collector heartbeat + v1.0.29.
-- **Acceptance**: [x] runbook; [x] version/last report UI; [x] update prompt; [x] add-to-home path; [ ] owner restores icon and confirms a signal.
+- **Verified (2026-10-21, production)**: `/api/collector/status` reports installed **v1.0.29 (30)**, last report `2026-10-21T15:06:22Z`, latest `1.0.29`, no update needed. Collector v1.0.29 (code 30) is completed on Play internal; GitHub release assets available. **Acceptance**: [x] runbook; [x] version/last report UI; [x] update prompt; [x] add-to-home path; [ ] owner restores icon and confirms a signal.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 

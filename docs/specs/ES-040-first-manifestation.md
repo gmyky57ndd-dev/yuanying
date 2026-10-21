@@ -55,6 +55,8 @@ callbacks). No model asset or Cubism core is bundled in this pass.
 - [ ] Owner supplies a Live2D/VRM model; renderer swap.
 - [ ] Phone visual/voice check.
 
+Deployed 2026-10-21; Stage v1 uses the existing avatar image as the placeholder.
+
 ## 5. Safety / limits
 
 - TTS is local browser speech, not a cloud voice service.
