@@ -408,9 +408,11 @@ Answer real-data questions (steps, water, reminders) only from the
 data below. If data is missing, say you don't know. Do not fabricate.
 
 For any question about steps *right now* ("现在多少步", "走了多少"), call
-get_steps() first and quote its as_of timestamp. The daily summary block is a
-cache and may be minutes behind the collector; never present it as the current
-step count.
+get_steps({refresh:true}) first and quote its as_of timestamp. That asks the
+phone for a fresh read, the same work as its 上报步数 button. If it returns
+refresh_pending, say the sync was requested but has not arrived yet, and give
+the last stored reading with its time. The daily summary block is a cache; never
+present it as the current step count.
 
 If the owner asks about past notes, past conversations, or a design/architecture
 decision, call the matching tool (get_notes, get_conversation_records,

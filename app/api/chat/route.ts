@@ -184,16 +184,51 @@ async function runTool(name: string, args: any): Promise<any> {
   }
 
   if (name === 'get_steps') {
+    const wantsRefresh = args?.refresh === true;
+    const requestedAt = new Date();
     const tz = await getConfigTimezone();
     const { start, end } = getTodayRange(tz);
-    const { data } = await supabase
-      .from('signals')
-      .select('value, context, created_at')
-      .eq('name', 'steps')
-      .gte('created_at', start.toISOString())
-      .lt('created_at', end.toISOString())
-      .order('created_at', { ascending: false });
-    const rows = (data ?? []) as any[];
+    const num = (r: any) => (typeof r?.value === 'number' ? r.value : 0);
+
+    const readRows = async () => {
+      const { data } = await supabase
+        .from('signals')
+        .select('value, context, created_at')
+        .eq('name', 'steps')
+        .gte('created_at', start.toISOString())
+        .lt('created_at', end.toISOString())
+        .order('created_at', { ascending: false });
+      return (data ?? []) as any[];
+    };
+
+    if (wantsRefresh) {
+      // The collector's SyncCheckWorker polls this marker and runs one
+      // immediate collection, the same work as the 上报步数 button.
+      await supabase.from('config').upsert(
+        {
+          key: 'collector_sync_requested_at',
+          value: requestedAt.toISOString(),
+          updated_at: requestedAt.toISOString(),
+        },
+        { onConflict: 'key' }
+      );
+    }
+
+    let rows = await readRows();
+    let refreshed = false;
+    if (wantsRefresh) {
+      // Give a wakeful collector up to 16s to answer, then fall back honestly.
+      for (let i = 0; i < 8 && !refreshed; i++) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        rows = await readRows();
+        refreshed = rows.some(
+          r =>
+            new Date(r.created_at).getTime() >= requestedAt.getTime() &&
+            num(r) > 0
+        );
+      }
+    }
+
     const { data: cfg } = await supabase
       .from('config')
       .select('value')
@@ -203,7 +238,6 @@ async function runTool(name: string, args: any): Promise<any> {
     // Same rule as /api/steps: prefer the corrected aggregation, max snapshot.
     const corrected = rows.filter(r => r.context?.aggregation === 'max_per_origin');
     const pool = corrected.length > 0 ? corrected : rows;
-    const num = (r: any) => (typeof r?.value === 'number' ? r.value : 0);
     const best = pool.reduce((m: any, r: any) => (num(r) > num(m) ? r : m), null as any);
     const lastSync = rows[0] ?? null;
     const latest = rows.find(r => num(r) > 0) ?? null;
@@ -223,10 +257,15 @@ async function runTool(name: string, args: any): Promise<any> {
         window_start: start.toISOString(),
         window_end: end.toISOString(),
         rows_today: rows.length,
-        warning:
-          lastSync && num(lastSync) === 0 && num(best) > 0
-            ? 'The most recent sync returned 0 (no HealthConnect origins); value is today\'s max snapshot, as_of is the last real reading.'
-            : undefined,
+        refreshed: wantsRefresh ? refreshed : undefined,
+        refresh_pending: wantsRefresh && !refreshed ? true : undefined,
+        warning: refreshed
+          ? undefined
+          : wantsRefresh && !refreshed
+            ? 'Sync requested but the collector has not answered yet (it polls every 15 minutes). value/as_of are the last stored reading.'
+            : lastSync && num(lastSync) === 0 && num(best) > 0
+              ? "The most recent sync returned 0 (no HealthConnect origins); value is today's max snapshot, as_of is the last real reading."
+              : undefined,
       },
     };
   }
@@ -676,9 +715,16 @@ ${bodyStatusReminder}`,
       }),
       get_steps: tool({
         description:
-          "Read the owner's step count for today: today's max snapshot, the goal, the timestamp it was reported at, and the newest raw row. Call this for any question about current steps ('how many steps do I have now?'). Never answer steps from the cached daily summary; quote as_of so the owner knows how fresh the number is.",
-        parameters: z.object({}),
-        execute: async () => runToolForModel('get_steps', {}),
+          "Read the owner's step count for today: today's max snapshot, the goal, the timestamp it was reported at, and the newest raw row. Call this for any question about current steps ('how many steps do I have now?'). Pass refresh:true to ask the phone for a fresh HealthConnect read (the same work as its 上报步数 button) and wait up to ~16s for the answer; if refresh_pending is true, say the sync was requested but has not arrived, and quote as_of. Never answer steps from the cached daily summary.",
+        parameters: z.object({
+          refresh: z
+            .boolean()
+            .optional()
+            .describe(
+              'Ask the collector for an immediate read before answering (use for "now" step questions).'
+            ),
+        }),
+        execute: async args => runToolForModel('get_steps', args),
       }),
       get_model_info: tool({
         description:
