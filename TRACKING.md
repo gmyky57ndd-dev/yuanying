@@ -382,7 +382,7 @@
 - **Impl**: `npm test` (Node test runner), 23 tests across CSV/JSON/ZIP parsers, GitHub read-back, SSE data parts/504, `write_markdown`, scheduler timezones, prompt/SW/manifest regression guards.
 - **CI**: `.github/workflows/tests.yml` runs tests + lint + typecheck on push/PR.
 - **Runbook**: `docs/runbooks/tests.md`.
-- **Verified**: 23/23 tests pass; `tsc`, lint, build pass.
+- **Verified (2026-10-21)**: 23/23 tests pass locally; GitHub Actions **Tests** run `39612470879` green; web deploy run `39612470889` green.
 
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
