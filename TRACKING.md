@@ -418,6 +418,13 @@
 - **Impl**: `md:` two-column grid (`280px` sidebar + `max-w-[700px]` chat), overall `max-w-6xl mx-auto`; vertical habit list; desktop avatar/status header; larger chat text; language toggle hidden on desktop; independently scrolling sidebar.
 - **Verified (2026-10-21)**: web deploy green; classes/bundles ship. **Acceptance**: [x] centered max width; [x] habits left / chat right; [x] larger text; [x] language toggle hidden; [ ] Mac PWA visual check.
 
+### [P3-03] PWA version awareness + SW update (ES-050)
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Self-Awareness / Update) · **Refs**: ES-050 · **Opened**: 2026-10-21
+- **Spec**: `docs/specs/ES-050-pwa-version-awareness.md`.
+- **Impl**: `next.config.mjs` injects `NEXT_PUBLIC_APP_VERSION`; Settings shows PWA version; runtime Body Status distinguishes LLM/PWA/Collector; SW update prompt + cache v4; `/api/health` no-store alias; Settings uses no-store.
+- **Acceptance**: [x] PWA version injection; [x] version answer context; [x] SW prompt; [x] collector status no-store; [ ] owner phone/Mac verification.
+
 **Phase C overall**: PR #17 merged to main; `tsc`, lint, and build pass. Feedback status badges were already delivered in ES-023. No new capture surfaces.
 
 ---

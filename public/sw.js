@@ -1,9 +1,9 @@
 // 元婴 Service Worker v2
 // Navigations are network-first so the installed PWA never runs stale code.
 // Hashed /_next/static assets are cache-first; API is never cached.
-// ES-043: any /api/ request MUST bypass the service worker entirely.
+// ES-043/ES-050: any /api/ request MUST bypass the service worker entirely.
 
-const CACHE_NAME = 'yuanying-v3';
+const CACHE_NAME = 'yuanying-v4';
 const STATIC_ASSETS = ['/', '/manifest.json', '/avatar.png'];
 
 self.addEventListener('install', event => {

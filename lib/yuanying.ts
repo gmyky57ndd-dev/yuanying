@@ -4,6 +4,7 @@ import { SummaryData } from './summary-types';
 import { SUMMARY_TONE_RULES } from './summary-generator';
 import { readConfirmed, relevantHeld, Opinion } from './opinions';
 import { supabase } from './db';
+import { getActiveModelInfo } from './llm-router';
 
 interface BuildOptions {
   signals?: Array<{ name: string; created_at: string }>;
@@ -306,6 +307,27 @@ export async function buildSystemPrompt(
   const opinionsCtx = buildOpinions(opts.message);
   const now = opts.now ?? new Date().toISOString();
 
+  const modelInfo = await getActiveModelInfo().catch(() => null);
+  const { data: statusRows } = await supabase
+    .from('config')
+    .select('key, value')
+    .in('key', ['collector_version', 'collector_last_report_at']);
+  const bodyConfig = Object.fromEntries(
+    (statusRows ?? []).map((row: { key: string; value: unknown }) => [
+      row.key,
+      row.value,
+    ])
+  );
+  const pwaVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0';
+  const collectorVersion =
+    typeof bodyConfig.collector_version === 'string'
+      ? bodyConfig.collector_version
+      : null;
+  const collectorLastReport =
+    typeof bodyConfig.collector_last_report_at === 'string'
+      ? bodyConfig.collector_last_report_at
+      : null;
+
   const fenshenProfile = fenshen ? loadFenshenProfile(fenshen.id) : '';
   const fenshenBlock = fenshen
     ? `\n\n# Active Fenshen (分身)\n\nYou are currently manifesting as: ${fenshen.display_name}\n\n${fenshen.prompt_md}${fenshenProfile ? `\n\n${fenshenProfile}` : ''}`
@@ -356,6 +378,15 @@ confirmation.
 By default, summarize the conclusion of a tool result. Do not read back the
 full issue/runbook/document text unless the owner asks for it. If the owner
 says 「不要读结果」, give only the conclusion and a short status.
+
+## Body Status
+
+- 大脑 (LLM): ${modelInfo ? `${modelInfo.provider}/${modelInfo.model_name}` : 'unknown'}
+- 前端化身 (PWA): v${pwaVersion}
+- 神经末梢 (Collector): ${
+    collectorVersion ? `v${collectorVersion}` : '未上报'
+  }${collectorLastReport ? ` · last report ${collectorLastReport}` : ''}
+- 被问「你是什么版本」时，按上述区分回答。模型名不是 PWA 版本。
 
 ## Signal definitions
 

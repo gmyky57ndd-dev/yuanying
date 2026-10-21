@@ -122,7 +122,9 @@ export default function Settings() {
 
   async function loadCollector() {
     try {
-      const r = await fetchWithTimeout(`${API_BASE}/api/collector/status`, {});
+      const r = await fetchWithTimeout(`${API_BASE}/api/health`, {
+        cache: 'no-store',
+      });
       const d = await r.json();
       setCollector(d);
     } catch {}
