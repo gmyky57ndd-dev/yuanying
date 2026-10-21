@@ -107,7 +107,7 @@ on conflict (key) do nothing;
 create table if not exists reminders (
   id            bigserial primary key,
   created_at    timestamptz not null default now(),
-  name          text not null check (name in ('water', 'standup', 'vitamin', 'evening_checkin')),
+  name          text not null check (name in ('water', 'standup', 'vitamin', 'evening_checkin', 'scheduled_message')),
   scheduled_at  timestamptz not null,
   shown_at      timestamptz,
   acted_at      timestamptz,
@@ -370,3 +370,23 @@ create table if not exists google_oauth_tokens (
   token_type     text,
   updated_at     timestamptz not null default now()
 );
+
+
+-- ES-045/ES-046: async tool jobs
+create table if not exists agent_jobs (
+  id          bigserial primary key,
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now(),
+  type        text not null,
+  status      text not null default 'pending'
+              check (status in ('pending','processing','done','failed')),
+  payload     jsonb not null,
+  result      jsonb,
+  error       text,
+  attempts    int not null default 0,
+  session_id  uuid
+);
+
+create index if not exists idx_agent_jobs_pending
+  on agent_jobs (status, created_at)
+  where status = 'pending';

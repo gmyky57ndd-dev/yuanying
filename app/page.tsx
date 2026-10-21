@@ -113,6 +113,8 @@ export default function Home() {
   const [todaySignals, setTodaySignals] = useState<Signal[]>([]);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inputLang, setInputLang] = useState<'zh' | 'en'>('zh');
+  const [resetting, setResetting] = useState(false);
   const [steps, setSteps] = useState<StepsInfo | null>(null);
   const [stepsDetailOpen, setStepsDetailOpen] = useState(false);
   const [notes, setNotes] = useState<Array<{ id: number; text: string }>>([]);
@@ -157,6 +159,11 @@ export default function Home() {
         (window as any).webkitSpeechRecognition
       )
     );
+  }, []);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('yy_input_lang');
+    if (saved === 'zh' || saved === 'en') setInputLang(saved);
   }, []);
 
   // ES-037: the 21:30 notification can deep-link to the note or work panel.
@@ -464,6 +471,37 @@ export default function Home() {
     return '正在想…';
   }
 
+  function toggleInputLang() {
+    setInputLang(current => {
+      const next = current === 'zh' ? 'en' : 'zh';
+      window.localStorage.setItem('yy_input_lang', next);
+      return next;
+    });
+  }
+
+  async function resetChat() {
+    if (resetting) return;
+    if (!window.confirm('清空当前对话上下文？')) return;
+    setResetting(true);
+    try {
+      await fetchWithTimeout(`${API_BASE}/api/chat/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+      });
+      setMessages([]);
+      sessionIdRef.current =
+        crypto.randomUUID?.() ?? `s-${Date.now()}`;
+      setError(null);
+      setMsgMenu(null);
+      await loadMessages();
+    } catch {
+      alert('重置失败');
+    } finally {
+      setResetting(false);
+    }
+  }
+
   async function send(text?: string) {
     const content = (text ?? input).trim();
     if (!content || sending) return;
@@ -478,6 +516,8 @@ export default function Home() {
         if (event?.type === 'push_to_dev') {
           if (event.status === 'sending') {
             setToolStatus('⚙️ 正在发送到 GitHub…');
+          } else if (event.status === 'done' && event.queued) {
+            setToolStatus('已提交，后台处理中…');
           } else if (event.status === 'done' && event.success) {
             setToolStatus('已发送，正在整理…');
           }
@@ -759,6 +799,14 @@ export default function Home() {
             状态
           </button>
           <span className="ml-auto">笔记 {notes.length}</span>
+          <button
+            onClick={resetChat}
+            disabled={resetting}
+            className="text-stone-600 disabled:opacity-40"
+            title="清空当前对话上下文"
+          >
+            {resetting ? '重置中…' : '重置'}
+          </button>
         </div>
         {noteOpen && (
           <div className="mt-2 space-y-2">
@@ -1213,6 +1261,14 @@ export default function Home() {
       {/* Input */}
       <div className="flex gap-2 p-3 border-t border-stone-800 shrink-0">
         <button
+          onClick={toggleInputLang}
+          className="text-[10px] px-2 rounded-full border border-stone-700 text-stone-400"
+          aria-label="toggle input language"
+          title="切换输入法语言"
+        >
+          {inputLang === 'zh' ? '中/EN' : 'EN/中'}
+        </button>
+        <button
           onClick={startVoice}
           className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
             listening
@@ -1242,11 +1298,12 @@ export default function Home() {
             }
           }}
           placeholder="…"
+          lang={inputLang === 'zh' ? 'zh-CN' : 'en'}
           inputMode="text"
           autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
+          autoCorrect={inputLang === 'zh' ? 'off' : 'on'}
+          autoCapitalize={inputLang === 'zh' ? 'off' : 'sentences'}
+          spellCheck={inputLang === 'en'}
           className="flex-1 bg-stone-900 border border-stone-800 rounded-full px-4 py-2 text-[15px] outline-none focus:border-stone-600"
         />
         <button
