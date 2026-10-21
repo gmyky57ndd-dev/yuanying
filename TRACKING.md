@@ -440,7 +440,7 @@
 - **Impl**: `external_chats` table + full-text index (migration 022); `ingest_external_chat` / `query_external_chats` tools; `/api/external-chats`; Settings **吸收剪贴板**; Home `Cmd+Shift+V`; optional `ask_claude`.
   - MCP: `mailbox/**` + `read_local_file`/`write_local_file`; `POST /api/mcp` server; `mcp-config.json`; `ask_external_agent` client; `docs/runbooks/mcp-bridge.md`.
 - **Verified (2026-10-21, production)**: `/api/external-chats` saved and retrieved a test external chat; explicit `ingest_external_chat` saved 230 chars locally; `query_external_chats` returned an excerpt.
-- **Verified (2026-10-21)**: MCP `initialize`, `tools/list`, and `tools/call` returned correctly; mailbox `read_local_file` read `mailbox/README.md`; external chat API saved/retrieved. **Acceptance**: [x] save external chat; [x] retrieve by keyword; [x] clipboard button + shortcut; [x] optional Claude tool; [x] MCP server/config/mailbox; [ ] owner confirms a real external import.
+- **Verified (2026-10-21, local + production)**: MCP `initialize` returned PWA v0.2.0; `tools/list` exposed notes/conversations/summary/external-chats/mailbox/body-status; `get_body_status` returned collector v1.0.31. Production `/api/mcp` returns 401 without auth and 200 with the API/MCP token. Mailbox `read_local_file` read `mailbox/README.md`; external chat API saved/retrieved. 32/32 tests. **Acceptance**: [x] save external chat; [x] retrieve by keyword; [x] clipboard button + shortcut; [x] optional Claude tool; [x] MCP server/config/mailbox; [ ] owner connects Claude Desktop/Cursor.
 
 ### [P3-06] Chat API broken hotfix (ES-052) — P0
 
