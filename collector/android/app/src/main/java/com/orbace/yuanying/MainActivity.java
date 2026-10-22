@@ -289,7 +289,7 @@ public class MainActivity extends AppCompatActivity {
             } else if (sc.hasPermission()) {
                 text = "✓ 步数采集已启用";
             } else {
-                text = "✗ 步数采集未授权";
+                text = "✗ HealthConnect 权限被收回，点下方按钮重新授权";
             }
             final String t = text;
             runOnUiThread(() -> stepsStatus.setText(t));

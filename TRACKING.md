@@ -204,6 +204,16 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-38] HealthConnect 权限丢失 + 起身提醒读实时步数 (ES-062, #73) — P0
+
+- **Status**: In Review (2026-10-22) · **Category**: Bug (Collector) · **Refs**: ES-062, #73, #70
+- **Evidence**: 14:59Z the collector wrote `245` while `collector_steps_error` held `SecurityException: Caller does not have permission`; `status=ok` left the stale error next to a partial read.
+- **Fixed**: SecurityException → `no_permission`, no post; `/api/steps` stores `context.partial`/`error`; `get_steps` drops partial rows and returns `partial_read` + warning; heartbeat clears stale errors; one notification/day to re-grant; permission restored ⇒ next read backfills the whole local day.
+- **Feature**: standup reminder reads HealthConnect at fire time, appends "（现在 N 步）" and posts the same payload (#73 part 2).
+- **Reliability**: `BootReceiver` enqueues one collection after reboot (#70 pairing).
+- **Build**: collector **v1.0.37 (37)**.
+- **Verification**: pending phone install; acceptance in ES-062 §5.
+
 ### [P2-37] 系统状态工具 + Cron 现状 + 化形接入 (ES-061)
 
 - **Status**: In Review (2026-10-22) · **Category**: Feature + Ops · **Refs**: ES-061, P2-36

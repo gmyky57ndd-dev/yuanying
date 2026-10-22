@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-061 (highest assigned: **ES-061**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-062 (highest assigned: **ES-062**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
@@ -74,3 +74,4 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-059 | VisualViewport Fix for Keyboard Occlusion & IME Dismissal | Urgent Bug (P0) | 2026-10-21 | P2-35 |
 | ES-060 | Fix Post-Tool Generation Failure | Urgent Bug (P0) | 2026-10-22 | P2-36 |
 | ES-061 | System Status Tool, Cron Reality Check, Avatar/Voice | Urgent Bug + Feature | 2026-10-22 | P2-37 |
+| ES-062 | HealthConnect Permission Loss & Fresh Steps in Reminders | Urgent Bug (P0) | 2026-10-22 | P2-38 |

@@ -130,7 +130,8 @@ export async function GET() {
           ? config.collector_steps_records
           : null,
       steps_error:
-        typeof config.collector_steps_error === 'string'
+        typeof config.collector_steps_error === 'string' &&
+        config.collector_steps_error.length > 0
           ? config.collector_steps_error
           : null,
       overlay_active: config.collector_overlay_active === true,

@@ -49,6 +49,15 @@
             android:name=".OverlayService"
             android:exported="false" />
 
+        <!-- ES-073 / #70: resume collection after a reboot -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
         <!-- P1-09 / P1-25: reminder notification action buttons -->
         <receiver
             android:name=".ReminderActionReceiver"

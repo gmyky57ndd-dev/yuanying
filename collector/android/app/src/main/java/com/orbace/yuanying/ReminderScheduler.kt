@@ -182,8 +182,23 @@ object ReminderScheduler {
     ) {
         val displayName = habit.optString("display_name", name)
         val authored = AUTHORED[name]
-        val message = reminder.optStringOrNull("text_override") ?: authored?.first ?: displayName
+        var message = reminder.optStringOrNull("text_override") ?: authored?.first ?: displayName
         val voice = reminder.optStringOrNull("voice_override") ?: authored?.second ?: displayName
+
+        // Issue #73: a standup reminder must not quote a stale number. Read
+        // HealthConnect at fire time, put the current count in the message and
+        // push the same reading to the server.
+        if (name == "standup") {
+            val fresh = readStepsPayload(context)
+            if (fresh != null) {
+                message = "$message（现在 ${fresh.optInt("steps", 0)} 步）"
+                try {
+                    ApiClient().post(ApiClient.BASE_URL + "/api/steps", fresh)
+                } catch (e: Exception) {
+                    Log.w(TAG, "standup steps post failed", e)
+                }
+            }
+        }
 
         val payload = JSONObject().apply {
             put("name", name)
@@ -203,6 +218,49 @@ object ReminderScheduler {
         notify(context, id, name, message)
         speak(context, voice)
         Log.i(TAG, "fired $name ($displayName) id=$id")
+    }
+
+    /** Best-effort HealthConnect read; null when unavailable or not permitted. */
+    private fun readStepsPayload(context: Context): JSONObject? {
+        return try {
+            if (Build.VERSION.SDK_INT < 26) return null
+            val steps = StepsCollector(context)
+            if (!steps.sdkAvailable() || !steps.hasPermission()) return null
+            steps.collectToday()
+        } catch (e: Exception) {
+            Log.w(TAG, "standup steps read failed", e)
+            null
+        }
+    }
+
+    /** Issue #73: tell the owner once a day that HealthConnect needs re-granting. */
+    fun notifyPermissionLost(context: Context) {
+        try {
+            val prefs = context.getSharedPreferences("yuanying_nudge", Context.MODE_PRIVATE)
+            val key = "perm_" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            if (prefs.getBoolean(key, false)) return
+            prefs.edit().putBoolean(key, true).apply()
+
+            ensureChannel(context)
+            val openIntent = Intent(context, MainActivity::class.java)
+            val openPi = PendingIntent.getActivity(
+                context, 9101, openIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val message = "读不到完整步数：HealthConnect 权限被系统收回了。点这里重新授权。"
+            val notif = NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(android.R.drawable.stat_notify_error)
+                .setContentTitle("元婴")
+                .setContentText(message)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setAutoCancel(true)
+                .setContentIntent(openPi)
+                .build()
+            NotificationManagerCompat.from(context).notify(9101, notif)
+        } catch (e: Exception) {
+            Log.w(TAG, "permission notice failed", e)
+        }
     }
 
     private fun fetchHabits(): List<JSONObject> {

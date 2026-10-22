@@ -92,13 +92,21 @@ public class CollectorWorker extends Worker {
                             Log.i(TAG, "steps posted: " + okSteps);
                         }
                     } catch (Exception se) {
-                        stepsStatus = "error";
+                        boolean denied = false;
+                        for (Throwable t = se; t != null; t = t.getCause()) {
+                            if (t instanceof SecurityException) { denied = true; break; }
+                        }
+                        stepsStatus = denied ? "no_permission" : "error";
                         stepsError = se.getMessage();
                         Log.w(TAG, "steps collect failed", se);
+                        if (denied) {
+                            ReminderScheduler.INSTANCE.notifyPermissionLost(ctx);
+                        }
                     }
                 } else {
                     stepsStatus = "no_permission";
                     Log.w(TAG, "steps unavailable or permission not granted");
+                    ReminderScheduler.INSTANCE.notifyPermissionLost(ctx);
                 }
             } else {
                 stepsStatus = "unsupported";
@@ -112,10 +120,12 @@ public class CollectorWorker extends Worker {
                 stepsBeat.put("collector_steps_at", sfmt.format(new Date()));
                 if (stepsValue >= 0) stepsBeat.put("collector_steps_value", stepsValue);
                 if (stepsRecords >= 0) stepsBeat.put("collector_steps_records", stepsRecords);
-                if (stepsError != null) {
-                    stepsBeat.put("collector_steps_error",
-                        stepsError.length() > 140 ? stepsError.substring(0, 140) : stepsError);
-                }
+                // Always write the field so a stale error from an earlier run is
+                // cleared once a read succeeds.
+                stepsBeat.put("collector_steps_error",
+                    stepsError == null
+                        ? ""
+                        : (stepsError.length() > 140 ? stepsError.substring(0, 140) : stepsError));
                 api.put(ApiClient.BASE_URL + "/api/config", stepsBeat);
             } catch (Exception be) {
                 Log.w(TAG, "steps heartbeat failed", be);

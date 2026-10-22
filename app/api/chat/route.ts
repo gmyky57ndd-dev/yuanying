@@ -243,9 +243,13 @@ async function runTool(name: string, args: any): Promise<any> {
     // Same rule as /api/steps: prefer the corrected aggregation, max snapshot.
     const corrected = rows.filter(r => r.context?.aggregation === 'max_per_origin');
     const pool = corrected.length > 0 ? corrected : rows;
-    const best = pool.reduce((m: any, r: any) => (num(r) > num(m) ? r : m), null as any);
+    // ES-073: a partial (permission-denied) read must never become the daily total.
+    const clean = pool.filter((r: any) => r.context?.partial !== true);
+    const usable = clean.length > 0 ? clean : rows.filter((r: any) => r.context?.partial !== true);
+    const best = usable.reduce((m: any, r: any) => (num(r) > num(m) ? r : m), null as any);
     const lastSync = rows[0] ?? null;
-    const latest = rows.find(r => num(r) > 0) ?? null;
+    const latest = usable.find((r: any) => num(r) > 0) ?? null;
+    const partialRead = rows.some((r: any) => r.context?.partial === true);
     return {
       success: true,
       data: {
@@ -262,9 +266,12 @@ async function runTool(name: string, args: any): Promise<any> {
         window_start: start.toISOString(),
         window_end: end.toISOString(),
         rows_today: rows.length,
+        partial_read: partialRead,
         refreshed: wantsRefresh ? refreshed : undefined,
         refresh_pending: wantsRefresh && !refreshed ? true : undefined,
-        warning: refreshed
+        warning: partialRead
+          ? 'A recent HealthConnect read was denied permission (partial data); value comes from the last complete read.'
+          : refreshed
           ? undefined
           : wantsRefresh && !refreshed
             ? 'Sync requested but the collector has not answered yet (it polls every 15 minutes). value/as_of are the last stored reading.'

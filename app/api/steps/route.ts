@@ -18,6 +18,8 @@ export async function POST(req: NextRequest) {
       timezone,
       source,
       raw_value,
+      partial,
+      error: readError,
     } = body ?? {};
 
     if (typeof steps !== 'number' || steps < 0 || steps > 200000) {
@@ -53,6 +55,10 @@ export async function POST(req: NextRequest) {
         raw_value: typeof raw_value === 'number' ? raw_value : null,
         sources: Array.isArray(sources) ? sources : null,
         sources_count: Array.isArray(sources) ? sources.length : null,
+        // ES-073: a read that hit a HealthConnect permission error is partial
+        // data, never a trustworthy "today" total.
+        partial: partial === true,
+        error: typeof readError === 'string' ? readError.slice(0, 300) : null,
       },
     });
 
