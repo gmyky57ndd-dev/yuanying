@@ -83,6 +83,16 @@ test('external chat ingest/query summaries are bounded', () => {
   assert.ok(query.data[0].excerpt.length <= 1000);
 });
 
+test('get_issue keeps a long latest comment intact', () => {
+  const long = '修复说明：' + 'x'.repeat(1500);
+  const result = normalizeToolResult(
+    'get_issue',
+    { success: true, data: { number: 73, title: 't', state: 'open', body: 'b', comments: [{ author: 'dev', body: long }] } },
+    false
+  );
+  assert.strictEqual(result.data.latest_comments[0].body.length, long.length);
+});
+
 test('get_issue includes the latest comment bodies, not just a count', () => {
   const result = normalizeToolResult(
     'get_issue',
@@ -130,5 +140,5 @@ test('get_issue stays within its bounded size', () => {
     false
   );
   const size = JSON.stringify(result).length;
-  assert.ok(size <= 2600, `expected <= 2600, got ${size}`);
+  assert.ok(size <= 5200, `expected <= 5200, got ${size}`);
 });

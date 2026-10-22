@@ -5,7 +5,7 @@ const MAX_VERBOSE_CHARS = 800;
 const HARD_CAP_CHARS = 1000;
 // Issues need their latest comments to be useful; still bounded.
 const CAP_BY_TOOL: Record<string, number> = {
-  get_issue: 2400,
+  get_issue: 5000,
 };
 
 function clip(value: string, max: number): string {
@@ -110,9 +110,11 @@ function summarize(name: string, result: any): any {
       const comments = Array.isArray(data.comments) ? data.comments : [];
       // ES-061 follow-up: the owner and 元婴 must be able to read what devs
       // wrote. Returning only a count made every reply look like "no answer".
-      const latest = comments.slice(-3).map((c: any) => ({
+      // The newest comment carries the answer; give it room. Older comments
+      // only need a gist. 450 chars cut the v1.0.37 note mid-sentence (#74).
+      const latest = comments.slice(-3).map((c: any, i: number) => ({
         author: c.author,
-        body: clip(String(c.body ?? ''), 450),
+        body: clip(String(c.body ?? ''), i === comments.slice(-3).length - 1 ? 1800 : 400),
       }));
       return {
         success: true,
