@@ -211,7 +211,8 @@ never by the section they happened to be written under.
 - **Fix**: the tool now reads the newest 2000 `messages` rows owner-wide (optional keyword, returns role/time/snippet, then file matches); `/api/history` exposes `created_at`; the client keeps one stable `session_id` per device instead of a new UUID per page load; manifest/prompt state that history is owner-wide.
 - **Verified (2026-10-22, production)**: `get_conversation_records` returned real messages from several sessions with role/time/snippet; a keyword search crossed days and sessions. Two summarizer defects were found and fixed on the way: the result was reduced to titles only, and `keyword` was required in the Zod schema although the implementation allowed omission.
 - **Also**: messages now carry `metadata.device` (Android/iOS/Mac/Web) so 元婴 can attribute a quote to a device instead of guessing.
-- **Remaining**: owner confirms a phone message appears on the Mac after refresh; tool recall verified.
+- **Auto-sync (2026-10-22)**: the chat history previously loaded only on mount, so a Mac tab left open never saw phone messages. It now pulls on mount, on `visibilitychange`/`focus`, and every 60 s while visible. `get_login` check against production returned 50 today messages including the Android test message, so the data path is global; the gap was client freshness.
+- **Remaining**: owner confirms the open Mac tab updates within a minute.
 
 ### [P2-38] HealthConnect 权限丢失 + 起身提醒读实时步数 (ES-063, #73) — P0
 

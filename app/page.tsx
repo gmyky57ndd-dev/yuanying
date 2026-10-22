@@ -215,6 +215,23 @@ export default function Home() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, sending]);
 
+  // ES-062: conversation history must not depend on a manual reload. Pull the
+  // owner-wide history when the tab becomes visible and once a minute while it
+  // is visible, so a message sent on another device appears within ~60 s.
+  useEffect(() => {
+    const pull = () => {
+      if (document.visibilityState === 'visible') loadMessages();
+    };
+    document.addEventListener('visibilitychange', pull);
+    window.addEventListener('focus', pull);
+    const timer = setInterval(pull, 60_000);
+    return () => {
+      document.removeEventListener('visibilitychange', pull);
+      window.removeEventListener('focus', pull);
+      clearInterval(timer);
+    };
+  }, []);
+
   // Refresh today's steps when the app returns to the foreground, and poll
   // once a minute so a collector upload shows up without a manual reload.
   useEffect(() => {

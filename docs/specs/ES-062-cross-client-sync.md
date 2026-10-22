@@ -48,10 +48,12 @@ project (and a different product).
 
 ## 4. Real-time (ES-042)
 
-Supabase Realtime is not used for chat. The Mac sees new messages on mount, on
-returning to the foreground, and after sending (existing behaviour). Push-style
-live updates are out of scope here; polling is unnecessary because a second
-device usually reloads the page.
+Supabase Realtime is not used for chat. The PWA now pulls `/api/history?today=1`
+**on mount, on `visibilitychange`/`focus`, and every 60 s while visible**, so a
+message written by another device appears within about a minute without a manual
+reload. Push-style live updates (Supabase Realtime channels) remain out of scope;
+against the measured cost of a 50-row read per minute, polling is enough for a
+single owner with two devices.
 
 ## 5. Acceptance
 
