@@ -405,3 +405,15 @@ create index if not exists idx_external_chats_search
   on external_chats using gin(search);
 create index if not exists idx_external_chats_created
   on external_chats (created_at desc);
+
+-- ES-061: minimal server-side event log (no user content).
+create table if not exists system_events (
+  id bigserial primary key,
+  ts timestamptz not null default now(),
+  route text not null,
+  status int not null,
+  duration_ms int,
+  error text,
+  meta jsonb
+);
+create index if not exists idx_system_events_ts on system_events (ts desc);

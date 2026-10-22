@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { StreamData, streamText, tool } from 'ai';
+import { StreamData, generateText, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { supabase } from '@/lib/db';
@@ -27,6 +27,11 @@ import { ingestExternalChat, queryExternalChats } from '@/lib/external-chats';
 import { askClaude } from '@/lib/external-ai';
 import { askExternalAgent } from '@/lib/mcp-client';
 import { readMailbox, writeMailbox } from '@/lib/mailbox';
+import {
+  recordSystemEvent,
+  getRecentSystemEvents,
+  describeEvent,
+} from '@/lib/system-events';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -266,6 +271,59 @@ async function runTool(name: string, args: any): Promise<any> {
             : lastSync && num(lastSync) === 0 && num(best) > 0
               ? "The most recent sync returned 0 (no HealthConnect origins); value is today's max snapshot, as_of is the last real reading."
               : undefined,
+      },
+    };
+  }
+
+  if (name === 'get_system_status') {
+    const events = await getRecentSystemEvents(5);
+    const { data: cfgRows } = await supabase
+      .from('config')
+      .select('key, value')
+      .in('key', [
+        'collector_version',
+        'collector_last_report_at',
+        'collector_steps_status',
+        'collector_steps_at',
+        'collector_steps_error',
+      ]);
+    const collector = Object.fromEntries(
+      ((cfgRows ?? []) as { key: string; value: unknown }[]).map(r => [
+        r.key,
+        r.value,
+      ])
+    );
+    const last = events[0] ?? null;
+    return {
+      success: true,
+      data: {
+        last_event: last
+          ? {
+              at: last.ts,
+              route: last.route,
+              status: last.status,
+              duration_ms: last.duration_ms,
+              error: last.error,
+              diagnosis: describeEvent(last),
+            }
+          : null,
+        recent: events.map(e => ({
+          at: e.ts,
+          route: e.route,
+          status: e.status,
+          duration_ms: e.duration_ms,
+          error: e.error,
+        })),
+        collector: {
+          version: collector.collector_version ?? null,
+          last_report_at: collector.collector_last_report_at ?? null,
+          steps_status: collector.collector_steps_status ?? null,
+          steps_at: collector.collector_steps_at ?? null,
+          steps_error: collector.collector_steps_error ?? null,
+        },
+        note: last
+          ? undefined
+          : 'No server-side event has been recorded yet.',
       },
     };
   }
@@ -623,7 +681,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_steps, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
+          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_steps, get_system_status, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
 
 ${bodyStatusReminder}`,
       },
@@ -712,6 +770,12 @@ ${bodyStatusReminder}`,
             ),
         }),
         execute: async args => runToolSafely('get_drive_doc', args),
+      }),
+      get_system_status: tool({
+        description:
+          "Read recent server-side API events (status, route, duration, error) and the collector heartbeat. Use this when the owner reports that a reply failed, a tool returned nothing, or something timed out — then tell them the actual cause instead of apologising vaguely.",
+        parameters: z.object({}),
+        execute: async () => runToolForModel('get_system_status', {}),
       }),
       get_steps: tool({
         description:
@@ -874,6 +938,7 @@ ${bodyStatusReminder}`,
       }),
     };
 
+    let streamError: string | null = null;
     const result = streamText({
       model,
       system: systemPrompt,
@@ -884,6 +949,14 @@ ${bodyStatusReminder}`,
       maxTokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
       onError: ({ error }) => {
         console.error('model stream error:', error);
+        streamError = error instanceof Error ? error.message : String(error);
+        void recordSystemEvent({
+          route: '/api/chat',
+          status: 500,
+          duration_ms: Date.now() - startTime,
+          error: streamError,
+          meta: { stage: 'stream' },
+        });
         streamData.close().catch(() => {});
       },
       onFinish: async ({ text }) => {
@@ -912,8 +985,31 @@ ${bodyStatusReminder}`,
           // Issue #21/#24: the persisted success message uses the verified
           // GitHub number/URL, never a model-composed one.
           reply = `发了。#${pushToDevResult.data.number}。\n\n${pushToDevResult.data.issue_url}`;
-        } else if (!reply) {
-          reply = '我拿到了结果，但这次没组织好回复。再问我一次？';
+        }
+
+        // ES-060: one automatic retry before surfacing a failure. The model
+        // sometimes ends a tool turn with no final text; retrying with the same
+        // tool results but a compact instruction recovers most of these.
+        let retried = false;
+        if (!reply && !pushToDevResult) {
+          try {
+            const retry = await generateText({
+              model,
+              system: `${systemPrompt}\n\nAnswer from the tool results above in at most 3 sentences. Do not call tools.`,
+              messages,
+              maxTokens: 400,
+            });
+            retried = true;
+            if (retry.text?.trim()) reply = retry.text.trim();
+          } catch (e) {
+            streamError = e instanceof Error ? e.message : 'retry failed';
+            console.error('reply retry failed:', e);
+          }
+        }
+
+        if (!reply) {
+          // ES-060: expose the real failure instead of a vague apology.
+          reply = `工具已执行，但生成回复失败（${streamError ?? '模型返回空内容'}）。请重试；如果再次失败，可以让我查系统日志。`;
         }
 
         if (!text.trim()) {
@@ -928,6 +1024,18 @@ ${bodyStatusReminder}`,
         ]);
 
         if (insErr) console.error('insert failed:', insErr);
+
+        await recordSystemEvent({
+          route: '/api/chat',
+          status: streamError ? 500 : 200,
+          duration_ms: Date.now() - startTime,
+          error: streamError,
+          meta: {
+            empty_reply: !text.trim(),
+            retried,
+            tool_turn: !!pushToDevResult,
+          },
+        });
 
         await streamData.close();
         console.log(`chat ok in ${Date.now() - startTime}ms`);

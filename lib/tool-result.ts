@@ -1,4 +1,8 @@
 const MAX_VERBOSE_CHARS = 800;
+// ES-060: a hard ceiling for anything handed to the model, independent of mode.
+// Tool payloads that exceed this are truncated with an explicit note so the
+// model knows it did not see everything.
+const HARD_CAP_CHARS = 1000;
 
 function clip(value: string, max: number): string {
   const chars = Array.from(value);
@@ -168,11 +172,26 @@ export function normalizeToolResult(
   }
 
   const text = JSON.stringify(result);
-  if (text.length <= MAX_VERBOSE_CHARS) return result;
+  if (text.length <= MAX_VERBOSE_CHARS) return hardCap(result);
 
-  return {
+  return hardCap({
     success: result?.success !== false,
     data: `${text.slice(0, MAX_VERBOSE_CHARS)}… [内容已截断]`,
     meta: { truncated: true, message: '[内容已截断]' },
-  };
+  });
+}
+
+function hardCap(value: any): any {
+  try {
+    const text = JSON.stringify(value);
+    if (text.length <= HARD_CAP_CHARS) return value;
+    return {
+      success: value?.success !== false,
+      truncated: true,
+      data: text.slice(0, HARD_CAP_CHARS),
+      note: `Tool result truncated from ${text.length} to ${HARD_CAP_CHARS} characters. Summarize only what is here; do not claim to have seen the rest.`,
+    };
+  } catch {
+    return value;
+  }
 }

@@ -197,6 +197,21 @@ never by the section they happened to be written under.
 - **Fix**: revoke after 60 s, and the message now names the file and points at ⌘⇧L / the 下载 folder. Button absence on Mac still needs one check after a hard reload (stale SW bundle is the likely cause).
 - **Open**: if it is genuinely absent on Mac, capture the Settings section list.
 
+### [P2-36] 工具后生成失败：截断 + 重试 + 真实错误 (ES-060) — P0
+
+- **Status**: In Review (2026-10-22) · **Category**: Bug (Agent loop) · **Refs**: ES-060
+- **Symptom**: tool executed, final generation empty → "我拿到了结果，但这次没组织好回复。再问我一次？"
+- **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
+- **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
+
+### [P2-37] 系统状态工具 + Cron 现状 + 化形接入 (ES-061)
+
+- **Status**: In Review (2026-10-22) · **Category**: Feature + Ops · **Refs**: ES-061, P2-36
+- **Tool**: `get_system_status()` reads `system_events` (migration 023) + collector heartbeat and returns `last_event.diagnosis`; prompt/manifest require 元婴 to call it before apologising.
+- **Cron findings**: `vercel.json` has **no cron jobs**; the morning briefing **never existed**; the 21:30 evening check-in is a **collector-side** habit, and the collector stopped reporting at 2026-10-22T13:53Z, so nothing could deliver. `/api/cron/*` is excluded from auth, so AUTH_ENFORCE is not the cause.
+- **Avatar/voice**: asset guide `docs/help/avatar-assets.md`; engineering plan in ES-061 §3 (pixi-live2d-display + server-side TTS proxy + per-fenshen voice_id); reply posted on #72.
+- **Open**: collector reliability (boot receiver + watchdog) tracked as follow-up; the watchdog is not implemented yet.
+
 ### [P2-35] 键盘遮挡 + 弹层被收回：布局跟随可视区 (ES-059) — P0
 
 - **Status**: In Review (2026-10-21) · **Category**: Bug (Mobile viewport) · **Refs**: ES-059, P2-34
