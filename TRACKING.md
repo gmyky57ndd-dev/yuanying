@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-40] 多端同步与存在感知架构 (ES-063) — P0
+
+- **Status**: In Progress (2026-10-22) · **Category**: Architecture · **Refs**: ES-063, ES-062, AGENTS §13
+- **Spec**: `docs/specs/ES-063-multi-device-sync.md`.
+- **Scope**: AGENTS §13 (v1.11); global history reads; realtime delivery with device dedupe; `device_presence` heartbeat; notification routing data model.
+- **Transport note**: Supabase Realtime needs a public anon key, which this deployment does not have (only the service-role key, never exposed). This release ships an SSE channel with identical semantics (`/api/messages/stream`); switching to `supabase.channel()` later is a transport swap, not a redesign.
+- **Acceptance**: two Chrome windows see each other's messages within seconds without duplicates; presence updates every 60 s; no read path filters by session/device.
+
 ### [P2-39] 跨端聊天历史同步 (ES-062, #75) — P0
 
 - **Status**: Done (2026-10-22) · **Category**: Bug (Agent tool / history) · **Refs**: ES-062, #75
@@ -214,15 +222,15 @@ never by the section they happened to be written under.
 - **Auto-sync (2026-10-22)**: the chat history previously loaded only on mount, so a Mac tab left open never saw phone messages. It now pulls on mount, on `visibilitychange`/`focus`, and every 60 s while visible. `get_login` check against production returned 50 today messages including the Android test message, so the data path is global; the gap was client freshness.
 - **Remaining**: owner confirms the open Mac tab updates within a minute.
 
-### [P2-38] HealthConnect 权限丢失 + 起身提醒读实时步数 (ES-063, #73) — P0
+### [P2-38] HealthConnect 权限丢失 + 起身提醒读实时步数 (ES-064, #73) — P0
 
-- **Status**: In Review (2026-10-22) · **Category**: Bug (Collector) · **Refs**: ES-063, #73, #70
+- **Status**: In Review (2026-10-22) · **Category**: Bug (Collector) · **Refs**: ES-064, #73, #70
 - **Evidence**: 14:59Z the collector wrote `245` while `collector_steps_error` held `SecurityException: Caller does not have permission`; `status=ok` left the stale error next to a partial read.
 - **Fixed**: SecurityException → `no_permission`, no post; `/api/steps` stores `context.partial`/`error`; `get_steps` drops partial rows and returns `partial_read` + warning; heartbeat clears stale errors; one notification/day to re-grant; permission restored ⇒ next read backfills the whole local day.
 - **Feature**: standup reminder reads HealthConnect at fire time, appends "（现在 N 步）" and posts the same payload (#73 part 2).
 - **Reliability**: `BootReceiver` enqueues one collection after reboot (#70 pairing).
 - **Build**: collector **v1.0.37 (37)**.
-- **Verification**: pending phone install; acceptance in ES-063 §5.
+- **Verification**: pending phone install; acceptance in ES-064 §5.
 - **Follow-up (#74, 2026-10-22)**: the `get_issue` summary clipped each comment at 450 chars, so the #73 fix note appeared cut at `context.partial`. Fixed: newest comment 1800 chars, older 400, per-tool cap 5000 (ES-060 cap still applies elsewhere); 35/35 tests. Verified in production — 元婴 reproduced the whole comment. The "sync requested" toast now states 1–2 s with the stream, otherwise the next 15-minute wake.
 
 ### [P2-37] 系统状态工具 + Cron 现状 + 化形接入 (ES-061)

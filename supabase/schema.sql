@@ -417,3 +417,13 @@ create table if not exists system_events (
   meta jsonb
 );
 create index if not exists idx_system_events_ts on system_events (ts desc);
+
+-- ES-063: multi-device presence + per-message device id.
+create table if not exists device_presence (
+  device_id text primary key,
+  device text,
+  status text not null default 'active',
+  last_seen timestamptz not null default now()
+);
+create index if not exists idx_device_presence_last_seen
+  on device_presence (last_seen desc);

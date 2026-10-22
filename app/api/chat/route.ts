@@ -532,6 +532,11 @@ export async function POST(req: NextRequest) {
       typeof body.device === 'string' && body.device.length <= 40
         ? body.device
         : null;
+    // ES-063: per-install id, used only for realtime dedupe and presence.
+    const device_id =
+      typeof body.device_id === 'string' && body.device_id.length <= 80
+        ? body.device_id
+        : null;
 
     // ES-013: /fenshen <name> switches persona via DB (no deploy).
     const fenshenCmd = message.trim().match(/^\/fenshen(?:\s+(\S+))?\s*$/i);
@@ -575,8 +580,8 @@ export async function POST(req: NextRequest) {
       }
 
       await supabase.from('messages').insert([
-        { role: 'user', content: message, session_id, metadata: { device } },
-        { role: 'assistant', content: reply, session_id, metadata: { device } },
+        { role: 'user', content: message, session_id, device_id, metadata: { device } },
+        { role: 'assistant', content: reply, session_id, device_id, metadata: { device } },
       ]);
       return NextResponse.json({ reply, session_id });
     }
@@ -1069,8 +1074,8 @@ ${bodyStatusReminder}`,
         }
 
         const { error: insErr } = await supabase.from('messages').insert([
-          { role: 'user', content: message, session_id, metadata: { device } },
-          { role: 'assistant', content: reply, session_id, metadata: { device } },
+          { role: 'user', content: message, session_id, device_id, metadata: { device } },
+          { role: 'assistant', content: reply, session_id, device_id, metadata: { device } },
         ]);
 
         if (insErr) console.error('insert failed:', insErr);

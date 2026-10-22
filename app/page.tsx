@@ -144,6 +144,15 @@ export default function Home() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  const deviceIdRef = useRef<string>('');
+  const lastMessageIdRef = useRef<number>(0);
+  if (!deviceIdRef.current && typeof window !== 'undefined') {
+    const savedDevice = window.localStorage.getItem('yy_device_id');
+    const c = typeof crypto !== 'undefined' ? (crypto as any) : undefined;
+    deviceIdRef.current = savedDevice ?? c?.randomUUID?.() ?? `d-${Date.now()}`;
+    window.localStorage.setItem('yy_device_id', deviceIdRef.current);
+  }
+
   const sessionIdRef = useRef<string>('');
   if (!sessionIdRef.current && typeof window !== 'undefined') {
     // ES-062: one stable id per device instead of a new UUID per page load.
@@ -162,6 +171,73 @@ export default function Home() {
     loadSteps();
     loadNotes();
     loadFenshen();
+  }, []);
+
+  // ES-063: realtime append of messages written by other devices. Dedupe by id
+  // and ignore our own rows (they are already rendered optimistically).
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('EventSource' in window)) return;
+    let source: EventSource | null = null;
+    let stopped = false;
+
+    const connect = () => {
+      source = new EventSource(
+        `${API_BASE}/api/messages/stream?after=${lastMessageIdRef.current}`
+      );
+      source.addEventListener('message', event => {
+        try {
+          const m = JSON.parse((event as MessageEvent).data);
+          if (m?.device_id && m.device_id === deviceIdRef.current) return;
+          setMessages(prev => {
+            if (!m?.id || prev.some(x => Number(x.id) === Number(m.id))) return prev;
+            lastMessageIdRef.current = Math.max(
+              lastMessageIdRef.current,
+              Number(m.id) || 0
+            );
+            return [...prev, { id: m.id, role: m.role, content: m.content }];
+          });
+        } catch {}
+      });
+      source.onerror = () => {
+        source?.close();
+        if (!stopped) setTimeout(connect, 3000);
+      };
+    };
+
+    connect();
+    return () => {
+      stopped = true;
+      source?.close();
+    };
+  }, []);
+
+  // ES-063 §2.3: presence heartbeat (60 s + on visibility change).
+  useEffect(() => {
+    const device = /Android/i.test(navigator.userAgent)
+      ? 'Android'
+      : /iPhone|iPad|iPod/i.test(navigator.userAgent)
+        ? 'iOS'
+        : /Macintosh/i.test(navigator.userAgent)
+          ? 'Mac'
+          : 'Web';
+    const send = () => {
+      fetchWithTimeout(`${API_BASE}/api/presence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: deviceIdRef.current,
+          device,
+          status: document.visibilityState === 'visible' ? 'active' : 'idle',
+        }),
+      }).catch(() => {});
+    };
+    send();
+    const timer = setInterval(send, 60_000);
+    document.addEventListener('visibilitychange', send);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', send);
+    };
   }, []);
 
   useEffect(() => {
@@ -287,7 +363,13 @@ export default function Home() {
       // Never wipe the visible chat on a server error (issue #11).
       if (!r.ok) return;
       const d = await r.json();
-      if (Array.isArray(d.messages)) setMessages(d.messages);
+      if (Array.isArray(d.messages)) {
+        setMessages(d.messages);
+        lastMessageIdRef.current = d.messages.reduce(
+          (max: number, m: any) => Math.max(max, Number(m.id) || 0),
+          lastMessageIdRef.current
+        );
+      }
     } catch {}
   }
 
@@ -583,7 +665,7 @@ export default function Home() {
             setToolStatus('已发送，正在整理…');
           }
         }
-      });
+      }, deviceIdRef.current);
       if (d.reply) {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
         void speakReply(d.reply);

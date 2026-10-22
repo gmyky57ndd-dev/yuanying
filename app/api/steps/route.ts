@@ -95,7 +95,7 @@ export async function GET() {
   const byAgg = rows.filter((r: any) => r.context?.aggregation === 'max_per_origin');
   const byTz = rows.filter((r: any) => r.context?.timezone);
   const pool = byAgg.length > 0 ? byAgg : byTz.length > 0 ? byTz : rows;
-  // ES-063 / #73: a permission-denied read is partial data; never show it as
+  // ES-064 / #73: a permission-denied read is partial data; never show it as
   // today's total.
   const clean = pool.filter((r: any) => r.context?.partial !== true);
   const usable = clean.length > 0 ? clean : pool.filter((r: any) => r.context?.partial !== true);
@@ -119,7 +119,7 @@ export async function GET() {
     updated_at: best?.created_at ?? null,
     // Issue #68: when the last sync happened, even if it carried no new value.
     last_sync_at: rows[0]?.created_at ?? null,
-    // ES-063: true when the newest sync was a permission-denied partial read.
+    // ES-064: true when the newest sync was a permission-denied partial read.
     partial_read: rows[0]?.context?.partial === true,
     // ES-025: expose the source breakdown behind the displayed value.
     source: ctx.source ?? null,

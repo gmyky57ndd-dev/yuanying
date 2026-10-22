@@ -3,13 +3,14 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-063 (highest assigned: **ES-063**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-064 (highest assigned: **ES-064**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-22):** the HealthConnect permission fix was
-> first written as ES-062; the owner then assigned **ES-062** to the cross-client
-> chat sync bug. The HealthConnect document was renumbered to **ES-063** and every
-> reference (TRACKING, code comments) was updated.
+> written first as ES-062, then renumbered to ES-063 when the owner assigned
+> ES-062 to cross-client sync, then to **ES-064** when the owner assigned ES-063
+> to the multi-device architecture. Every reference (TRACKING, code comments) was
+> updated each time; no ES number was reused for a different subject.
 >
 > **Collision resolution (2026-10-20):** ES-036 is the Web Search Tool &
 > Markdown Reader. The newer Agentic Tooling Upgrades document was duplicated as
@@ -80,4 +81,5 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-060 | Fix Post-Tool Generation Failure | Urgent Bug (P0) | 2026-10-22 | P2-36 |
 | ES-061 | System Status Tool, Cron Reality Check, Avatar/Voice | Urgent Bug + Feature | 2026-10-22 | P2-37 |
 | ES-062 | Cross-Client Chat Sync (Multi-Device) | Urgent Bug (P0) | 2026-10-22 | P2-39 |
-| ES-063 | HealthConnect Permission Loss & Fresh Steps in Reminders | Urgent Bug (P0) | 2026-10-22 | P2-38 |
+| ES-063 | Formalize Multi-Device Sync & Presence Architecture | Approved | 2026-10-22 | P2-40 |
+| ES-064 | HealthConnect Permission Loss & Fresh Steps in Reminders | Urgent Bug (P0) | 2026-10-22 | P2-38 |

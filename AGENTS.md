@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.10
+**Version:** 1.11
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -342,6 +342,13 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ## 11. Changelog
 
+### v1.11 — 2026-10-22
+- Added §13 Multi-Device Distributed Architecture: Supabase as the single source
+  of truth, global (owner-wide) history reads, `device_presence` for notification
+  routing, optimistic UI + merge by `created_at`, and realtime delivery.
+- Context: the cross-client sync investigation (ES-062) showed that per-device
+  state was never intended; the rule is now explicit instead of implied.
+
 ### v1.10 — 2026-10-20
 - Added §4.9 Engineering Spec (ES) Numbering & Governance.
 - Created `docs/specs/INDEX.md` as the single source of truth.
@@ -434,4 +441,27 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ---
 
-**End of AGENTS.md v1.10**
+## 13. Multi-Device Distributed Architecture
+
+元婴是一个跨越 6 台以上计算设备的分布式系统（Android, iOS, Mac x2, Win/Linux, iPad）。为了让所有设备共享同一个“元神”，必须遵守以下铁律：
+
+### 13.1 数据库是唯一的真理 (Single Source of Truth)
+- 任何聊天记录、笔记、信号，必须立刻写入 Supabase。
+- 绝对禁止使用设备本地的 `session_id` 或 `device_id` 来隔离历史记录。
+- 历史记录的查询必须基于全局的 `owner_id` 或全量拉取。
+
+### 13.2 状态与存在感知 (State vs. Presence)
+- **状态 (State)**：聊天记录、笔记、打卡，必须所有端秒级共享。
+- **存在 (Presence)**：`device_presence` 表仅用于记录“哪台设备目前在前台活跃”。它用来决定通知该推送到哪（比如你在 Mac 前，喝水提醒就弹在 Mac 上，不要发给手机）。
+
+### 13.3 本地缓存与乐观更新 (Optimistic UI)
+- 客户端发送消息时，先做乐观更新（显示在屏幕上），同时请求后端。
+- 页面加载时，必须拉取服务端的全局历史，合并本地缓存，以 `created_at` 为准。
+
+### 13.4 实时同步 (Realtime)
+- 必须使用 Supabase Realtime（WebSocket）监听 `messages` 表。
+- 收到广播时，如果 `sender_device_id === my_device_id`，忽略（防重复）；如果是其他设备发的，追加到 UI。
+
+---
+
+**End of AGENTS.md v1.11**
