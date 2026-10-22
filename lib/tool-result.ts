@@ -3,6 +3,10 @@ const MAX_VERBOSE_CHARS = 800;
 // Tool payloads that exceed this are truncated with an explicit note so the
 // model knows it did not see everything.
 const HARD_CAP_CHARS = 1000;
+// Issues need their latest comments to be useful; still bounded.
+const CAP_BY_TOOL: Record<string, number> = {
+  get_issue: 2400,
+};
 
 function clip(value: string, max: number): string {
   const chars = Array.from(value);
@@ -103,6 +107,13 @@ function summarize(name: string, result: any): any {
       };
     case 'get_issue': {
       const data = result.data ?? {};
+      const comments = Array.isArray(data.comments) ? data.comments : [];
+      // ES-061 follow-up: the owner and 元婴 must be able to read what devs
+      // wrote. Returning only a count made every reply look like "no answer".
+      const latest = comments.slice(-3).map((c: any) => ({
+        author: c.author,
+        body: clip(String(c.body ?? ''), 450),
+      }));
       return {
         success: true,
         data: {
@@ -111,9 +122,12 @@ function summarize(name: string, result: any): any {
           state: data.state,
           labels: data.labels,
           url: data.url,
-          comments_count: data.comments?.length ?? 0,
+          body: clip(String(data.body ?? ''), 600),
+          comments_count: comments.length,
+          latest_comments: latest,
+          comments_error: data.comments_error ?? null,
         },
-        message: 'Issue loaded.',
+        message: 'Issue loaded (latest comments included).',
       };
     }
     case 'ingest_external_chat':
@@ -172,24 +186,25 @@ export function normalizeToolResult(
   }
 
   const text = JSON.stringify(result);
-  if (text.length <= MAX_VERBOSE_CHARS) return hardCap(result);
+  if (text.length <= MAX_VERBOSE_CHARS) return hardCap(result, name);
 
   return hardCap({
     success: result?.success !== false,
     data: `${text.slice(0, MAX_VERBOSE_CHARS)}… [内容已截断]`,
     meta: { truncated: true, message: '[内容已截断]' },
-  });
+  }, name);
 }
 
-function hardCap(value: any): any {
+function hardCap(value: any, name?: string): any {
+  const limit = (name && CAP_BY_TOOL[name]) || HARD_CAP_CHARS;
   try {
     const text = JSON.stringify(value);
-    if (text.length <= HARD_CAP_CHARS) return value;
+    if (text.length <= limit) return value;
     return {
       success: value?.success !== false,
       truncated: true,
-      data: text.slice(0, HARD_CAP_CHARS),
-      note: `Tool result truncated from ${text.length} to ${HARD_CAP_CHARS} characters. Summarize only what is here; do not claim to have seen the rest.`,
+      data: text.slice(0, limit),
+      note: `Tool result truncated from ${text.length} to ${limit} characters. Summarize only what is here; do not claim to have seen the rest.`,
     };
   } catch {
     return value;

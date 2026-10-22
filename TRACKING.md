@@ -221,6 +221,7 @@ never by the section they happened to be written under.
 - **Cron findings**: `vercel.json` has **no cron jobs**; the morning briefing **never existed**; the 21:30 evening check-in is a **collector-side** habit, and the collector stopped reporting at 2026-10-22T13:53Z, so nothing could deliver. `/api/cron/*` is excluded from auth, so AUTH_ENFORCE is not the cause.
 - **Avatar/voice**: asset guide `docs/help/avatar-assets.md`; engineering plan in ES-061 §3 (pixi-live2d-display + server-side TTS proxy + per-fenshen voice_id); reply posted on #72.
 - **Open**: collector reliability (boot receiver + watchdog) tracked as follow-up; the watchdog is not implemented yet.
+- **Fix (2026-10-22)**: `get_issue` returned only `comments_count` — 元婴 could see that a reply existed but never its text, so #73 looked unanswered. The summary now includes the issue body (600 chars) and the **latest 3 comments** (450 chars each), with a per-tool cap of 2400 chars. Tests: `lib/tool-result.test.ts` (34/34).
 
 ### [P2-35] 键盘遮挡 + 弹层被收回：布局跟随可视区 (ES-059) — P0
 

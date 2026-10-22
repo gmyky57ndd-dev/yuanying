@@ -82,3 +82,53 @@ test('external chat ingest/query summaries are bounded', () => {
   assert.strictEqual(query.data.length, 1);
   assert.ok(query.data[0].excerpt.length <= 1000);
 });
+
+test('get_issue includes the latest comment bodies, not just a count', () => {
+  const result = normalizeToolResult(
+    'get_issue',
+    {
+      success: true,
+      data: {
+        number: 73,
+        title: 'HealthConnect permission',
+        state: 'open',
+        labels: ['bug'],
+        url: 'https://example/73',
+        body: 'root cause body',
+        comments: [
+          { author: 'dev', body: 'first reply' },
+          { author: 'dev', body: '已修复（v1.0.37）：SecurityException → no_permission' },
+        ],
+      },
+    },
+    false
+  );
+
+  assert.strictEqual(result.data.comments_count, 2);
+  assert.strictEqual(result.data.latest_comments.length, 2);
+  assert.match(result.data.latest_comments[1].body, /已修复/);
+  assert.strictEqual(result.data.body, 'root cause body');
+  assert.strictEqual(result.truncated, undefined);
+});
+
+test('get_issue stays within its bounded size', () => {
+  const result = normalizeToolResult(
+    'get_issue',
+    {
+      success: true,
+      data: {
+        number: 1,
+        title: 'x'.repeat(50),
+        state: 'open',
+        body: 'b'.repeat(5000),
+        comments: Array.from({ length: 20 }, (_, i) => ({
+          author: 'dev',
+          body: `comment ${i} ` + 'c'.repeat(2000),
+        })),
+      },
+    },
+    false
+  );
+  const size = JSON.stringify(result).length;
+  assert.ok(size <= 2600, `expected <= 2600, got ${size}`);
+});
