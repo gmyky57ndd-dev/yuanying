@@ -206,7 +206,7 @@ never by the section they happened to be written under.
 
 ### [P2-39] 跨端聊天历史同步 (ES-062, #75) — P0
 
-- **Status**: In Review (2026-10-22) · **Category**: Bug (Agent tool / history) · **Refs**: ES-062, #75
+- **Status**: Done (2026-10-22) · **Category**: Bug (Agent tool / history) · **Refs**: ES-062, #75
 - **Finding**: `/api/history` and the chat context were already owner-wide; the gap was `get_conversation_records`, which searched **only** `core/memory/conversations/*.md` and never the `messages` table. 元婴 therefore could not recall phone conversations.
 - **Fix**: the tool now reads the newest 2000 `messages` rows owner-wide (optional keyword, returns role/time/snippet, then file matches); `/api/history` exposes `created_at`; the client keeps one stable `session_id` per device instead of a new UUID per page load; manifest/prompt state that history is owner-wide.
 - **Verified (2026-10-22, production)**: `get_conversation_records` returned real messages from several sessions with role/time/snippet; a keyword search crossed days and sessions. Two summarizer defects were found and fixed on the way: the result was reduced to titles only, and `keyword` was required in the Zod schema although the implementation allowed omission.
