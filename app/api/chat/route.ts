@@ -762,7 +762,10 @@ ${bodyStatusReminder}`,
         description:
           "Search the owner's conversation history across ALL devices (the messages table is read owner-wide, never per session/device) plus committed Markdown records. Use it for 'what did I say earlier', 'what did we discuss on my phone', or any past-context question. keyword is optional: without it you get the most recent messages.",
         parameters: z.object({
-          keyword: z.string().describe('Topic or keyword to search'),
+          keyword: z
+            .string()
+            .optional()
+            .describe('Topic or keyword; omit to get the most recent messages'),
         }),
         execute: async ({ keyword }) =>
           runToolForModel('get_conversation_records', { keyword }),
