@@ -515,6 +515,24 @@ export default function Settings() {
           <div className="flex flex-wrap gap-2 pt-1">
             <button
               onClick={() => {
+                window.localStorage.setItem('yy_vv', '1');
+                alert('已切换为「跟随可视区」布局。回到聊天页点输入框再试一次键盘切换。');
+              }}
+              className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-300"
+            >
+              键盘布局：跟随可视区
+            </button>
+            <button
+              onClick={() => {
+                window.localStorage.removeItem('yy_vv');
+                alert('已恢复「固定」布局（默认）。回到聊天页再试一次。');
+              }}
+              className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-300"
+            >
+              键盘布局：固定
+            </button>
+            <button
+              onClick={() => {
                 window.localStorage.setItem('yy_diag', '1');
                 alert('输入法诊断已开启。回到聊天页并点一次输入框，右上角会显示事件记录。');
               }}

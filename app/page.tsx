@@ -108,6 +108,9 @@ export default function Home() {
   const [input, setInput] = useState('');
   const composingRef = useRef(false);
   const [imeLog, setImeLog] = useState<string[]>([]);
+  // ES-056: false = fixed viewport sized to 100dvh (default, IME pans the
+  // visual viewport itself); true = follow visualViewport.height.
+  const [vvLayout, setVvLayout] = useState(false);
   const [sending, setSending] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [pushingMsg, setPushingMsg] = useState<number | null>(null);
@@ -196,31 +199,6 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // ES-056: size the app to the *visual* viewport. With 100dvh the layout stays
-  // 725px while the keyboard covers it, so Chrome scrolls the whole page to
-  // reveal the composer; that scroll is what dismissed Gboard's 更改键盘 popup.
-  // Sizing to visualViewport.height means the composer simply sits above the
-  // keyboard and the page never has to scroll.
-  useEffect(() => {
-    const vv = window.visualViewport;
-    if (!vv) return;
-    const apply = () => {
-      document.documentElement.style.setProperty(
-        '--app-h',
-        `${Math.round(vv.height)}px`
-      );
-    };
-    apply();
-    vv.addEventListener('resize', apply);
-    vv.addEventListener('scroll', apply);
-    window.addEventListener('orientationchange', apply);
-    return () => {
-      vv.removeEventListener('resize', apply);
-      vv.removeEventListener('scroll', apply);
-      window.removeEventListener('orientationchange', apply);
-    };
-  }, []);
-
   // ES-056 diagnostics: open the PWA with ?diag=1 to see focus/blur/viewport
   // events on screen. Screenshot it when the keyboard misbehaves.
   useEffect(() => {
@@ -261,7 +239,7 @@ export default function Home() {
     document.addEventListener('focusout', onFocusOut);
     window.addEventListener('resize', onResize);
     window.visualViewport?.addEventListener('resize', onResize);
-    log('diag on');
+    log(`diag on · layout=${window.localStorage.getItem('yy_vv') === '1' ? 'vv' : 'fixed'}`);
     return () => {
       el?.removeEventListener('focus', onFocus);
       el?.removeEventListener('blur', onBlur);
@@ -272,6 +250,33 @@ export default function Home() {
       window.visualViewport?.removeEventListener('resize', onResize);
     };
   }, []);
+
+  // ES-056: layout mode is switchable from Settings, so the owner can A/B the
+  // keyboard behaviour on the device without waiting for another deploy.
+  useEffect(() => {
+    setVvLayout(window.localStorage.getItem('yy_vv') === '1');
+  }, []);
+
+  useEffect(() => {
+    if (!vvLayout) return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => {
+      document.documentElement.style.setProperty(
+        '--app-h',
+        `${Math.round(vv.height)}px`
+      );
+    };
+    apply();
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    window.addEventListener('orientationchange', apply);
+    return () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+      window.removeEventListener('orientationchange', apply);
+    };
+  }, [vvLayout]);
 
   // ES-037: the 21:30 notification can deep-link to the note or work panel.
   useEffect(() => {
@@ -885,8 +890,12 @@ export default function Home() {
 
   return (
     <div
-      className="flex flex-col overflow-hidden bg-stone-950 text-stone-100"
-      style={{ height: 'var(--app-h, 100dvh)' }}
+      className={
+        vvLayout
+          ? 'flex flex-col overflow-hidden bg-stone-950 text-stone-100'
+          : 'fixed inset-0 flex flex-col overflow-hidden bg-stone-950 text-stone-100'
+      }
+      style={vvLayout ? { height: 'var(--app-h, 100dvh)' } : undefined}
     >
       <div className="md:hidden">
         <AvatarStage
