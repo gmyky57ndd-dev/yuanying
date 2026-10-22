@@ -151,7 +151,7 @@ export default function Settings() {
       });
       setSyncMessage(
         r.ok
-          ? '已请求同步；采集器会在下次后台唤醒时执行。'
+          ? '已请求同步：采集器最快 1–2 秒（常驻通道在线时），否则在下一次 15 分钟后台唤醒时执行。'
           : '同步请求失败'
       );
       if (r.ok) setTimeout(loadCollector, 30000);

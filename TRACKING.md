@@ -213,6 +213,7 @@ never by the section they happened to be written under.
 - **Reliability**: `BootReceiver` enqueues one collection after reboot (#70 pairing).
 - **Build**: collector **v1.0.37 (37)**.
 - **Verification**: pending phone install; acceptance in ES-062 §5.
+- **Follow-up (#74, 2026-10-22)**: the `get_issue` summary clipped each comment at 450 chars, so the #73 fix note appeared cut at `context.partial`. Fixed: newest comment 1800 chars, older 400, per-tool cap 5000 (ES-060 cap still applies elsewhere); 35/35 tests. Verified in production — 元婴 reproduced the whole comment. The "sync requested" toast now states 1–2 s with the stream, otherwise the next 15-minute wake.
 
 ### [P2-37] 系统状态工具 + Cron 现状 + 化形接入 (ES-061)
 
