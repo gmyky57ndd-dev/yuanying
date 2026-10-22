@@ -145,9 +145,14 @@ export default function Home() {
   const recognitionRef = useRef<any>(null);
 
   const sessionIdRef = useRef<string>('');
-  if (!sessionIdRef.current) {
+  if (!sessionIdRef.current && typeof window !== 'undefined') {
+    // ES-062: one stable id per device instead of a new UUID per page load.
+    // History reads are owner-wide and ignore this value entirely; it only
+    // groups this device's messages for debugging.
+    const saved = window.localStorage.getItem('yy_session_id');
     const c = typeof crypto !== 'undefined' ? (crypto as any) : undefined;
-    sessionIdRef.current = c?.randomUUID?.() ?? `s-${Date.now()}`;
+    sessionIdRef.current = saved ?? c?.randomUUID?.() ?? `s-${Date.now()}`;
+    window.localStorage.setItem('yy_session_id', sessionIdRef.current);
   }
 
   useEffect(() => {

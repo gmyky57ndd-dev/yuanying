@@ -1,4 +1,4 @@
-# ES-062 — HealthConnect Permission Loss & Fresh Steps in Reminders
+# ES-063 — HealthConnect Permission Loss & Fresh Steps in Reminders
 
 - **Status:** Urgent Bug (P0, #73). **Tracking:** P2-38.
 - **Symptom:** the collector stayed online but wrote `245` steps while

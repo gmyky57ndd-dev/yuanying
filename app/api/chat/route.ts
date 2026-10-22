@@ -71,8 +71,32 @@ async function runTool(name: string, args: any): Promise<any> {
 
   if (name === 'get_conversation_records') {
     const keyword = String(args?.keyword ?? '').trim();
-    if (!keyword) return { success: false, error: 'keyword required' };
     const needle = keyword.toLowerCase();
+
+    // ES-062: chat history lives in the `messages` table, not only in committed
+    // Markdown. Reads are owner-wide — no session_id / device filter — so a
+    // question asked on the Mac can see what was said on the phone.
+    const { data: recent } = await supabase
+      .from('messages')
+      .select('id, role, content, created_at')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    const rows = (recent ?? []) as any[];
+
+    const clipText = (s: string, n: number) =>
+      s.length > n ? `${s.slice(0, n)}…` : s;
+
+    const chatMatches = (needle
+      ? rows.filter(m => String(m.content ?? '').toLowerCase().includes(needle))
+      : rows
+    )
+      .slice(0, 6)
+      .map(m => ({
+        source: 'chat' as const,
+        role: m.role,
+        at: m.created_at,
+        snippet: clipText(String(m.content ?? '').replace(/\s+/g, ' ').trim(), 320),
+      }));
 
     const searchDir = (rel: string, limit: number, fullExcerpt = false) => {
       const dir = path.join(process.cwd(), rel);
@@ -107,17 +131,25 @@ async function runTool(name: string, args: any): Promise<any> {
       return out;
     };
 
-    const conv = searchDir('core/memory/conversations', 3);
-    const specs = searchDir('docs/specs', 4, true);
-    const matches = [...conv, ...specs].slice(0, 6);
+    const fileMatches = needle
+      ? [
+          ...searchDir('core/memory/conversations', 3),
+          ...searchDir('docs/specs', 4, true),
+        ]
+      : [];
+
+    const matches = [...chatMatches, ...fileMatches].slice(0, 8);
     return {
       success: true,
       keyword,
       data: matches,
       meta: {
         count: matches.length,
+        chat_count: chatMatches.length,
         message:
-          matches.length > 0 ? 'Matches returned.' : 'No matches found.',
+          matches.length > 0
+            ? 'Matches returned.'
+            : 'No matches found.',
       },
     };
   }
@@ -728,7 +760,7 @@ ${bodyStatusReminder}`,
       }),
       get_conversation_records: tool({
         description:
-          'Search distilled AI conversation records and specs for a keyword. Use to recall past design/architecture decisions.',
+          "Search the owner's conversation history across ALL devices (the messages table is read owner-wide, never per session/device) plus committed Markdown records. Use it for 'what did I say earlier', 'what did we discuss on my phone', or any past-context question. keyword is optional: without it you get the most recent messages.",
         parameters: z.object({
           keyword: z.string().describe('Topic or keyword to search'),
         }),

@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
       id: m.id,
       role: m.role,
       content: m.content,
+      created_at: m.created_at,
       github_issue_url: m.github_issue_url ?? null,
       github_issue_number: m.github_issue_number ?? null,
       inbox_path: m.metadata?.inbox_path ?? null,
