@@ -196,6 +196,31 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // ES-056: size the app to the *visual* viewport. With 100dvh the layout stays
+  // 725px while the keyboard covers it, so Chrome scrolls the whole page to
+  // reveal the composer; that scroll is what dismissed Gboard's 更改键盘 popup.
+  // Sizing to visualViewport.height means the composer simply sits above the
+  // keyboard and the page never has to scroll.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const apply = () => {
+      document.documentElement.style.setProperty(
+        '--app-h',
+        `${Math.round(vv.height)}px`
+      );
+    };
+    apply();
+    vv.addEventListener('resize', apply);
+    vv.addEventListener('scroll', apply);
+    window.addEventListener('orientationchange', apply);
+    return () => {
+      vv.removeEventListener('resize', apply);
+      vv.removeEventListener('scroll', apply);
+      window.removeEventListener('orientationchange', apply);
+    };
+  }, []);
+
   // ES-056 diagnostics: open the PWA with ?diag=1 to see focus/blur/viewport
   // events on screen. Screenshot it when the keyboard misbehaves.
   useEffect(() => {
@@ -206,20 +231,34 @@ export default function Home() {
     const el = inputRef.current;
     const log = (msg: string) =>
       setImeLog(prev =>
-        [...prev, `${new Date().toLocaleTimeString('en-GB')} ${msg}`].slice(-6)
+        [...prev, `${new Date().toLocaleTimeString('en-GB')} ${msg}`].slice(-12)
       );
     const onFocus = () => log('focus');
     const onBlur = () => log('blur');
     const onVis = () => log(`visibility=${document.visibilityState}`);
+    const activeTag = () => {
+      const a = document.activeElement as HTMLElement | null;
+      return a ? a.tagName.toLowerCase() : 'none';
+    };
     const onResize = () =>
       log(
         `resize h=${window.innerHeight} vv=${Math.round(
           window.visualViewport?.height ?? 0
-        )}`
+        )} el=${activeTag()}`
       );
+    const onFocusIn = (e: Event) => {
+      const t = e.target as HTMLElement;
+      log(`focusin ${t.tagName.toLowerCase()}`);
+    };
+    const onFocusOut = (e: Event) => {
+      const t = e.target as HTMLElement;
+      log(`focusout ${t.tagName.toLowerCase()}`);
+    };
     el?.addEventListener('focus', onFocus);
     el?.addEventListener('blur', onBlur);
     document.addEventListener('visibilitychange', onVis);
+    document.addEventListener('focusin', onFocusIn);
+    document.addEventListener('focusout', onFocusOut);
     window.addEventListener('resize', onResize);
     window.visualViewport?.addEventListener('resize', onResize);
     log('diag on');
@@ -227,6 +266,8 @@ export default function Home() {
       el?.removeEventListener('focus', onFocus);
       el?.removeEventListener('blur', onBlur);
       document.removeEventListener('visibilitychange', onVis);
+      document.removeEventListener('focusin', onFocusIn);
+      document.removeEventListener('focusout', onFocusOut);
       window.removeEventListener('resize', onResize);
       window.visualViewport?.removeEventListener('resize', onResize);
     };
@@ -843,7 +884,10 @@ export default function Home() {
         : 'idle';
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-stone-950 text-stone-100">
+    <div
+      className="flex flex-col overflow-hidden bg-stone-950 text-stone-100"
+      style={{ height: 'var(--app-h, 100dvh)' }}
+    >
       <div className="md:hidden">
         <AvatarStage
           name={fenshen?.display_name || '元婴'}
