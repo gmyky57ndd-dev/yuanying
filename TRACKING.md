@@ -210,6 +210,8 @@ never by the section they happened to be written under.
 - **Spec**: `docs/specs/ES-063-multi-device-sync.md`.
 - **Scope**: AGENTS §13 (v1.11); global history reads; realtime delivery with device dedupe; `device_presence` heartbeat; notification routing data model.
 - **Transport note**: Supabase Realtime needs a public anon key, which this deployment does not have (only the service-role key, never exposed). This release ships an SSE channel with identical semantics (`/api/messages/stream`); switching to `supabase.channel()` later is a transport swap, not a redesign.
+- **Verified (2026-10-22, production)**: `POST /api/presence` → 200; `GET /api/presence` returned the device within the 5-minute window; the SSE stream (`/api/messages/stream?after=<id>`) pushed the test message in ~3 s; the deployed page bundle contains both the `EventSource` subscription and the presence heartbeat.
+- **Remaining**: the owner's two-window browser test (normal + incognito) for the UI-level dedupe/append.
 - **Acceptance**: two Chrome windows see each other's messages within seconds without duplicates; presence updates every 60 s; no read path filters by session/device.
 
 ### [P2-39] 跨端聊天历史同步 (ES-062, #75) — P0
