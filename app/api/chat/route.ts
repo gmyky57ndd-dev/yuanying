@@ -78,7 +78,7 @@ async function runTool(name: string, args: any): Promise<any> {
     // question asked on the Mac can see what was said on the phone.
     const { data: recent } = await supabase
       .from('messages')
-      .select('id, role, content, created_at')
+      .select('id, role, content, created_at, metadata')
       .order('created_at', { ascending: false })
       .limit(2000);
     const rows = (recent ?? []) as any[];
@@ -95,6 +95,7 @@ async function runTool(name: string, args: any): Promise<any> {
         source: 'chat' as const,
         role: m.role,
         at: m.created_at,
+        device: m.metadata?.device ?? null,
         snippet: clipText(String(m.content ?? '').replace(/\s+/g, ' ').trim(), 320),
       }));
 
@@ -525,6 +526,12 @@ export async function POST(req: NextRequest) {
     }
 
     const session_id: string = body.session_id ?? randomUUID();
+    // ES-062: label which device produced the message so 元婴 can say
+    // "you said this on your phone" instead of guessing.
+    const device =
+      typeof body.device === 'string' && body.device.length <= 40
+        ? body.device
+        : null;
 
     // ES-013: /fenshen <name> switches persona via DB (no deploy).
     const fenshenCmd = message.trim().match(/^\/fenshen(?:\s+(\S+))?\s*$/i);
@@ -568,8 +575,8 @@ export async function POST(req: NextRequest) {
       }
 
       await supabase.from('messages').insert([
-        { role: 'user', content: message, session_id },
-        { role: 'assistant', content: reply, session_id },
+        { role: 'user', content: message, session_id, metadata: { device } },
+        { role: 'assistant', content: reply, session_id, metadata: { device } },
       ]);
       return NextResponse.json({ reply, session_id });
     }
@@ -1062,8 +1069,8 @@ ${bodyStatusReminder}`,
         }
 
         const { error: insErr } = await supabase.from('messages').insert([
-          { role: 'user', content: message, session_id },
-          { role: 'assistant', content: reply, session_id },
+          { role: 'user', content: message, session_id, metadata: { device } },
+          { role: 'assistant', content: reply, session_id, metadata: { device } },
         ]);
 
         if (insErr) console.error('insert failed:', insErr);

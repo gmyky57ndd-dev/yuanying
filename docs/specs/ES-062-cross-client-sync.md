@@ -34,6 +34,10 @@ partitioned and complicated debugging.
    device's messages when debugging.
 4. Manifest/prompt: 元婴 is told history is owner-wide and that it must call the
    tool for "what did I say on my phone" questions.
+5. **Device labels**: the client sends a coarse `device` (Android / iOS / Mac /
+   Web, from the UA) with each message; it is stored in
+   `messages.metadata.device` and returned by the tool, so 元婴 can say
+   "you said this on your phone" instead of guessing. No fingerprint, no id.
 
 ## 3. Why no `owner_id` filter
 

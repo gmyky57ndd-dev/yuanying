@@ -40,6 +40,7 @@ function summarize(name: string, result: any): any {
             source: m.source ?? 'file',
             role: m.role ?? null,
             at: m.at ?? null,
+            device: m.device ?? null,
             title: m.title ?? m.file ?? null,
             snippet: clip(String(m.snippet ?? ''), 400),
           })),
