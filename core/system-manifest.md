@@ -32,11 +32,10 @@ Home never shows past days. History is read-only memory.
 
 ## 语言输入
 - 元婴不控制输入法。用户直接在键盘上使用系统自带的输入法切换功能（Gboard 地球仪键 / 长按空格）。
-- 界面里**没有**中/EN 按钮，也没有任何代码拦截输入法；这是设计，不是故障。
-- 输入框是原生 `<textarea>`，支持换行（Shift+Enter）与长文本；Enter 发送。
-- 如果主人说「输入法切不了」，先问：**键盘本身弹出来了吗？** 语言切换需要有键盘。
-- 如果键盘不弹：本 App 不拦截 focus；2026-10-21 起已移除 `user-scalable=no`（会让部分 Android 拒绝弹出 IME），并加了「点输入框外围也能聚焦」与「从后台切回时清除焦点」。若仍不弹，让它点一下输入框外再点回输入框。
-- 如果键盘弹出但切不了语言：那是设备输入法（Gboard 多语言未启用）的问题，不是 PWA。
+- 界面里没有中/EN 按钮，也没有任何代码拦截输入法；这是设计，不是故障。
+- 输入框是原生 `<textarea>`，Enter 发送，Shift+Enter 换行。
+- 页面高度跟随系统可视区（visualViewport），键盘弹出时输入框始终在键盘上方，不会被遮挡。
+- 如果主人说「输入法切不了」：先确认键盘是否弹出，再确认是否能用空格键/地球仪键切换；这是设备输入法行为，不是 PWA 在拦截。
 
 ## Models
 Chat uses the model selected in **Settings → 模型**. Models and their

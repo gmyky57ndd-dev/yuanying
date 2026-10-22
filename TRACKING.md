@@ -197,6 +197,16 @@ never by the section they happened to be written under.
 - **Fix**: revoke after 60 s, and the message now names the file and points at ⌘⇧L / the 下载 folder. Button absence on Mac still needs one check after a hard reload (stale SW bundle is the likely cause).
 - **Open**: if it is genuinely absent on Mac, capture the Settings section list.
 
+### [P2-35] 键盘遮挡 + 弹层被收回：布局跟随可视区 (ES-059) — P0
+
+- **Status**: In Review (2026-10-21) · **Category**: Bug (Mobile viewport) · **Refs**: ES-059, P2-34
+- **Spec**: `docs/specs/ES-059-visual-viewport-keyboard.md`.
+- **Root cause (owner's log)**: `h=725` (layout viewport) stayed constant while `vv` went 442 → 726. The container was sized to the layout viewport, so the composer sat under the keyboard; the browser's scroll correction reset the IME connection and dismissed Gboard's 更改键盘 popup.
+- **Fix**: `--app-h` follows `visualViewport.height` (resize/scroll/orientation); the root is `fixed inset-x-0 top-0` with `height: var(--app-h, 100dvh)`; composer pinned to the visual viewport, messages `flex-1 overflow-y-auto`.
+- **Removed**: the `fixed` vs `vv` experiment switch, the `?diag=1` overlay, `focusin`/`focusout` logging, Settings debug buttons, and `/ime-test`.
+- **Acceptance**: composer visible above the keyboard; 更改键盘 stays until a choice; switching languages does not dismiss the keyboard; no debug code in the bundle.
+- **Verification**: `tsc` clean, 32/32 tests, `next build` green; production bundle contains `--app-h` and none of the debug markers; `/ime-test` returns 404.
+
 ### [P2-34] 输入法焦点拦截 + Toggle 删除 (ES-056) — P0
 
 - **Status**: In Review (2026-10-21) · **Category**: Bug (Frontend / IME) · **Refs**: ES-056, B-25
