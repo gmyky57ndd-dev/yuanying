@@ -107,6 +107,7 @@ export default function Home() {
   const longPressRef = useRef<any>(null);
   const [input, setInput] = useState('');
   const composingRef = useRef(false);
+  const [imeLog, setImeLog] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [pushingMsg, setPushingMsg] = useState<number | null>(null);
@@ -195,15 +196,40 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // ES-056: Chrome Android does not always re-attach the IME after the PWA is
-  // backgrounded. Drop focus on resume so the next tap is a fresh focus event.
+  // ES-056 diagnostics: open the PWA with ?diag=1 to see focus/blur/viewport
+  // events on screen. Screenshot it when the keyboard misbehaves.
   useEffect(() => {
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') inputRef.current?.blur();
+    const diag =
+      window.location.search.includes('diag=1') ||
+      window.localStorage.getItem('yy_diag') === '1';
+    if (!diag) return;
+    const el = inputRef.current;
+    const log = (msg: string) =>
+      setImeLog(prev =>
+        [...prev, `${new Date().toLocaleTimeString('en-GB')} ${msg}`].slice(-6)
+      );
+    const onFocus = () => log('focus');
+    const onBlur = () => log('blur');
+    const onVis = () => log(`visibility=${document.visibilityState}`);
+    const onResize = () =>
+      log(
+        `resize h=${window.innerHeight} vv=${Math.round(
+          window.visualViewport?.height ?? 0
+        )}`
+      );
+    el?.addEventListener('focus', onFocus);
+    el?.addEventListener('blur', onBlur);
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('resize', onResize);
+    window.visualViewport?.addEventListener('resize', onResize);
+    log('diag on');
+    return () => {
+      el?.removeEventListener('focus', onFocus);
+      el?.removeEventListener('blur', onBlur);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
     };
-    document.addEventListener('visibilitychange', onVisibility);
-    return () =>
-      document.removeEventListener('visibilitychange', onVisibility);
   }, []);
 
   // ES-037: the 21:30 notification can deep-link to the note or work panel.
@@ -361,6 +387,9 @@ export default function Home() {
   }
 
   async function loadSteps() {
+    // Never re-render the composer while it has focus: a layout change at that
+    // moment dismisses the Gboard language popup.
+    if (document.activeElement === inputRef.current) return;
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/steps`, {});
       const d = await r.json();
@@ -1453,11 +1482,9 @@ export default function Home() {
           const target = e.target as HTMLElement;
           if (target.closest('button')) return;
           if (target !== e.currentTarget) return;
-          // Tapping the padding around the composer focuses the field. If it
-          // was already focused but the IME never opened (Chrome Android after
-          // a resume), blur first so the focus event is fresh.
-          if (document.activeElement === el) el.blur();
-          el.focus();
+          // Only focus when the field is not already focused. Blurring a
+          // focused field dismisses the IME (and the Gboard language popup).
+          if (document.activeElement !== el) el.focus();
         }}
       >
         <button
@@ -1519,6 +1546,14 @@ export default function Home() {
       </div>
         </main>
       </div>
+
+      {imeLog.length > 0 && (
+        <div className="fixed top-1 right-1 z-50 max-w-[65%] rounded bg-black/80 px-1.5 py-1 text-[10px] leading-tight text-emerald-300">
+          {imeLog.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
 
       {/* ES-025: steps source debug */}
       {stepsDetailOpen && steps && (

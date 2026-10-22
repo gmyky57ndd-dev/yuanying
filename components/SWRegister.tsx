@@ -10,6 +10,12 @@ export function SWRegister() {
 
     function promptUpdate() {
       if (prompted || !navigator.serviceWorker.controller) return;
+      // ES-056: window.confirm() steals the input connection and dismisses the
+      // Gboard language popup. Defer until the owner leaves the composer.
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.tagName === 'TEXTAREA' || active.tagName === 'INPUT')) {
+        return;
+      }
       prompted = true;
       if (window.confirm('元婴有新版本了，现在刷新以获取最新化形？')) {
         window.location.reload();

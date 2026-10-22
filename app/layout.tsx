@@ -25,13 +25,13 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   // ES-056: do NOT lock scaling. `maximum-scale=1` + `user-scalable=no` is an
-  // accessibility failure and, on several Android builds, the IME refuses to
-  // open for a non-zoomable page. `resizes-content` keeps the composer visible
-  // when the keyboard appears instead of letting Chrome close it again.
+  // accessibility failure, and on several Android builds the IME refuses to
+  // open for a non-zoomable page. Do NOT set `interactive-widget=resizes-content`
+  // either: the Gboard 更改键盘 popup resizes the visual viewport, and a layout
+  // reflow at that moment dismisses the popup.
   maximumScale: 5,
   userScalable: true,
   viewportFit: 'cover',
-  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({

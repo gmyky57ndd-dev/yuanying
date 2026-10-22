@@ -514,6 +514,24 @@ export default function Settings() {
           </div>
           <div className="flex flex-wrap gap-2 pt-1">
             <button
+              onClick={() => {
+                window.localStorage.setItem('yy_diag', '1');
+                alert('输入法诊断已开启。回到聊天页并点一次输入框，右上角会显示事件记录。');
+              }}
+              className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-300"
+            >
+              输入法诊断
+            </button>
+            <button
+              onClick={() => {
+                window.localStorage.removeItem('yy_diag');
+                alert('输入法诊断已关闭。');
+              }}
+              className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-300"
+            >
+              关闭诊断
+            </button>
+            <button
               onClick={requestCollectorSync}
               className="text-xs px-3 py-2 rounded-xl bg-stone-800 text-stone-200"
             >
