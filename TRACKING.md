@@ -206,7 +206,9 @@ never by the section they happened to be written under.
 - **Fixed**: native `<textarea rows={1}>` with auto-grow (max 120 px), Enter sends / Shift+Enter newline, `enterKeyHint="send"`; `lang` removed; composition tracked with a ref (no render mid-composition); `keyCode 229` / `isComposing` respected. The `中/EN` button was already removed in ES-055.
 - **Manifest**: new `## 语言输入` section (元婴 does not control the IME; no toggle by design).
 - **Acceptance**: no toggle; keyboard's own language key works inside the field; long text scrolls without focus loss; sending keeps focus.
-- **Verification**: `tsc` clean, 32/32 tests. Needs the owner's Android PWA check after deploy (web-only change, no collector build).
+- **Clarification (2026-10-21, owner)**: the real failure is that **the keyboard does not open at all** in the Android PWA (the screenshot shows the OS keyboard working fine in Notepad Free), so language switching is a symptom, not the cause.
+- **Additional fixes**: viewport no longer sets `user-scalable=no` / `maximum-scale=1` (an accessibility failure, and several Android builds refuse the IME for non-zoomable pages) — now `maximumScale: 5`, `userScalable: true`, `interactiveWidget: 'resizes-content'`. The composer is `z-20` with an opaque background so no layer can swallow the tap, tapping the padding focuses the field, and returning to the foreground clears focus so the next tap is a fresh focus event (Chrome Android does not re-attach the IME while the field stays focused).
+- **Verification**: `tsc` clean, `next build` green, 32/32 tests. Needs the owner's Android PWA check after deploy (web-only change, no collector build).
 
 ### [P2-33] 步数停滞可见性 + 语言按钮移除 (ES-055) — P0
 

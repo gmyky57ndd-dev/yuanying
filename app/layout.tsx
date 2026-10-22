@@ -24,9 +24,14 @@ export const viewport: Viewport = {
   themeColor: '#0c0a09',
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // ES-056: do NOT lock scaling. `maximum-scale=1` + `user-scalable=no` is an
+  // accessibility failure and, on several Android builds, the IME refuses to
+  // open for a non-zoomable page. `resizes-content` keeps the composer visible
+  // when the keyboard appears instead of letting Chrome close it again.
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: 'cover',
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({

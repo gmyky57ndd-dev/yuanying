@@ -195,6 +195,17 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // ES-056: Chrome Android does not always re-attach the IME after the PWA is
+  // backgrounded. Drop focus on resume so the next tap is a fresh focus event.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') inputRef.current?.blur();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () =>
+      document.removeEventListener('visibilitychange', onVisibility);
+  }, []);
+
   // ES-037: the 21:30 notification can deep-link to the note or work panel.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1432,8 +1443,23 @@ export default function Home() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <div className="flex gap-2 p-3 border-t border-stone-800 shrink-0">
+      {/* Input. z-20 + opaque background: nothing can sit above the field and
+          eat the tap (a covered input focuses nothing and the IME never opens). */}
+      <div
+        className="relative z-20 bg-stone-950 flex gap-2 p-3 border-t border-stone-800 shrink-0"
+        onPointerUp={e => {
+          const el = inputRef.current;
+          if (!el) return;
+          const target = e.target as HTMLElement;
+          if (target.closest('button')) return;
+          if (target !== e.currentTarget) return;
+          // Tapping the padding around the composer focuses the field. If it
+          // was already focused but the IME never opened (Chrome Android after
+          // a resume), blur first so the focus event is fresh.
+          if (document.activeElement === el) el.blur();
+          el.focus();
+        }}
+      >
         <button
           onClick={startVoice}
           className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
