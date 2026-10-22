@@ -120,7 +120,7 @@ export async function GET() {
     // Issue #68: when the last sync happened, even if it carried no new value.
     last_sync_at: rows[0]?.created_at ?? null,
     // ES-062: true when the newest sync was a permission-denied partial read.
-    partial_read: rows.some((r: any) => r.context?.partial === true),
+    partial_read: rows[0]?.context?.partial === true,
     // ES-025: expose the source breakdown behind the displayed value.
     source: ctx.source ?? null,
     aggregation: ctx.aggregation ?? null,

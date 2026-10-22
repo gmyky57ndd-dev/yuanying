@@ -249,7 +249,8 @@ async function runTool(name: string, args: any): Promise<any> {
     const best = usable.reduce((m: any, r: any) => (num(r) > num(m) ? r : m), null as any);
     const lastSync = rows[0] ?? null;
     const latest = usable.find((r: any) => num(r) > 0) ?? null;
-    const partialRead = rows.some((r: any) => r.context?.partial === true);
+    // Only the newest sync matters; an older partial row must not flag today forever.
+    const partialRead = rows[0]?.context?.partial === true;
     return {
       success: true,
       data: {
