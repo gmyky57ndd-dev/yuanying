@@ -30,11 +30,19 @@ function summarize(name: string, result: any): any {
     }
     case 'get_conversation_records': {
       const matches = result.data ?? result.matches ?? [];
+      // ES-062: chat matches carry role/time/snippet; dropping them made the
+      // model report "6 rows but empty content".
       return {
         success: true,
         data: {
           count: matches.length,
-          titles: matches.map((m: any) => m.title ?? m.file ?? ''),
+          items: matches.slice(0, 6).map((m: any) => ({
+            source: m.source ?? 'file',
+            role: m.role ?? null,
+            at: m.at ?? null,
+            title: m.title ?? m.file ?? null,
+            snippet: clip(String(m.snippet ?? ''), 400),
+          })),
         },
         message: 'Done.',
       };

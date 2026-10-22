@@ -142,3 +142,21 @@ test('get_issue stays within its bounded size', () => {
   const size = JSON.stringify(result).length;
   assert.ok(size <= 5200, `expected <= 5200, got ${size}`);
 });
+
+test('get_conversation_records keeps chat snippets and timestamps', () => {
+  const result = normalizeToolResult(
+    'get_conversation_records',
+    {
+      success: true,
+      data: [
+        { source: 'chat', role: 'user', at: '2026-10-22T19:12:32Z', snippet: '手机上说的一句话' },
+        { source: 'chat', role: 'assistant', at: '2026-10-22T19:12:33Z', snippet: '元婴的回复' },
+      ],
+    },
+    false
+  );
+  assert.strictEqual(result.data.count, 2);
+  assert.strictEqual(result.data.items[0].snippet, '手机上说的一句话');
+  assert.strictEqual(result.data.items[0].at, '2026-10-22T19:12:32Z');
+  assert.strictEqual(result.data.items[1].role, 'assistant');
+});
