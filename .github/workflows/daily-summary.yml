@@ -1,0 +1,26 @@
+name: Daily Evening Summary
+
+# ES-065: Vercel Hobby cannot run a 21:30 cron reliably, so GitHub Actions is the
+# trigger. 01:30 UTC = 21:30 EDT (20:30 EST; DST shifts the local time by an hour).
+on:
+  schedule:
+    - cron: '30 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/cron/daily-summary
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL repo secret is not set"
+            exit 1
+          fi
+          curl -fsS -X POST "$APP_URL/api/cron/daily-summary" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H 'Content-Type: application/json' \
+            -d '{}' | tee /tmp/resp.json

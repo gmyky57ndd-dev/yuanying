@@ -41,6 +41,15 @@ type CollectorStatus = {
   steps_error: string | null;
 };
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const output = new Uint8Array(new ArrayBuffer(raw.length));
+  for (let i = 0; i < raw.length; i += 1) output[i] = raw.charCodeAt(i);
+  return output;
+}
+
 const PWA_VERSION = APP_VERSION;
 
 const MODEL_PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'];
@@ -242,6 +251,56 @@ export default function Settings() {
       await loadDrive();
     } catch {
       setDriveMessage('断开失败');
+    }
+  }
+
+  async function enablePush() {
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        alert('此浏览器不支持 Web Push');
+        return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') {
+        alert('需要通知权限才能推送晚间总结');
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!key) {
+        alert('缺少 VAPID 公钥（构建时未注入）');
+        return;
+      }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(key) as BufferSource,
+      });
+      let deviceId = window.localStorage.getItem('yy_device_id');
+      if (!deviceId) {
+        const c = typeof crypto !== 'undefined' ? (crypto as any) : undefined;
+        deviceId = String(c?.randomUUID?.() ?? `d-${Date.now()}`);
+        window.localStorage.setItem('yy_device_id', deviceId);
+      }
+      const did = deviceId as string;
+      const device = /Android/i.test(navigator.userAgent)
+        ? 'Android'
+        : /iPhone|iPad|iPod/i.test(navigator.userAgent)
+          ? 'iOS'
+          : /Macintosh/i.test(navigator.userAgent)
+            ? 'Mac'
+            : 'Web';
+      const r = await fetchWithTimeout(`${API_BASE}/api/push/subscribe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: did,
+          device,
+          subscription: sub.toJSON(),
+        }),
+      });
+      alert(r.ok ? '已开启晚间总结推送' : '订阅失败，请重试');
+    } catch (e) {
+      alert(`订阅失败：${e instanceof Error ? e.message : 'unknown'}`);
     }
   }
 
@@ -736,6 +795,19 @@ export default function Settings() {
         {externalMessage && (
           <p className="text-[11px] text-stone-400 mt-2">{externalMessage}</p>
         )}
+      </div>
+
+      <div className="mt-6 border-t border-stone-800 pt-4">
+        <h2 className="text-sm text-stone-300 mb-1">晚间总结推送</h2>
+        <p className="text-[11px] text-stone-600 mb-3">
+          21:30 由云端生成当日总结并推送到当前活跃设备；点通知直接回到聊天。
+        </p>
+        <button
+          onClick={enablePush}
+          className="text-xs px-3 py-2 rounded-xl bg-emerald-800 text-white"
+        >
+          开启晚间总结推送
+        </button>
       </div>
 
       <div className="mt-6 border-t border-stone-800 pt-4">

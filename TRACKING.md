@@ -204,6 +204,16 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-41] 自动化晚间总结（云端 cron + AI 推送）(ES-065)
+
+- **Status**: In Review (2026-10-23) · **Category**: Feature (Cron + Push) · **Refs**: ES-065, #70, ES-063
+- **Spec**: `docs/specs/ES-065-evening-summary-cron.md`.
+- **Trigger**: GitHub Actions `daily-summary.yml` at 01:30 UTC (21:30 EDT) → `POST /api/cron/daily-summary` with `CRON_SECRET`; `workflow_dispatch` for manual runs. Vercel Hobby cannot schedule a 21:30-local cron.
+- **Backend**: `generateSummary` + one `generateText` with `SUMMARY_TONE_RULES` → insert an assistant message (`metadata.type=daily_summary`) → Web Push to `device_presence` devices active in the last 5 min (fallback: all subscriptions).
+- **Push**: `web-push` + VAPID; `push_subscriptions` (migration 025); Settings → 开启晚间总结推送; SW `push`/`notificationclick`; dead endpoints pruned on 404/410.
+- **Verification**: dry run + real run in production (summary generated, message stored, push attempted); 36/36 tests; build green.
+- **Limits**: DST shifts the local time in EST; the collector's local evening text is not yet replaced (needs a collector change); GitHub schedules are best-effort.
+
 ### [P2-40] 多端同步与存在感知架构 (ES-063) — P0
 
 - **Status**: In Progress (2026-10-22) · **Category**: Architecture · **Refs**: ES-063, ES-062, AGENTS §13

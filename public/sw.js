@@ -86,3 +86,37 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+// ES-065: Web Push. The cron generates the evening summary server-side and
+// pushes it here; tapping the notification opens the chat, where the message is
+// already part of the stream/history.
+self.addEventListener('push', event => {
+  let payload = { title: '元婴', body: '该收尾了。', url: '/' };
+  try {
+    if (event.data) payload = { ...payload, ...event.data.json() };
+  } catch (e) {
+    if (event.data) payload.body = event.data.text();
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title || '元婴', {
+      body: payload.body || '该收尾了。',
+      icon: '/avatar.png',
+      badge: '/avatar.png',
+      tag: 'yuanying-daily',
+      data: { url: payload.url || '/' },
+    })
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      for (const client of list) {
+        if ('focus' in client) return client.focus();
+      }
+      return clients.openWindow ? clients.openWindow(target) : null;
+    })
+  );
+});
