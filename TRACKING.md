@@ -211,7 +211,8 @@ never by the section they happened to be written under.
 - **Trigger**: GitHub Actions `daily-summary.yml` at 01:30 UTC (21:30 EDT) → `POST /api/cron/daily-summary` with `CRON_SECRET`; `workflow_dispatch` for manual runs. Vercel Hobby cannot schedule a 21:30-local cron.
 - **Backend**: `generateSummary` + one `generateText` with `SUMMARY_TONE_RULES` → insert an assistant message (`metadata.type=daily_summary`) → Web Push to `device_presence` devices active in the last 5 min (fallback: all subscriptions).
 - **Push**: `web-push` + VAPID; `push_subscriptions` (migration 025); Settings → 开启晚间总结推送; SW `push`/`notificationclick`; dead endpoints pruned on 404/410.
-- **Verification**: dry run + real run in production (summary generated, message stored, push attempted); 36/36 tests; build green.
+- **Verified (2026-10-23, production)**: `401` without the secret; `?dry=1` produced the prose; the real run stored message **694** and returned `push: {sent:0, scoped_to_active:true}` (no device subscribed yet); a second call returned `already_generated`; GitHub Actions manual dispatch **39967011826** succeeded (APP_URL + CRON_SECRET secrets work). 36/36 tests, build green.
+- **Owner action**: Settings → 开启晚间总结推送 on each device to receive the push.
 - **Limits**: DST shifts the local time in EST; the collector's local evening text is not yet replaced (needs a collector change); GitHub schedules are best-effort.
 
 ### [P2-40] 多端同步与存在感知架构 (ES-063) — P0

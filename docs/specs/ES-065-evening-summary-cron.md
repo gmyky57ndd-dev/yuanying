@@ -66,8 +66,12 @@
 
 ## 6. Acceptance
 
-- [x] A cron trigger exists outside the app (GitHub Actions) with `CRON_SECRET`.
-- [x] The endpoint generates, stores and pushes a real summary (dry-run + real run
-      verified in production).
-- [ ] Owner receives the push on an active device after enabling it.
-- [ ] The summary appears in the chat stream.
+- [x] A cron trigger exists outside the app (GitHub Actions) with `CRON_SECRET`
+      (manual dispatch run 39967011826 succeeded end to end).
+- [x] The endpoint generates, stores and pushes a real summary: dry run produced
+      the prose; the real run stored message **id 694** and reported
+      `push: {sent: 0, scoped_to_active: true}` (no device subscribed yet);
+      a second call returned `already_generated`.
+- [x] `401` without the secret.
+- [ ] Owner receives the push after enabling it in Settings.
+- [ ] The summary appears in the chat stream (message 694 already does).
