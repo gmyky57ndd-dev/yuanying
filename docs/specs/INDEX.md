@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-065 (highest assigned: **ES-065**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-068 (highest assigned: **ES-068**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-22):** the HealthConnect permission fix was
@@ -84,3 +84,6 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-063 | Formalize Multi-Device Sync & Presence Architecture | Approved | 2026-10-22 | P2-40 |
 | ES-064 | HealthConnect Permission Loss & Fresh Steps in Reminders | Urgent Bug (P0) | 2026-10-22 | P2-38 |
 | ES-065 | Automated Evening Summary (Cloud Cron + AI Push) | Approved | 2026-10-23 | P2-41 |
+| ES-066 | Chat History Replay & Scroll Stability | Bug fix | 2026-10-24 | P2-42 |
+| ES-067 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
+| ES-068 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |

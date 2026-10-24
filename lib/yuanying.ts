@@ -158,6 +158,27 @@ function buildDailyContext(opts: BuildOptions): string {
   const timeZone = opts.timezone ?? 'Asia/Shanghai';
   const lines: string[] = [];
 
+  // #79: distinguish "morning plan" from "daily summary". Before ~11:00 with no
+  // data for today, summarising "today" is meaningless and reads like an error.
+  try {
+    const now = opts.now ? new Date(opts.now) : new Date();
+    const hour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone,
+        hour: '2-digit',
+        hour12: false,
+      }).format(now)
+    );
+    const todayCount = (opts.signals ?? []).length;
+    if (hour < 11 && todayCount === 0) {
+      lines.push(
+        '- 现在是早晨，今天还没有任何记录。**不要**写「今天……」式的总结；改用昨天/最近一次的摘要，用 2–3 句给出今天的计划：昨天推进了什么、今天可以接着做什么。不要列数据清单，不要报 0。'
+      );
+    }
+  } catch {
+    /* timezone formatting is best-effort */
+  }
+
   if (opts.steps !== undefined) {
     const goal = opts.stepsGoal ?? 5000;
     lines.push(

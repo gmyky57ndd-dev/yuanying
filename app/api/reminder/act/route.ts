@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { getConfigTimezone, getTodayRange } from '@/lib/timezone';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +18,7 @@ export async function POST(req: NextRequest) {
 
     const { data: rem } = await supabase
       .from('reminders')
-      .select('name')
+      .select('name, scheduled_at, acted_at, dismissed_at')
       .eq('id', reminder_id)
       .maybeSingle();
 
@@ -26,6 +27,21 @@ export async function POST(req: NextRequest) {
       : HABITS.includes(rem?.name)
         ? rem!.name
         : null;
+
+    // #78: a reminder from a previous product day must not mark today done.
+    if (action === 'acted') {
+      const tz = await getConfigTimezone();
+      const { start } = getTodayRange(tz);
+      const scheduledAt = rem?.scheduled_at
+        ? new Date(rem.scheduled_at)
+        : null;
+      if (scheduledAt && scheduledAt < start) {
+        return NextResponse.json({ ok: true, ignored: 'stale_reminder' });
+      }
+      if (rem?.acted_at) {
+        return NextResponse.json({ ok: true, ignored: 'already_acted' });
+      }
+    }
 
     const patch: Record<string, unknown> = {};
     if (action === 'acted') patch.acted_at = new Date().toISOString();

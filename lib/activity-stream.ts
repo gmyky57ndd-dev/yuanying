@@ -18,7 +18,7 @@ export type RawSignal = {
 export type StreamApp = { package: string; name: string; minutes: number };
 
 export type StreamEntry =
-  | { kind: 'event'; id: string; at: string; name: string; detail?: string }
+  | { kind: 'event'; id: string; at: string; name: string; detail?: string; source?: string | null }
   | {
       kind: 'note';
       id: string;
@@ -85,6 +85,7 @@ export function buildActivityStream(signals: RawSignal[]): StreamEntry[] {
         at: s.created_at,
         name: s.name,
         detail: detail || undefined,
+        source: (s as any).source ?? null,
       });
     } else if (s.name === 'note') {
       entries.push({

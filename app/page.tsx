@@ -144,6 +144,7 @@ export default function Home() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
 
+  const [historyReady, setHistoryReady] = useState(false);
   const deviceIdRef = useRef<string>('');
   const lastMessageIdRef = useRef<number>(0);
   if (!deviceIdRef.current && typeof window !== 'undefined') {
@@ -176,6 +177,9 @@ export default function Home() {
   // ES-063: realtime append of messages written by other devices. Dedupe by id
   // and ignore our own rows (they are already rendered optimistically).
   useEffect(() => {
+    // #80: never connect before the first history load. With after=0 the stream
+    // used to replay the whole table into today's view (yesterday's messages).
+    if (!historyReady) return;
     if (typeof window === 'undefined' || !('EventSource' in window)) return;
     let source: EventSource | null = null;
     let stopped = false;
@@ -209,7 +213,7 @@ export default function Home() {
       stopped = true;
       source?.close();
     };
-  }, []);
+  }, [historyReady]);
 
   // ES-063 §2.3: presence heartbeat (60 s + on visibility change).
   useEffect(() => {
@@ -287,9 +291,17 @@ export default function Home() {
     }
   }, []);
 
+  // #80: only scroll when a message is actually appended. The 60 s history
+  // refresh used to replace the array identity and yank the view every minute.
+  const lastMsgCountRef = useRef(0);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, sending]);
+    if (messages.length > lastMsgCountRef.current) {
+      lastMsgCountRef.current = messages.length;
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      lastMsgCountRef.current = messages.length;
+    }
+  }, [messages]);
 
   // ES-062: conversation history must not depend on a manual reload. Pull the
   // owner-wide history when the tab becomes visible and once a minute while it
@@ -364,11 +376,21 @@ export default function Home() {
       if (!r.ok) return;
       const d = await r.json();
       if (Array.isArray(d.messages)) {
-        setMessages(d.messages);
+        setMessages(prev => {
+          const same =
+            prev.length === d.messages.length &&
+            prev.every(
+              (m: any, i: number) =>
+                Number(m.id) === Number(d.messages[i].id) &&
+                m.content === d.messages[i].content
+            );
+          return same ? prev : d.messages;
+        });
         lastMessageIdRef.current = d.messages.reduce(
           (max: number, m: any) => Math.max(max, Number(m.id) || 0),
           lastMessageIdRef.current
         );
+        setHistoryReady(true);
       }
     } catch {}
   }
@@ -1383,6 +1405,9 @@ export default function Home() {
                   <span className="text-stone-600 w-11 shrink-0">{hm(e.at)}</span>
                   <span>
                     {EVENT_LABEL[e.name] ?? e.name}
+                    {e.source === 'reminder' && (
+                      <span className="text-stone-600"> · 提醒回执</span>
+                    )}
                     {e.detail && (
                       <span className="text-stone-600"> · {e.detail}</span>
                     )}
