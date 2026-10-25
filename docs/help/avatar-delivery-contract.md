@@ -62,7 +62,7 @@ match — not merely the Editor's version.
 handshake is:
 
 1. Modeler exports once and reports **Editor version + model target version +
-   Core version** (put them in `version.txt` inside the zip, see §1.5).
+   Core version** (put them in `version.txt` inside the zip, see §1.6).
 2. Dev pins the matching runtime (Cubism 5 Web SDK, or a 5.x-compatible renderer
    such as `pixi-live2d-display-v5` / `easy-live2d`) and runs the consistency
    checker against that Core.
@@ -107,21 +107,42 @@ sync without a mapping table:
 - Mouth animation only needs `ParamMouthOpenY`; future lip sync will drive it from
   TTS amplitude.
 
-### 1.5 Version handshake file (required)
+### 1.5 Release metadata file (required)
 
-Add `version.txt` at the root of `xiaowu/` (plain UTF-8, one `key: value` per line):
+Add **`release.json`** at the root of `xiaowu/` (a `version.txt` with the same
+keys is also accepted):
 
-```text
-editor: Cubism Editor 5.x.y
-target: SDK5.0
-core: 5.0.0
-exported_at: 2026-10-25T12:00:00Z
-canvas_origin: feet
+```json
+{
+  "editor": "Cubism Editor 5.3.0",
+  "target": "SDK5.0",
+  "moc3": "5",
+  "core": "5.3.1",
+  "sdk": "Cubism Web SDK 5.3",
+  "exported_at": "2026-10-25T12:00:00Z",
+  "canvas_origin": "feet",
+  "sha256": "<sha256 of this zip>"
+}
 ```
 
-This is what lets the integration pin the runtime without guessing.
+`editor`, `moc3`, `core`, `sdk` and `sha256` are mandatory. Without them the
+runtime cannot be pinned, and a later re-export cannot be proven identical.
 
-### 1.6 What the app does with it
+### 1.6 Pre-flight validation (run before delivery)
+
+```bash
+npm run avatar:validate -- /path/to/xiaowu.zip
+# or against an extracted folder
+npm run avatar:validate -- /path/to/xiaowu
+```
+
+The script checks: required files, `model3.json` parses, every FileReference
+resolves with a relative safe path, `idle`/`talk` motion groups exist, PNG
+dimensions, atlas count and total texture bytes, file count, and the release
+metadata keys. It exits non-zero with a `FAIL` list — fix the package before
+sending it.
+
+### 1.7 What the app does with it
 
 1. Copies the folder to `public/avatar/<fenshen_id>/`.
 2. Renders with `pixi-live2d-display` + the matching Cubism Core.

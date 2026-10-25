@@ -13,7 +13,8 @@
     "opinions:respond": "node --env-file=.env.local scripts/opinions.mjs respond",
     "import": "node scripts/import.mjs",
     "inbox": "node --env-file=.env.local scripts/inbox.mjs",
-    "test": "node --test --experimental-strip-types lib/*.test.ts"
+    "test": "node --test --experimental-strip-types lib/*.test.ts",
+    "avatar:validate": "node scripts/validate-avatar.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
