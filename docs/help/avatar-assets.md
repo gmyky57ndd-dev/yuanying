@@ -91,6 +91,8 @@ VRM 也可以：一个 `.vrm` 文件（`@pixiv/three-vrm` 渲染），但 Live2D
 
 ## 5. 交付契约（精确到文件）— 2026-10-25
 
+> English version (normative, for the modeler): [`avatar-delivery-contract.md`](./avatar-delivery-contract.md)
+
 > 关键点：**PSD 本身不能运行**。PWA 只能加载 Cubism 导出的运行时文件。
 > PSD 是建模源文件，交付物是下面的导出包。
 
