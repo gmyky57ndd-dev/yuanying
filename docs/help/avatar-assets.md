@@ -121,11 +121,13 @@ xiaowu.zip
 - `.model3.json` 里所有路径必须是相对路径（不能出现 `C:\...` 或绝对路径）。
 - 不要包含 `.cmo3`、`.psd`、`.clip`、`.can3` 等源文件（它们是私有素材，不进公开仓库）。
 
-### 5.2 Cubism 版本（必须告诉我）
+### 5.2 Cubism 版本（已确定目标：Cubism 5.x / Core 5.x）
 
-- 从 **Cubism 4.2 或 5** 导出；导出时记下 **Cubism Core 版本**（SDK 版本号）。
-- `moc3` 与前端打包的 `live2dcubismcore.min.js` 必须同版本段：Cubism 3 的 moc3 不能跑在 5 的 Core 上，反之亦然。
-- 我按你给的版本号锁定 Core；若你只有 Cubism 3 工程，也能支持，但请明确说明。
+- **目标：Cubism Editor 5.x 导出，运行时 Core 5.x。**
+- 导出前在 Editor 里显式选择**模型目标版本**（SDK 5.0 建议），并记录 **Core 版本**（如 5.0.0 / 5.3.1）。
+- **不预先锁定 Core 补丁版本**：第一份 `.moc3` 生成后，用 Live2D 的 moc3 consistency checker 对目标 Core 校验通过，再把运行版本冻结。
+- 如果模型用了目标运行时表达不了的功能（如 5.3 混合模式/离屏绘制），我们要求回退到最低可用目标版本重新导出——这是 Editor 里的一次选择，不需要重新绑定。
+- 交付时请在 zip 里放 `version.txt`（editor / target / core / exported_at / canvas_origin）。
 
 ### 5.3 参数与动作约定（决定能不能"说话/眨眼"）
 

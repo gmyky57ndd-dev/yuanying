@@ -42,17 +42,36 @@ Those stay private; only the export goes into the repository.
 - The top-level folder name is the **fenshen id**; it is copied verbatim to
   `public/avatar/<fenshen_id>/`.
 
-### 1.2 Cubism version (must be stated)
+### 1.2 Cubism version (target: Cubism 5.x / Core 5.x)
+
+**Agreed target: Cubism Editor 5.x, exporting for Cubism Core 5.x.**
+
+Cubism Editor lets you pick a **model target version** (SDK 3.0 / 3.3 / 4.0 /
+4.2 / 5.0 / 5.3) before exporting. That selection is what the runtime has to
+match — not merely the Editor's version.
 
 | Item | Requirement |
 | --- | --- |
-| Authoring tool | Cubism Editor **4.2 or 5** (Cubism 3 projects are acceptable if declared) |
-| Core version | State the **Cubism Core / SDK version** used to export |
-| Compatibility | `moc3` must match the bundled `live2dcubismcore.min.js`; a Cubism 3 `moc3` will not run on the 5.x Core and vice versa |
+| Authoring tool | Cubism Editor **5.x** |
+| Model target version | Set explicitly before export; default recommendation **SDK 5.0** |
+| Core version | The **exact** `live2dcubismcore` version reported by the export (e.g. `5.0.0`, `5.3.1`) |
+| Compatibility | `moc3` is validated against the bundling runtime with Live2D's **moc3 consistency checker** before it ships |
 | Export format | `.moc3` (not `.moc`), motion v3 (`.motion3.json`), physics v3, expression `.exp3.json` |
 
-The server bundles one Core version per deployment. **Tell us the Core version
-before exporting** so the matching runtime is pinned.
+**We will not pin a Core patch version until the first `.moc3` exists.** The
+handshake is:
+
+1. Modeler exports once and reports **Editor version + model target version +
+   Core version** (put them in `version.txt` inside the zip, see §1.5).
+2. Dev pins the matching runtime (Cubism 5 Web SDK, or a 5.x-compatible renderer
+   such as `pixi-live2d-display-v5` / `easy-live2d`) and runs the consistency
+   checker against that Core.
+3. If the chosen runtime cannot express a feature the model uses (e.g. 5.3 blend
+   modes / offscreen draw), we ask for a re-export at the lowest target version
+   that still works — that is a one-click change in the Editor, not a re-rig.
+
+Do not upgrade the Editor patch mid-rig without telling us; a different Core can
+invalidate the runtime check even when the `moc3` looks fine.
 
 ### 1.3 Sizing limits (mobile-first)
 
@@ -88,7 +107,21 @@ sync without a mapping table:
 - Mouth animation only needs `ParamMouthOpenY`; future lip sync will drive it from
   TTS amplitude.
 
-### 1.5 What the app does with it
+### 1.5 Version handshake file (required)
+
+Add `version.txt` at the root of `xiaowu/` (plain UTF-8, one `key: value` per line):
+
+```text
+editor: Cubism Editor 5.x.y
+target: SDK5.0
+core: 5.0.0
+exported_at: 2026-10-25T12:00:00Z
+canvas_origin: feet
+```
+
+This is what lets the integration pin the runtime without guessing.
+
+### 1.6 What the app does with it
 
 1. Copies the folder to `public/avatar/<fenshen_id>/`.
 2. Renders with `pixi-live2d-display` + the matching Cubism Core.
@@ -151,7 +184,11 @@ and voice samples are not.
 - [ ] Removing the folder falls back to `avatar.png` with no error UI.
 - [ ] `voice.zip` decodes, is mono 44.1/48 kHz, total ≥ 3 min, and clones cleanly.
 
-## 5. Open question blocking the start
+## 5. Status
 
-**Which Cubism Editor / Core version will be used?** The renderer pins one Core
-build; answer this and the integration can start immediately.
+- Target agreed: **Cubism Editor 5.x → Core 5.x**, with the model target version
+  set explicitly at export.
+- Core patch is **not pinned yet**, by design: the first `.moc3` + `version.txt`
+  defines it, then the runtime is frozen and validated.
+- Remaining deliverables: `xiaowu.zip` (model export) and `voice.zip`.
+- PSD / `.cmo3` stay private and are not consumed at runtime.
