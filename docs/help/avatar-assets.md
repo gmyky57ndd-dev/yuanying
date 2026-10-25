@@ -86,3 +86,84 @@ VRM 也可以：一个 `.vrm` 文件（`@pixiv/three-vrm` 渲染），但 Live2D
 - 克隆声音属于你的生物特征数据；删除时同时删除私有存储中的样本与派生的 `voice_id`；
 - 元婴不会把你的声音用于其他用户（单用户产品）；
 - 素材的保留期限由你决定，随时可以要求删除。
+
+---
+
+## 5. 交付契约（精确到文件）— 2026-10-25
+
+> 关键点：**PSD 本身不能运行**。PWA 只能加载 Cubism 导出的运行时文件。
+> PSD 是建模源文件，交付物是下面的导出包。
+
+### 5.1 一个 zip，目录结构必须完全一致
+
+```text
+xiaowu.zip
+└── xiaowu/
+    ├── xiaowu.model3.json        # 必需：入口，内部路径用相对路径
+    ├── xiaowu.moc3               # 必需：变形数据（与 Core 版本匹配）
+    ├── xiaowu.physics3.json      # 强烈建议：头发/衣物摆动
+    ├── xiaowu.pose3.json         # 可选
+    ├── xiaowu.cdi3.json          # 可选：参数显示名
+    ├── texture_00.png            # 必需：≤2048×2048，PNG
+    ├── texture_01.png            # 可选：最多 4 张，合计 ≤8 MB
+    ├── motions/
+    │   ├── idle.motion3.json     # 必需：待机循环
+    │   ├── talk.motion3.json     # 必需：说话（可与口型参数联动）
+    │   └── tap.motion3.json      # 可选：点击反应
+    └── expressions/
+        ├── neutral.exp3.json     # 可选
+        └── smile.exp3.json       # 可选
+```
+
+- 顶层目录名 = `fenshen_id`（目前 `xiaowu`），我直接放到 `public/avatar/xiaowu/`。
+- `.model3.json` 里所有路径必须是相对路径（不能出现 `C:\...` 或绝对路径）。
+- 不要包含 `.cmo3`、`.psd`、`.clip`、`.can3` 等源文件（它们是私有素材，不进公开仓库）。
+
+### 5.2 Cubism 版本（必须告诉我）
+
+- 从 **Cubism 4.2 或 5** 导出；导出时记下 **Cubism Core 版本**（SDK 版本号）。
+- `moc3` 与前端打包的 `live2dcubismcore.min.js` 必须同版本段：Cubism 3 的 moc3 不能跑在 5 的 Core 上，反之亦然。
+- 我按你给的版本号锁定 Core；若你只有 Cubism 3 工程，也能支持，但请明确说明。
+
+### 5.3 参数与动作约定（决定能不能"说话/眨眼"）
+
+- 保留标准参数 ID：`ParamMouthOpenY`、`ParamEyeLOpen`、`ParamEyeROpen`、`ParamAngleX/Y/Z`、`ParamBodyAngleX`、`ParamBreath`。
+- 自定义参数可以加，但请附一行说明（ID + 用途），否则表情驱动会失效。
+- `idle` 必须是可循环动作；`talk` 建议 2–4 秒、可循环；动作名就用 `idle` / `talk` / `tap`。
+- 口型：仅需要 `ParamMouthOpenY`（0–1 线性）；以后做 lip sync 时我按 TTS 音量驱动它。
+
+### 5.4 技术上限（移动端）
+
+| 项目 | 上限 |
+|---|---|
+| 贴图 | 每张 ≤2048×2048，最多 4 张，合计 ≤8 MB |
+| 网格 | 总顶点数 ≤30k（手机 60fps 目标） |
+| 文件数 | ≤30 个 |
+| 模型尺寸 | 画布高度约 1500–2000 px，原点在脚底/胸口（告诉我即可） |
+
+超限不是不能跑，但首页常驻会掉帧/耗电；超了我会先压贴图。
+
+### 5.5 声音（同一批交付）
+
+```text
+voice.zip
+└── voice/
+    ├── 01.wav … 10.wav           # 44.1kHz / 48kHz，单声道，16-bit
+```
+
+- 每段 15–60 秒，10–20 段，总时长 ≥3 分钟（10–30 分钟最佳）。
+- 文件名不必有意义；我会按顺序拼接做克隆，并记录每段内容摘要。
+- **不要**放进 Git：音频是生物特征数据，走私有存储或直接发我。
+
+### 5.6 我拿到之后的动作
+
+1. 解压到 `public/avatar/xiaowu/`，校验 JSON 路径与贴图完整性；
+2. 接入 `pixi-live2d-display`（Cubism 4/5 用 `live2dcubismcore.min.js`），失败回退 `avatar.png`；
+3. 默认动作 `idle`，说话时叠加 `talk` + `ParamMouthOpenY`；
+4. 页面不可见/舞台折叠时暂停渲染；
+5. 手机上验收：首屏 <2 秒、静止时不掉帧、切后台回来能恢复。
+
+### 5.7 我现在的阻塞
+
+只需要两样：**① 上面的 `xiaowu.zip`（Cubism 导出）**、**② `voice.zip`（≥3 分钟录音）**。
+PSD 请留在你那边（或私有存储），它不参与运行。
