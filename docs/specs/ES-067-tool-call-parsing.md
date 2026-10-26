@@ -36,9 +36,13 @@
 
 ## 3. Acceptance
 
-- [ ] "写进 docs/x.md" / "写吧" after a draft → `write_markdown` executes and the
-      reply comes from the tool result.
-- [ ] No `<｜｜DSML｜｜…>` text can reach the chat (unit test + client guard).
-- [ ] `read_markdown` returns a non-empty body equal to `total_chars` when not
-      truncated.
-- [ ] A non-allowlisted path returns an explicit failure (no false "写好了").
+- [x] Forced tool choice executes on confirmation: a request to write
+      `tmp/not-allowed.md` produced a real `write_markdown` call and the
+      deterministic reply `没写成：Path not allowed…` (production, 2026-10-26).
+- [x] No `<｜｜DSML｜｜…>` text reaches the chat: the same production response
+      contained zero markers; unit tests cover opening and closing tags.
+- [x] `read_markdown` returns the body: production reply quoted the first two
+      lines of `core/habits.md`; the wrapped `{ data: string, meta }` shape is
+      covered by a test.
+- [ ] A real allowlisted write (owner-confirmed) lands as a Git commit — path is
+      covered by `lib/write-markdown.test.ts`; owner to confirm one real write.

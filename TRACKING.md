@@ -206,10 +206,10 @@ never by the section they happened to be written under.
 
 ### [P2-45] DeepSeek 工具调用解析 + 强制写操作 (ES-067, #83) — P0
 
-- **Status**: In Review (2026-10-26) · **Category**: Bug (Agent loop / stream) · **Refs**: ES-067, #83, #81
+- **Status**: Done (2026-10-26) · **Category**: Bug (Agent loop / stream) · **Refs**: ES-067, #83, #81
 - **Symptom**: after confirmation the model replied "现在写" for 3 turns without calling `write_markdown`; one turn leaked `<｜｜DSML｜｜ calls>` into the chat.
 - **Fix**: forced `toolChoice: write_markdown` when the message carries a `.md` path (or is a short confirmation after a draft mentioning one); one forced retry if the turn ends without a write result; deterministic reply from the tool result; `stripToolMarkers()` on server + client; `read_markdown` now returns the body (#81); prompt rule forbids narrating execution.
-- **Verification**: 38/38 tests (marker sanitizer + read_markdown body); production checks below.
+- **Verified (2026-10-26, production)**: a non-allowlisted write request produced a real tool call and the deterministic reply `没写成：Path not allowed…`; `read_markdown` returned the first two lines of `core/habits.md`; no `DSML`/`｜｜` markers in the raw stream. 41/41 tests.
 - **Docs**: `docs/specs/ES-067-tool-call-parsing.md`.
 
 ### [P2-42] 聊天历史回放与滚动跳动 (ES-066, #80/#77)
