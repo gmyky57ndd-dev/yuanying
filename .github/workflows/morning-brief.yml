@@ -1,0 +1,26 @@
+name: Morning Brief
+
+# #84 / ES-069: 13:00 UTC = 09:00 EDT (08:00 EST). Vercel Hobby cannot schedule
+# a local-time cron, so GitHub Actions is the trigger.
+on:
+  schedule:
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger /api/cron/morning-brief
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "::error::APP_URL repo secret is not set"
+            exit 1
+          fi
+          curl -fsS -X POST "$APP_URL/api/cron/morning-brief" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H 'Content-Type: application/json' \
+            -d '{}' | tee /tmp/resp.json

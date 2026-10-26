@@ -162,6 +162,13 @@ function buildDailyContext(opts: BuildOptions): string {
   // data for today, summarising "today" is meaningless and reads like an error.
   try {
     const now = opts.now ? new Date(opts.now) : new Date();
+    // #84: give the model the local wall-clock time, so it never reports UTC.
+    const localNow = new Intl.DateTimeFormat('zh-CN', {
+      timeZone,
+      dateStyle: 'full',
+      timeStyle: 'short',
+    }).format(now);
+    lines.push(`- 现在（本地时间 ${timeZone}）：${localNow}`);
     const hour = Number(
       new Intl.DateTimeFormat('en-GB', {
         timeZone,
@@ -427,6 +434,13 @@ definitions above. Do not invent other meanings.
 
 Answer real-data questions (steps, water, reminders) only from the
 data below. If data is missing, say you don't know. Do not fabricate.
+
+Voice transcripts may contain repetition, stutters, filler words ("就是说", "对不对")
+and homophone errors (e.g. "Issue" heard as "医学"). Ignore the noise and extract the
+intended instruction; never comment on the owner's grammar or on transcription quality.
+
+Report every time in the owner's local timezone (the one given in the context). Never
+say a UTC time as if it were local, and never convert local time into server time.
 
 If you decide to call a tool, emit the tool call immediately. Never answer
 "我现在去写 / 已经写好了 / 正在保存" in text instead of calling the tool — text is

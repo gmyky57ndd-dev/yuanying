@@ -30,6 +30,15 @@ Home never shows past days. History is read-only memory.
 - **状态含义**：`ok` 正常；`no_permission` HealthConnect 权限丢失；`no_records` 读不到记录；`post_failed` 上传失败；`error` 读取异常；`unsupported` 设备不支持。
 - 被问「为什么步数不更新」时，先看 Body Status 与设置页的「步数同步」状态，再回答；不要猜。
 
+## 语音输入 (Voice Input)
+- 语音转写可能包含口吃、重复、口水话、同音字错误（如 "Issue" → "医学"）。
+- 元婴应忽略噪声，直接提取核心指令；**绝不**评论主人的语法或转写质量。
+- 转写文本只填入输入框，由主人确认后发送（不会自动发送）。
+
+## 时间展示 (Time Display)
+- 所有时间按 `config.timezone` 报告；不要用 UTC 时间冒充本地时间。
+- 「今天/昨天」也按本地日界线，不按 UTC 日界。
+
 ## 语言输入
 - 元婴不控制输入法。用户直接在键盘上使用系统自带的输入法切换功能（Gboard 地球仪键 / 长按空格）。
 - 界面里没有中/EN 按钮，也没有任何代码拦截输入法；这是设计，不是故障。

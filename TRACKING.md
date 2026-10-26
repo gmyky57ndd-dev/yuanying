@@ -204,6 +204,22 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-46] 语音输入准确率与交互 (ES-068, #84) — Approved
+
+- **Status**: In Progress (2026-10-26) · **Category**: Feature (STT/UX) · **Refs**: ES-068
+- **Implemented**: `POST /api/stt` (Whisper, server key, 20 MB / 45 s caps); client `MediaRecorder` + **VAD** (stop 2 s after speech, 8 s no-speech abort, 60 s cap); transcript goes into the composer with the caret at the end and is **never auto-sent**; hold-to-talk release waits 2 s; Web Speech fallback when no key; prompt/manifest tolerance for fillers and homophones.
+- **Blocker**: `OPENAI_API_KEY` is not configured, so Whisper is inactive and the fallback (Web Speech) is used. Add the key in Vercel to enable.
+- **Docs**: `docs/specs/ES-068-voice-input.md`.
+
+### [P2-47] #84：时间展示 / 空消息 / 早晚职责 — P0/P1
+
+- **Status**: In Review (2026-10-26) · **Category**: Bug + Feature · **Refs**: #84, ES-069, ES-065
+- **Time**: the prompt now carries the local wall-clock string (`dateStyle: full`) and a rule to never report UTC as local; UI formats activity times in the browser's local zone (config tz = America/New_York).
+- **Empty messages**: both chat insert paths replace an empty assistant body with a specific fallback before persisting; the cron endpoints already do this.
+- **Morning/evening roles**: documented in ES-069 — evening closes the day (ES-065 21:30), morning opens it (09:00 `POST /api/cron/morning-brief`, plan from yesterday's notes, idempotent, pushed).
+- **New**: `.github/workflows/morning-brief.yml` (13:00 UTC = 09:00 EDT).
+- **Verification**: dry run of the morning brief; 41/41 tests; build green.
+
 ### [P2-45] DeepSeek 工具调用解析 + 强制写操作 (ES-067, #83) — P0
 
 - **Status**: Done (2026-10-26) · **Category**: Bug (Agent loop / stream) · **Refs**: ES-067, #83, #81
@@ -225,11 +241,11 @@ never by the section they happened to be written under.
 - **Fix**: before 11:00 with no signals today, the prompt forbids a "今天…" summary and asks for a 2–3 sentence plan based on yesterday.
 - **Docs**: `docs/specs/ES-069-morning-plan.md`.
 
-### [P2-44] 提醒回执跨日与起床前误记 (ES-068, #78)
+### [P2-44] 提醒回执跨日与起床前误记 (ES-070, #78)
 
-- **Status**: In Review (2026-10-24) · **Category**: Bug (Data semantics) · **Refs**: ES-068
+- **Status**: In Review (2026-10-24) · **Category**: Bug (Data semantics) · **Refs**: ES-070
 - **Fix**: `/api/reminder/act` rejects receipts from previous product days and duplicate acts; vitamin window moved to 08:30 (migration 026); reminder receipts are labelled in the activity stream; history untouched.
-- **Docs**: `docs/specs/ES-068-reminder-receipt.md`.
+- **Docs**: `docs/specs/ES-070-reminder-receipt.md`.
 
 ### [P2-41] 自动化晚间总结（云端 cron + AI 推送）(ES-065)
 

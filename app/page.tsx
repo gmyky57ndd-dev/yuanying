@@ -143,6 +143,12 @@ export default function Home() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const vadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const vadStreamRef = useRef<MediaStream | null>(null);
+  const stopGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [transcribing, setTranscribing] = useState(false);
 
   const [historyReady, setHistoryReady] = useState(false);
   const deviceIdRef = useRef<string>('');
@@ -850,13 +856,6 @@ export default function Home() {
     }
   }
 
-  function stopVoice() {
-    try {
-      recognitionRef.current?.stop();
-    } catch {}
-    setListening(false);
-  }
-
   function toggleTts() {
     setTtsEnabled(current => {
       if (current && 'speechSynthesis' in window) {
@@ -900,27 +899,171 @@ export default function Home() {
     }
   }
 
-  function startVoice() {
+  // ES-068: prefer server-side Whisper (accurate + punctuation); fall back to
+  // Web Speech when the server has no key. Either way the transcript goes into
+  // the composer and is NEVER auto-sent.
+  function insertTranscript(text: string) {
+    const t = text.trim();
+    if (!t) return;
+    setInput(prev => (prev && !/\s$/.test(prev) ? `${prev} ${t}` : `${prev}${t}`));
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      try {
+        el.setSelectionRange(end, end);
+      } catch {}
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    });
+  }
+
+  function stopVad() {
+    if (vadTimerRef.current) {
+      clearInterval(vadTimerRef.current);
+      vadTimerRef.current = null;
+    }
+    vadStreamRef.current?.getTracks().forEach(t => t.stop());
+    vadStreamRef.current = null;
+  }
+
+  function stopVoiceNow() {
+    if (stopGraceRef.current) {
+      clearTimeout(stopGraceRef.current);
+      stopGraceRef.current = null;
+    }
+    try {
+      recognitionRef.current?.stop();
+    } catch {}
+    if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+      recorderRef.current.stop();
+    }
+    setListening(false);
+  }
+
+  // Hold-to-talk releases should not cut the last syllables: give the recorder
+  // a short grace period instead of stopping on pointerup.
+  function stopVoice() {
+    if (!recorderRef.current) {
+      stopVoiceNow();
+      return;
+    }
+    if (stopGraceRef.current) clearTimeout(stopGraceRef.current);
+    stopGraceRef.current = setTimeout(() => stopVoiceNow(), 2000);
+  }
+
+  async function startRecorder() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+      ? 'audio/webm;codecs=opus'
+      : MediaRecorder.isTypeSupported('audio/mp4')
+        ? 'audio/mp4'
+        : '';
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    chunksRef.current = [];
+    rec.ondataavailable = e => {
+      if (e.data.size > 0) chunksRef.current.push(e.data);
+    };
+    rec.onstop = async () => {
+      stopVad();
+      setListening(false);
+      const blob = new Blob(chunksRef.current, { type: rec.mimeType || 'audio/webm' });
+      if (blob.size < 1500) return;
+      setTranscribing(true);
+      try {
+        const fd = new FormData();
+        fd.append('audio', blob, mime.includes('mp4') ? 'voice.m4a' : 'voice.webm');
+        const r = await fetch(`${API_BASE}/api/stt`, { method: 'POST', body: fd });
+        if (r.status === 501) {
+          startWebSpeech();
+          return;
+        }
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d?.message ?? '转写失败');
+        insertTranscript(String(d?.text ?? ''));
+      } catch (e) {
+        alert(`语音转写失败：${e instanceof Error ? e.message : 'unknown'}`);
+      } finally {
+        setTranscribing(false);
+      }
+    };
+    rec.start();
+    recorderRef.current = rec;
+    vadStreamRef.current = stream;
+    setListening(true);
+
+    // VAD: stop two seconds after speech ends (or 8 s if nobody spoke, 60 s cap).
+    const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 1024;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const data = new Uint8Array(analyser.fftSize);
+    const started = Date.now();
+    let last = Date.now();
+    let spoke = false;
+    let silence = 0;
+    vadTimerRef.current = setInterval(() => {
+      analyser.getByteTimeDomainData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i += 1) {
+        const x = (data[i] - 128) / 128;
+        sum += x * x;
+      }
+      const rms = Math.sqrt(sum / data.length);
+      const now = Date.now();
+      const dt = now - last;
+      last = now;
+      if (rms > 0.02) {
+        spoke = true;
+        silence = 0;
+      } else if (spoke) {
+        silence += dt;
+      }
+      if ((spoke && silence > 2000) || (!spoke && now - started > 8000) || now - started > 60000) {
+        stopVoiceNow();
+      }
+    }, 120);
+  }
+
+  function startWebSpeech() {
     const SpeechRecognition =
       (window as any).SpeechRecognition ||
       (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert('Voice input not supported in this browser.');
+      alert('此浏览器不支持语音输入');
       return;
     }
     const rec = new SpeechRecognition();
     rec.lang = 'zh-CN';
     rec.interimResults = false;
     rec.continuous = false;
-    rec.onresult = (e: any) => {
-      const transcript = e.results[0][0].transcript;
-      send(transcript);
-    };
+    rec.onresult = (e: any) => insertTranscript(e.results[0][0].transcript);
     rec.onend = () => setListening(false);
     rec.onerror = () => setListening(false);
     recognitionRef.current = rec;
     rec.start();
     setListening(true);
+  }
+
+  async function startVoice() {
+    if (listening) {
+      stopVoiceNow();
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    const canRecord = !!window.MediaRecorder && !!navigator.mediaDevices?.getUserMedia;
+    if (!canRecord) {
+      startWebSpeech();
+      return;
+    }
+    try {
+      await startRecorder();
+    } catch {
+      startWebSpeech();
+    }
   }
 
   const stageState = listening
@@ -1566,6 +1709,10 @@ export default function Home() {
         )}
         <div ref={bottomRef} />
       </div>
+
+      {transcribing && (
+        <div className="px-4 pb-1 text-[11px] text-stone-500">正在转写语音…</div>
+      )}
 
       {/* Input. z-20 + opaque background: nothing can sit above the field and
           eat the tap (a covered input focuses nothing and the IME never opens). */}

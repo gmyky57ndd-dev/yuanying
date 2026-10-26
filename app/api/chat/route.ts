@@ -579,11 +579,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
       await supabase.from('messages').insert([
         { role: 'user', content: message, session_id, device_id, metadata: { device } },
-        { role: 'assistant', content: reply, session_id, device_id, metadata: { device } },
+        { role: 'assistant', content: safeReply, session_id, device_id, metadata: { device } },
       ]);
-      return NextResponse.json({ reply, session_id });
+      return NextResponse.json({ reply: safeReply, session_id });
     }
 
     // 1. Load history (ES-045: respect the last Chat Reset).
@@ -1130,9 +1131,11 @@ ${bodyStatusReminder}`,
           streamData.append({ type: 'assistant_text', text: reply });
         }
 
+        // #84: never persist an empty assistant turn.
+        const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
         const { error: insErr } = await supabase.from('messages').insert([
           { role: 'user', content: message, session_id, device_id, metadata: { device } },
-          { role: 'assistant', content: reply, session_id, device_id, metadata: { device } },
+          { role: 'assistant', content: safeReply, session_id, device_id, metadata: { device } },
         ]);
 
         if (insErr) console.error('insert failed:', insErr);

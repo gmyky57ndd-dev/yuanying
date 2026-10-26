@@ -3,9 +3,13 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-069 (highest assigned: **ES-069**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-070 (highest assigned: **ES-070**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
+> **Collision resolution (2026-10-26b):** the reminder-receipt fix was first
+> written as ES-068; the owner then assigned **ES-068** to voice input. It was
+> renumbered to **ES-070**.
+>
 > **Collision resolution (2026-10-26):** the morning-plan fix was first written
 > as ES-067; the owner then assigned **ES-067** to the DeepSeek tool-call bug. The
 > morning-plan document was renumbered to **ES-069**.
@@ -90,5 +94,6 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-065 | Automated Evening Summary (Cloud Cron + AI Push) | Approved | 2026-10-23 | P2-41 |
 | ES-066 | Chat History Replay & Scroll Stability | Bug fix | 2026-10-24 | P2-42 |
 | ES-067 | DeepSeek Tool Call Parsing & Forced Tool Choice | Urgent Bug (P0) | 2026-10-26 | P2-45 |
-| ES-068 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |
+| ES-068 | Voice Input Accuracy & UX | Approved | 2026-10-26 | P2-46 |
 | ES-069 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
+| ES-070 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |

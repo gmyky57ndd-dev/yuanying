@@ -1,4 +1,4 @@
-# ES-068 — Reminder Receipt Day Boundary
+# ES-070 — Reminder Receipt Day Boundary
 
 - **Status:** Bug fix (#78). **Tracking:** P2-44.
 - **Symptom:** vitamin was marked done at 07:26, before the 08:18 wake.
