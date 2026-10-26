@@ -201,3 +201,17 @@ test('read_markdown understands the flat tool shape', () => {
   assert.strictEqual(result.data.path, 'core/habits.md');
   assert.strictEqual(result.data.total_chars, 5);
 });
+
+test('read_markdown handles the wrapped { data: string, meta } shape', () => {
+  const result = normalizeToolResult(
+    'read_markdown',
+    {
+      success: true,
+      data: 'line one\nline two',
+      meta: { path: 'core/habits.md', total_chars: 17, truncated: false },
+    },
+    false
+  );
+  assert.strictEqual(result.data.content, 'line one\nline two');
+  assert.strictEqual(result.data.path, 'core/habits.md');
+});

@@ -109,15 +109,18 @@ function summarize(name: string, result: any): any {
     case 'read_markdown': {
       // #81: the summary used to drop the body, so 元婴 could see 5625 chars
       // existed but not their content. Keep the text (bounded by CAP_BY_TOOL).
-      const text = String(
-        result.text ?? result.data?.content ?? result.content ?? ''
-      );
+      // runTool wraps the file as { success, data: <string>, meta }.
+      const text =
+        typeof result.data === 'string'
+          ? result.data
+          : String(result.text ?? result.data?.content ?? result.content ?? '');
+      const meta = result.meta ?? {};
       return {
         success: true,
         data: {
-          path: result.path ?? result.meta?.path ?? result.data?.path,
-          truncated: result.truncated ?? result.meta?.truncated ?? false,
-          total_chars: result.total_chars ?? result.meta?.total_chars ?? text.length,
+          path: meta.path ?? result.path ?? result.data?.path,
+          truncated: meta.truncated ?? result.truncated ?? false,
+          total_chars: meta.total_chars ?? result.total_chars ?? text.length,
           content: clip(text, 12000),
         },
         message: 'Markdown loaded.',
