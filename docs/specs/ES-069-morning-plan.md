@@ -26,5 +26,5 @@ model returns nothing, a specific prompt-shaped fallback is stored instead.
 
 - [ ] Empty morning → plan-shaped reply referencing yesterday, not a summary.
 - [ ] Once data exists (or after 11:00), normal summaries still work.
-- [ ] The 09:00 morning brief contains concrete items from yesterday, not "today…" summary prose.
-- [ ] An empty generation stores a specific fallback instead of a blank message.
+- [x] The 09:00 morning brief contains concrete items from yesterday: production dry run named the App Store page, the PSD, v100 and the next step (verified 2026-10-26).
+- [x] An empty generation stores a specific fallback instead of a blank message (chat + cron paths).

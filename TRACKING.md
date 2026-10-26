@@ -213,12 +213,12 @@ never by the section they happened to be written under.
 
 ### [P2-47] #84：时间展示 / 空消息 / 早晚职责 — P0/P1
 
-- **Status**: In Review (2026-10-26) · **Category**: Bug + Feature · **Refs**: #84, ES-069, ES-065
+- **Status**: Done (2026-10-26) · **Category**: Bug + Feature · **Refs**: #84, ES-069, ES-065
 - **Time**: the prompt now carries the local wall-clock string (`dateStyle: full`) and a rule to never report UTC as local; UI formats activity times in the browser's local zone (config tz = America/New_York).
 - **Empty messages**: both chat insert paths replace an empty assistant body with a specific fallback before persisting; the cron endpoints already do this.
 - **Morning/evening roles**: documented in ES-069 — evening closes the day (ES-065 21:30), morning opens it (09:00 `POST /api/cron/morning-brief`, plan from yesterday's notes, idempotent, pushed).
 - **New**: `.github/workflows/morning-brief.yml` (13:00 UTC = 09:00 EDT).
-- **Verification**: dry run of the morning brief; 41/41 tests; build green.
+- **Verified (2026-10-26, production)**: morning brief dry run named concrete items from yesterday; real run stored message **802**; a second call returned `already_generated`; `/api/stt` reports `available:false` (no OpenAI key → Web Speech fallback). 41/41 tests, build green.
 
 ### [P2-45] DeepSeek 工具调用解析 + 强制写操作 (ES-067, #83) — P0
 
