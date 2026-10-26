@@ -21,7 +21,7 @@ import { webSearch } from '@/lib/web-search';
 import { readMarkdown } from '@/lib/read-markdown';
 import { writeMarkdown } from '@/lib/write-markdown';
 import { scheduleMessage } from '@/lib/scheduler';
-import { normalizeToolResult } from '@/lib/tool-result';
+import { normalizeToolResult, stripToolMarkers } from '@/lib/tool-result';
 import { APP_VERSION } from '@/lib/app-version';
 import { ingestExternalChat, queryExternalChats } from '@/lib/external-chats';
 import { askClaude } from '@/lib/external-ai';
@@ -617,6 +617,21 @@ export async function POST(req: NextRequest) {
       // Non-fatal: continue with empty history
     }
 
+    // ES-067: when the owner has already confirmed a file write, the model must
+    // call write_markdown instead of replying "I'll write it now".
+    const lastAssistant = [...(history ?? [])]
+      .reverse()
+      .find(h => h.role === 'assistant')?.content as string | undefined;
+    const confirmOnly =
+      /^(写吧|现在写|确认|执行|保存|落盘|好[，,]?\s*写|改吧|可以写|写入|写进去)[。！!.\s]*$/i.test(
+        message.trim()
+      );
+    const writeIntent =
+      (/\.md\b/i.test(message) && /(写|改|保存|落盘|写入|write|edit)/i.test(message)) ||
+      (confirmOnly &&
+        !!lastAssistant &&
+        (/\.md\b/.test(lastAssistant) || /write_markdown/.test(lastAssistant)));
+
     // 2. Today's data (user's configured timezone; AGENTS.md §6)
     const tz = await getConfigTimezone();
     const { start: startOfDay, end: endOfDay } = getTodayRange(tz);
@@ -761,6 +776,7 @@ ${bodyStatusReminder}`,
       args: Record<string, unknown>
     ) => normalizeToolResult(name, await runToolSafely(name, args), verboseTools);
 
+    let writeResult: any = null;
     const tools = {
       get_notes: tool({
         description:
@@ -878,8 +894,11 @@ ${bodyStatusReminder}`,
           path: z.string().describe('Relative path, e.g. core/ground-rules.md'),
           content: z.string().describe('Full new file content'),
         }),
-        execute: async ({ path, content }) =>
-          runToolForModel('write_markdown', { path, content }),
+        execute: async ({ path, content }) => {
+          const result = await runToolForModel('write_markdown', { path, content });
+          writeResult = result;
+          return result;
+        },
       }),
       scheduler: tool({
         description:
@@ -999,6 +1018,9 @@ ${bodyStatusReminder}`,
       system: systemPrompt,
       messages,
       tools,
+      toolChoice: writeIntent
+        ? ({ type: 'tool', toolName: 'write_markdown' } as const)
+        : undefined,
       maxSteps: 5,
       temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
       maxTokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
@@ -1041,6 +1063,35 @@ ${bodyStatusReminder}`,
           // GitHub number/URL, never a model-composed one.
           reply = `发了。#${pushToDevResult.data.number}。\n\n${pushToDevResult.data.issue_url}`;
         }
+
+        // ES-067: never trust prose for a write. If the tool ran, say what it did;
+        // if it did not run, retry once with a forced tool call.
+        if (writeIntent && !writeResult) {
+          try {
+            await generateText({
+              model,
+              system: systemPrompt,
+              messages,
+              tools,
+              toolChoice: { type: 'tool', toolName: 'write_markdown' },
+              maxSteps: 2,
+              maxTokens: 400,
+            });
+          } catch (e) {
+            console.error('forced write retry failed:', e);
+          }
+        }
+        if (writeResult?.success === true) {
+          const written = writeResult?.data?.path ?? '文件';
+          reply = `写好了：${written}（${writeResult?.data?.action === 'created' ? '新建' : '更新'}，commit ${String(writeResult?.data?.commit_sha ?? '').slice(0, 7) || '已提交'}）。`;
+        }
+
+        // ES-067: strip leaked tool-call markers before the text reaches the UI.
+        const cleaned = stripToolMarkers(reply);
+        if (cleaned.hadMarkers) {
+          console.warn('stripped tool markers from reply');
+        }
+        reply = cleaned.text;
 
         // ES-060: one automatic retry before surfacing a failure. The model
         // sometimes ends a tool turn with no final text; retrying with the same

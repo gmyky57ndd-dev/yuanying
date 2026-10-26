@@ -3,9 +3,13 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-068 (highest assigned: **ES-068**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-069 (highest assigned: **ES-069**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
+> **Collision resolution (2026-10-26):** the morning-plan fix was first written
+> as ES-067; the owner then assigned **ES-067** to the DeepSeek tool-call bug. The
+> morning-plan document was renumbered to **ES-069**.
+>
 > **Collision resolution (2026-10-22):** the HealthConnect permission fix was
 > written first as ES-062, then renumbered to ES-063 when the owner assigned
 > ES-062 to cross-client sync, then to **ES-064** when the owner assigned ES-063
@@ -85,5 +89,6 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-064 | HealthConnect Permission Loss & Fresh Steps in Reminders | Urgent Bug (P0) | 2026-10-22 | P2-38 |
 | ES-065 | Automated Evening Summary (Cloud Cron + AI Push) | Approved | 2026-10-23 | P2-41 |
 | ES-066 | Chat History Replay & Scroll Stability | Bug fix | 2026-10-24 | P2-42 |
-| ES-067 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
+| ES-067 | DeepSeek Tool Call Parsing & Forced Tool Choice | Urgent Bug (P0) | 2026-10-26 | P2-45 |
 | ES-068 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |
+| ES-069 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |

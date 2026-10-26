@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert';
-import { normalizeToolResult } from './tool-result.ts';
+import { normalizeToolResult, stripToolMarkers } from './tool-result.ts';
 
 test('silent push_to_dev returns only status/issue/url', () => {
   const result = normalizeToolResult(
@@ -159,4 +159,27 @@ test('get_conversation_records keeps chat snippets and timestamps', () => {
   assert.strictEqual(result.data.items[0].snippet, '手机上说的一句话');
   assert.strictEqual(result.data.items[0].at, '2026-10-22T19:12:32Z');
   assert.strictEqual(result.data.items[1].role, 'assistant');
+});
+
+test('read_markdown keeps the file body (#81)', () => {
+  const result = normalizeToolResult(
+    'read_markdown',
+    {
+      success: true,
+      data: { path: 'core/habits.md', content: 'line one\nline two' },
+      meta: { path: 'core/habits.md', truncated: false, total_chars: 17 },
+    },
+    false
+  );
+  assert.strictEqual(result.data.content, 'line one\nline two');
+  assert.strictEqual(result.data.total_chars, 17);
+});
+
+test('stripToolMarkers removes leaked DSML syntax (#83)', () => {
+  const dirty = '现在写 <｜｜DSML｜｜ calls> <｜｜DSML｜｜ invoke name="write_markdown"> 好了';
+  const { text, hadMarkers } = stripToolMarkers(dirty);
+  assert.strictEqual(hadMarkers, true);
+  assert.ok(!text.includes('DSML'));
+  assert.ok(!text.includes('｜｜'));
+  assert.match(text, /现在写/);
 });

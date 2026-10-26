@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-45] DeepSeek 工具调用解析 + 强制写操作 (ES-067, #83) — P0
+
+- **Status**: In Review (2026-10-26) · **Category**: Bug (Agent loop / stream) · **Refs**: ES-067, #83, #81
+- **Symptom**: after confirmation the model replied "现在写" for 3 turns without calling `write_markdown`; one turn leaked `<｜｜DSML｜｜ calls>` into the chat.
+- **Fix**: forced `toolChoice: write_markdown` when the message carries a `.md` path (or is a short confirmation after a draft mentioning one); one forced retry if the turn ends without a write result; deterministic reply from the tool result; `stripToolMarkers()` on server + client; `read_markdown` now returns the body (#81); prompt rule forbids narrating execution.
+- **Verification**: 38/38 tests (marker sanitizer + read_markdown body); production checks below.
+- **Docs**: `docs/specs/ES-067-tool-call-parsing.md`.
+
 ### [P2-42] 聊天历史回放与滚动跳动 (ES-066, #80/#77)
 
 - **Status**: In Review (2026-10-24) · **Category**: Bug (Frontend) · **Refs**: ES-066
@@ -211,11 +219,11 @@ never by the section they happened to be written under.
 - **Fix**: gate the realtime effect on `historyReady`; scroll only when the message count grows; skip state updates when ids+content are unchanged; event rows carry `source` and show `· 提醒回执`.
 - **Docs**: `docs/specs/ES-066-chat-replay-scroll.md`.
 
-### [P2-43] 早安问候应给今日计划而非空总结 (ES-067, #79)
+### [P2-43] 早安问候应给今日计划而非空总结 (ES-069, #79)
 
-- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-067
+- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-069
 - **Fix**: before 11:00 with no signals today, the prompt forbids a "今天…" summary and asks for a 2–3 sentence plan based on yesterday.
-- **Docs**: `docs/specs/ES-067-morning-plan.md`.
+- **Docs**: `docs/specs/ES-069-morning-plan.md`.
 
 ### [P2-44] 提醒回执跨日与起床前误记 (ES-068, #78)
 
@@ -1574,7 +1582,7 @@ _(none — P1-22 was dropped by owner decision on 2026-10-21; see Won't Do.)_
 
 Unscheduled. Do not start without owner/tech-lead scheduling.
 
-- **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-22]** Note deletion UI (ES-002; deferred, not v1)
+- **[B-28]** Image input in chat (vision branch; #82, owner: record only, low priority) · **[B-01]** Passive wake/sleep from lock screen · **[B-02]** iOS HealthKit steps · **[B-03]** Desktop companion · **[B-04]** Animated avatar · **[B-05]** Morning/evening briefings · **[B-06]** Pattern engine · **[B-07]** Persona customization UI · **[B-08]** Model router · **[B-09]** Whisper voice input · **[B-10]** Weekly digest · **[B-11]** Stelio full migration · **[B-12]** Share sheet · **[B-13]** Wake word · **[B-14]** `activity_logs` retention · **[B-20]** `summaries` retention/pruning · **[B-22]** Note deletion UI (ES-002; deferred, not v1)
 
 ### [P1-44] Clarify feedback button labels (UI Phase C)
 

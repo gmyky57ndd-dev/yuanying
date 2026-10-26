@@ -6,6 +6,8 @@ const HARD_CAP_CHARS = 1000;
 // Issues need their latest comments to be useful; still bounded.
 const CAP_BY_TOOL: Record<string, number> = {
   get_issue: 5000,
+  // Reading a file is only useful with its body; keep a generous bound.
+  read_markdown: 16000,
 };
 
 function clip(value: string, max: number): string {
@@ -104,16 +106,21 @@ function summarize(name: string, result: any): any {
         message: 'Results returned.',
       };
     }
-    case 'read_markdown':
+    case 'read_markdown': {
+      // #81: the summary used to drop the body, so 元婴 could see 5625 chars
+      // existed but not their content. Keep the text (bounded by CAP_BY_TOOL).
+      const text = String(result.data?.content ?? result.content ?? '');
       return {
         success: true,
         data: {
-          path: result.meta?.path,
-          truncated: result.meta?.truncated,
-          total_chars: result.meta?.total_chars,
+          path: result.meta?.path ?? result.data?.path,
+          truncated: result.meta?.truncated ?? false,
+          total_chars: result.meta?.total_chars ?? text.length,
+          content: clip(text, 12000),
         },
         message: 'Markdown loaded.',
       };
+    }
     case 'get_issue': {
       const data = result.data ?? {};
       const comments = Array.isArray(data.comments) ? data.comments : [];
@@ -220,4 +227,31 @@ function hardCap(value: any, name?: string): any {
   } catch {
     return value;
   }
+}
+
+
+/**
+ * ES-067: DeepSeek sometimes leaks its native tool-call syntax into plain text
+ * (e.g. `<｜｜DSML｜｜ calls>`). Those markers must never reach the chat.
+ */
+export function stripToolMarkers(input: string): {
+  text: string;
+  hadMarkers: boolean;
+} {
+  const patterns = [
+    /<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^>]*>/gi,
+    /<\|\s*(?:DSML|tool_call|tool_calls|function_call)[^>]*>/gi,
+    /<[｜|]{1,2}[^<>]{0,200}[｜|]{1,2}>/g,
+  ];
+  let text = input;
+  let hadMarkers = false;
+  for (const pattern of patterns) {
+    if (pattern.test(text)) {
+      hadMarkers = true;
+      text = text.replace(pattern, '');
+    }
+    pattern.lastIndex = 0;
+  }
+  text = text.replace(/^\s*[｜|]{2}\s*DSML.*$/gim, '');
+  return { text: text.replace(/\n{3,}/g, '\n\n').trim(), hadMarkers };
 }

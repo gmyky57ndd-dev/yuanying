@@ -73,6 +73,16 @@ export async function postChat(
     },
   });
 
+  // ES-067: defence in depth — the server strips markers before persisting; the
+  // client strips again so a leaked marker can never be rendered as chat text.
+  const before = reply;
+  reply = reply
+    .replace(/<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^>]*>/gi, '')
+    .replace(/<[｜|]{1,2}[^<>]{0,200}[｜|]{1,2}>/g, '')
+    .replace(/^\s*[｜|]{2}\s*DSML.*$/gim, '')
+    .trim();
+  if (reply !== before) console.warn('stripped leaked tool-call markers');
+
   if (streamError) throw new Error(streamError);
   if (pushFailure) {
     throw new Error(`GitHub Issue 未创建：${pushFailure}`);
