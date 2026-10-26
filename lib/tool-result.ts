@@ -109,13 +109,15 @@ function summarize(name: string, result: any): any {
     case 'read_markdown': {
       // #81: the summary used to drop the body, so 元婴 could see 5625 chars
       // existed but not their content. Keep the text (bounded by CAP_BY_TOOL).
-      const text = String(result.data?.content ?? result.content ?? '');
+      const text = String(
+        result.text ?? result.data?.content ?? result.content ?? ''
+      );
       return {
         success: true,
         data: {
-          path: result.meta?.path ?? result.data?.path,
-          truncated: result.meta?.truncated ?? false,
-          total_chars: result.meta?.total_chars ?? text.length,
+          path: result.path ?? result.meta?.path ?? result.data?.path,
+          truncated: result.truncated ?? result.meta?.truncated ?? false,
+          total_chars: result.total_chars ?? result.meta?.total_chars ?? text.length,
           content: clip(text, 12000),
         },
         message: 'Markdown loaded.',
@@ -239,9 +241,9 @@ export function stripToolMarkers(input: string): {
   hadMarkers: boolean;
 } {
   const patterns = [
-    /<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^>]*>/gi,
-    /<\|\s*(?:DSML|tool_call|tool_calls|function_call)[^>]*>/gi,
-    /<[｜|]{1,2}[^<>]{0,200}[｜|]{1,2}>/g,
+    /<\/?[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^>]*>/gi,
+    /<\/?[｜|]{1,2}[^<>]{0,400}[｜|]{1,2}>/g,
+    /<\|\s*\/?\s*(?:DSML|tool_call|tool_calls|function_call)[^>]*>/gi,
   ];
   let text = input;
   let hadMarkers = false;

@@ -183,3 +183,21 @@ test('stripToolMarkers removes leaked DSML syntax (#83)', () => {
   assert.ok(!text.includes('｜｜'));
   assert.match(text, /现在写/);
 });
+
+test('stripToolMarkers removes closing DSML tags too', () => {
+  const dirty = '</｜｜DSML｜｜ parameter>\n</｜｜DSML｜｜ calls>';
+  const { text, hadMarkers } = stripToolMarkers(dirty);
+  assert.strictEqual(hadMarkers, true);
+  assert.strictEqual(text, '');
+});
+
+test('read_markdown understands the flat tool shape', () => {
+  const result = normalizeToolResult(
+    'read_markdown',
+    { success: true, path: 'core/habits.md', text: 'hello', truncated: false, total_chars: 5 },
+    false
+  );
+  assert.strictEqual(result.data.content, 'hello');
+  assert.strictEqual(result.data.path, 'core/habits.md');
+  assert.strictEqual(result.data.total_chars, 5);
+});

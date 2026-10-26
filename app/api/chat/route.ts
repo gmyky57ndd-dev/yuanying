@@ -1084,6 +1084,12 @@ ${bodyStatusReminder}`,
         if (writeResult?.success === true) {
           const written = writeResult?.data?.path ?? '文件';
           reply = `写好了：${written}（${writeResult?.data?.action === 'created' ? '新建' : '更新'}，commit ${String(writeResult?.data?.commit_sha ?? '').slice(0, 7) || '已提交'}）。`;
+        } else if (writeIntent && writeResult?.success === false) {
+          // Deterministic failure text: never let model prose (or leaked DSML)
+          // stand in for a write that did not happen.
+          reply = `没写成：${writeResult.error ?? '写入失败'}`;
+        } else if (writeIntent && !writeResult) {
+          reply = '没有执行写入：模型没有发起 write_markdown 调用。请再试一次；若重复出现，我会查系统日志。';
         }
 
         // ES-067: strip leaked tool-call markers before the text reaches the UI.
