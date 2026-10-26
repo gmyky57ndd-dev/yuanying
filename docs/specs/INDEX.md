@@ -3,16 +3,21 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-070 (highest assigned: **ES-070**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-071 (highest assigned: **ES-071**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
+> **Collision resolution (2026-10-26c):** the morning-plan fix was first written
+> as ES-067, renumbered to ES-069, then to **ES-071** when the owner assigned
+> ES-069 to professional fenshen. The professional-fenshen spec is now ES-069.
+>
 > **Collision resolution (2026-10-26b):** the reminder-receipt fix was first
 > written as ES-068; the owner then assigned **ES-068** to voice input. It was
 > renumbered to **ES-070**.
 >
 > **Collision resolution (2026-10-26):** the morning-plan fix was first written
 > as ES-067; the owner then assigned **ES-067** to the DeepSeek tool-call bug. The
-> morning-plan document was renumbered to **ES-069**.
+> morning-plan document was renumbered to ES-069, then to **ES-071** (see the
+> 2026-10-26c note above).
 >
 > **Collision resolution (2026-10-22):** the HealthConnect permission fix was
 > written first as ES-062, then renumbered to ES-063 when the owner assigned
@@ -95,5 +100,6 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-066 | Chat History Replay & Scroll Stability | Bug fix | 2026-10-24 | P2-42 |
 | ES-067 | DeepSeek Tool Call Parsing & Forced Tool Choice | Urgent Bug (P0) | 2026-10-26 | P2-45 |
 | ES-068 | Voice Input Accuracy & UX | Approved | 2026-10-26 | P2-46 |
-| ES-069 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
+| ES-069 | Professional Fenshen Architecture (Skill & Tool Whitelisting) | Approved (Future Sprint) | 2026-10-26 | P2-48 |
+| ES-071 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
 | ES-070 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |

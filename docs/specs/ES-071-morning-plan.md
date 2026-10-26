@@ -1,4 +1,4 @@
-# ES-069 — Morning Plan vs Daily Summary
+# ES-071 — Morning Plan vs Daily Summary
 
 - **Status:** Bug fix (#79). **Tracking:** P2-43.
 - **Symptom:** on an empty morning the greeting summarised "today" (0 steps, no

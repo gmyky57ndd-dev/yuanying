@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 /**
- * #84 / ES-069: the morning briefing is a *plan*, not a summary.
+ * #84 / ES-071: the morning briefing is a *plan*, not a summary.
  * "Evening closes the day, morning opens it."
  *
  * Reads yesterday's notes/conversations, writes 1–3 concrete things to continue
