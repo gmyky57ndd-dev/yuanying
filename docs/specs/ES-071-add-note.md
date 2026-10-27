@@ -32,15 +32,25 @@ The prompt instructs 元婴: when the owner says 记下来 / 存进今天的笔�
 Summaries (ES-039/ES-065/ES-074) end by asking whether to keep them — "yes" maps to
 this tool.
 
-## 3. UI
+## 3. Direct execution (reliability)
+
+The model does not reliably choose the tool, so an explicit request ("记进笔记",
+"记下来", "存进今天的笔记") is executed **server-side** before generation:
+the quoted text (or the previous assistant message when the owner says 这段/刚才)
+is inserted, and the model is told the note id so it only confirms.
+Duplicates are suppressed twice: a 10 s identical-text check in the tool, and a
+same-turn guard that returns the already-saved id when the model also calls the
+tool.
+
+## 4. UI
 
 After every chat reply the PWA refreshes `loadNotes()` and `loadSignals()`, so a note
 appended by the tool appears in the 今天 timeline immediately (no reload).
 
-## 4. Acceptance
+## 5. Acceptance
 
-- [ ] 元婴 appends a note via the tool; the row carries
-      `source='yuanying_summary'`.
-- [ ] The note appears in the timeline right after the reply.
-- [ ] No code path lets the model update or delete an existing note.
-- [ ] >2000 chars returns `success:false` with a clear error.
+- [x] 元婴 appends a note; the row carries `source='yuanying_summary'` and
+      `context.via='add_note'` (production, note 1863).
+- [x] The PWA refreshes notes + signals after every reply (timeline updates).
+- [x] No update/delete path is exposed; only INSERT.
+- [x] >2000 chars returns `success:false` (`note too long`).

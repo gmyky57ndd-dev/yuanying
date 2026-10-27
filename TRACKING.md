@@ -206,9 +206,10 @@ never by the section they happened to be written under.
 
 ### [P2-51] `add_note` 笔记追加工具 (ES-071)
 
-- **Status**: In Review (2026-10-27) · **Category**: Feature (Tool) · **Refs**: ES-071, ES-002
+- **Status**: Done (2026-10-27) · **Category**: Feature (Tool) · **Refs**: ES-071, ES-002
 - **Scope**: INSERT-only `add_note(content)` (2000-char cap), stored as `signals(name='note')` with `source='yuanying_summary'` and `context.via='add_note'`; tool wired into the prompt/manifest; the PWA refreshes notes+signals after every reply.
 - **Safety**: no update/delete path exists for the model; history is append-only.
+- **Verified (2026-10-27, production)**: explicit "记进笔记" inserted exactly one note (`source=yuanying_summary`, `via=add_note`); same-turn duplicate suppressed; source constraint extended (migration 027). Test notes removed afterwards.
 - **Docs**: `docs/specs/ES-071-add-note.md`.
 
 ### [P2-50] 晚间总结调度现实 + 端到端 DoD (ES-073, #86/#87)
