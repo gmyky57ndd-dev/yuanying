@@ -27,6 +27,8 @@ export async function POST(req: NextRequest) {
 
   const url = new URL(req.url);
   const dry = url.searchParams.get('dry') === '1';
+  // A late/early run can leave a wrong message for a date; force regenerates it.
+  const force = url.searchParams.get('force') === '1';
   const started = Date.now();
 
   try {
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
       .filter('metadata->>date', 'eq', date)
       .limit(1)
       .maybeSingle();
-    if (existing && !dry) {
+    if (existing && !dry && !force) {
       return NextResponse.json({
         ok: true,
         skipped: 'already_generated',
