@@ -204,6 +204,13 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-49] 早间简报逻辑 + 打断 Agent 循环 (ES-070) — P0
+
+- **Status**: In Review (2026-10-27) · **Category**: Bug (Prompt/Logic + loop) · **Refs**: ES-070, ES-065, ES-071
+- **Root cause**: the morning cron reused `SUMMARY_TONE_RULES`, which *requires* ending with 「要我存下来吗」；`get_summary` had no morning date guard；zeros were read as "you did nothing".
+- **Fix**: `MORNING_PLAN_RULES` (plan, yesterday only, zeros ≠ failure, never ask to save); `get_summary` returns yesterday before 11:00; prompt/manifest rules for empty days; loop breaker counts save questions in the last 3 assistant turns, interrupts the prompt and strips a repeated question from the reply.
+- **Docs**: `docs/specs/ES-070-morning-brief-logic.md`.
+
 ### [P2-48] 专业分身：技能包与工具白名单 (ES-069, #85) — Future Sprint
 
 - **Status**: Backlog (Approved, not scheduled) · **Category**: Architecture (Multi-Agent) · **Refs**: ES-069, #85, ES-013, ES-029
@@ -250,11 +257,11 @@ never by the section they happened to be written under.
 - **Fix**: before 11:00 with no signals today, the prompt forbids a "今天…" summary and asks for a 2–3 sentence plan based on yesterday.
 - **Docs**: `docs/specs/ES-071-morning-plan.md`.
 
-### [P2-44] 提醒回执跨日与起床前误记 (ES-070, #78)
+### [P2-44] 提醒回执跨日与起床前误记 (ES-072, #78)
 
-- **Status**: In Review (2026-10-24) · **Category**: Bug (Data semantics) · **Refs**: ES-070
+- **Status**: In Review (2026-10-24) · **Category**: Bug (Data semantics) · **Refs**: ES-072
 - **Fix**: `/api/reminder/act` rejects receipts from previous product days and duplicate acts; vitamin window moved to 08:30 (migration 026); reminder receipts are labelled in the activity stream; history untouched.
-- **Docs**: `docs/specs/ES-070-reminder-receipt.md`.
+- **Docs**: `docs/specs/ES-072-reminder-receipt.md`.
 
 ### [P2-41] 自动化晚间总结（云端 cron + AI 推送）(ES-065)
 

@@ -31,6 +31,18 @@ export const SUMMARY_TONE_RULES = `- Focus on meaning. Do not just list technica
 - 语气：小悟式——冷静、有温度、不啰嗦。不要用表格、字段名或「Signals / Totals」标题。
 - 例子："昨天你状态不错，做了不少园艺，还写了关于反馈链路的笔记。水喝得刚好，步数也达标了。"`;
 
+/**
+ * ES-070: the morning brief is a plan, not a summary. It must NOT inherit the
+ * daily-summary rule that ends with "要我存下来吗？" and must not read zeros as
+ * "you did nothing".
+ */
+export const MORNING_PLAN_RULES = `- 现在是早晨。你要写的是**今天的计划**，不是对今天的总结。
+- 昨天的数据是唯一依据；绝不要总结今天（0 点到现在）。
+- 数字全是 0 不代表主人没做事：可能是没同步、在休息或生病。先看 notes 再判断。
+- 如果昨天没有笔记，就说“昨天是个空白日”，然后问今天想先做哪一件；**不要**说“你没有做事”。
+- 不要问「要我存下来吗」——你没有权限修改过去的数据，今天也还没有东西可存。
+- 不用列表，2–3 句，具体、可执行，像伙伴在提醒。`;
+
 async function loadConfig() {
   const { data } = await supabase.from('config').select('key, value');
   const config = Object.fromEntries(

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateText } from 'ai';
 import { supabase } from '@/lib/db';
 import { getConfigTimezone, getDateInTimezone } from '@/lib/timezone';
-import { generateSummary, SUMMARY_TONE_RULES } from '@/lib/summary-generator';
+import { generateSummary, MORNING_PLAN_RULES } from '@/lib/summary-generator';
 import { getModel } from '@/lib/llm-router';
 import { pushToActiveDevices } from '@/lib/push';
 import { recordSystemEvent } from '@/lib/system-events';
@@ -61,10 +61,8 @@ export async function POST(req: NextRequest) {
     const model = await getModel();
     const { text } = await generateText({
       model,
-      system: `你是元婴。现在是早晨。${SUMMARY_TONE_RULES}
-
-这是一天的开头，不是总结。不要复述昨天的数字，不要写「今天……」式总结。基于昨天留下的笔记与对话，给出今天要接续的 1–3 件事：具体、可执行、像伙伴在提醒。不用列表，2–3 句。`,
-      prompt: `昨天的记录（JSON）：\n${JSON.stringify(compact)}\n\n写今天早上要说的话。`,
+      system: `你是元婴。${MORNING_PLAN_RULES}`,
+      prompt: `昨天（${yesterdayDate}）的记录（JSON）：\n${JSON.stringify(compact)}\n\n写今天早上要说的话。今天是 ${today}，但不要总结今天。`,
       maxTokens: 320,
     });
 

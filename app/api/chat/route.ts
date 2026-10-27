@@ -22,6 +22,11 @@ import { readMarkdown } from '@/lib/read-markdown';
 import { writeMarkdown } from '@/lib/write-markdown';
 import { scheduleMessage } from '@/lib/scheduler';
 import { normalizeToolResult, stripToolMarkers } from '@/lib/tool-result';
+import {
+  recentSaveQuestionCount,
+  hasSaveQuestion,
+  stripSaveQuestion,
+} from '@/lib/loop-guard';
 import { APP_VERSION } from '@/lib/app-version';
 import { ingestExternalChat, queryExternalChats } from '@/lib/external-chats';
 import { askClaude } from '@/lib/external-ai';
@@ -213,12 +218,35 @@ async function runTool(name: string, args: any): Promise<any> {
   }
 
   if (name === 'get_summary') {
-    const date = String(args?.date ?? '');
-    if (!DATE_RE.test(date)) {
-      return { success: false, error: 'date must be YYYY-MM-DD' };
+    const tz = await getConfigTimezone();
+    const today = getDateInTimezone(tz);
+    const hour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz,
+        hour: '2-digit',
+        hour12: false,
+      }).format(new Date())
+    );
+    const requested = String(args?.date ?? '');
+    // #ES-070: before 11:00 a summary request means "yesterday", never today.
+    let date = DATE_RE.test(requested) ? requested : today;
+    if (hour < 11 && date === today) {
+      const y = new Date(`${today}T12:00:00Z`);
+      y.setUTCDate(y.getUTCDate() - 1);
+      date = y.toISOString().slice(0, 10);
     }
     const { data } = await generateSummary({ date });
-    return { success: true, date, data };
+    return {
+      success: true,
+      date,
+      data,
+      note:
+        date !== requested && requested
+          ? `It is morning: returning ${date} (yesterday) instead of ${requested}.`
+          : date !== today && !requested
+            ? `It is morning: returning ${date} (yesterday).`
+            : undefined,
+    };
   }
 
   if (name === 'get_steps') {
@@ -690,6 +718,8 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Build system prompt (Core + active Fenshen from DB)
+    const repeatSaveQuestion =
+      recentSaveQuestionCount((history ?? []) as any, 3) >= 2;
     const systemPrompt = await buildSystemPrompt({
       signals: todaysSignals,
       now: new Date().toISOString(),
@@ -801,9 +831,12 @@ ${bodyStatusReminder}`,
       }),
       get_summary: tool({
         description:
-          'Fetch the daily summary for a specific date (YYYY-MM-DD).',
+          'Fetch the daily summary for a specific date (YYYY-MM-DD). Omit the date in the morning: the server returns yesterday, never an empty today.',
         parameters: z.object({
-          date: z.string().describe('Date in YYYY-MM-DD format'),
+          date: z
+            .string()
+            .optional()
+            .describe('Date in YYYY-MM-DD; omit for the morning default'),
         }),
         execute: async ({ date }) => runToolForModel('get_summary', { date }),
       }),
@@ -1014,9 +1047,13 @@ ${bodyStatusReminder}`,
     };
 
     let streamError: string | null = null;
+    const guardedSystemPrompt = repeatSaveQuestion
+      ? `${systemPrompt}\n\n【打断】你已经连续多次用同一句请示（「要我存下来吗」）。不要再问；直接执行主人最新的一条指令，或简短结束。`
+      : systemPrompt;
+
     const result = streamText({
       model,
-      system: systemPrompt,
+      system: guardedSystemPrompt,
       messages,
       tools,
       toolChoice: writeIntent
@@ -1091,6 +1128,12 @@ ${bodyStatusReminder}`,
           reply = `没写成：${writeResult.error ?? '写入失败'}`;
         } else if (writeIntent && !writeResult) {
           reply = '没有执行写入：模型没有发起 write_markdown 调用。请再试一次；若重复出现，我会查系统日志。';
+        }
+
+        // ES-070: once the question has been asked twice, stop repeating it.
+        if (repeatSaveQuestion && hasSaveQuestion(reply)) {
+          reply = stripSaveQuestion(reply);
+          console.warn('stripped repeated save question');
         }
 
         // ES-067: strip leaked tool-call markers before the text reaches the UI.

@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-071 (highest assigned: **ES-071**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-072 (highest assigned: **ES-072**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-26c):** the morning-plan fix was first written
@@ -102,7 +102,8 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-068 | Voice Input Accuracy & UX | Approved | 2026-10-26 | P2-46 |
 | ES-069 | Professional Fenshen Architecture (Skill & Tool Whitelisting) | Approved (Future Sprint) | 2026-10-26 | P2-48 |
 | ES-071 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
-| ES-070 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |
+| ES-072 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |
+| ES-070 | Fix Morning Briefing Logic & Break Agent Loop | Urgent Bug (P0) | 2026-10-27 | P2-49 |
 
 ---
 
@@ -115,7 +116,8 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-063 (HealthConnect) | **ES-064** | 2026-10-22 | Owner assigned ES-063 to multi-device architecture |
 | ES-067 (morning plan) | ES-069 | 2026-10-26 | Owner assigned ES-067 to the DeepSeek tool-call bug |
 | ES-069 (morning plan) | **ES-071** | 2026-10-26 | Owner assigned ES-069 to professional fenshen |
-| ES-068 (reminder receipt) | **ES-070** | 2026-10-26 | Owner assigned ES-068 to voice input |
+| ES-068 (reminder receipt) | ES-070 | 2026-10-26 | Owner assigned ES-068 to voice input |
+| ES-070 (reminder receipt) | **ES-072** | 2026-10-27 | Owner assigned ES-070 to the morning-briefing bug |
 
 Rule: the owner's assignment wins; the displaced document takes the next free
 number, every reference (INDEX, TRACKING, code comments, specs) is updated, and

@@ -169,6 +169,9 @@ function buildDailyContext(opts: BuildOptions): string {
       timeStyle: 'short',
     }).format(now);
     lines.push(`- 现在（本地时间 ${timeZone}）：${localNow}`);
+    lines.push(
+      '- 数字为 0 只代表“没有数据 / 没同步 / 在休息”，不代表主人没做事。'
+    );
     const hour = Number(
       new Intl.DateTimeFormat('en-GB', {
         timeZone,
@@ -180,6 +183,9 @@ function buildDailyContext(opts: BuildOptions): string {
     if (hour < 11 && todayCount === 0) {
       lines.push(
         '- 现在是早晨，今天还没有任何记录。**不要**写「今天……」式的总结；改用昨天/最近一次的摘要，用 2–3 句给出今天的计划：昨天推进了什么、今天可以接着做什么。不要列数据清单，不要报 0。'
+      );
+      lines.push(
+        '- 早晨不要问「要我存下来吗」；今天还没有可保存的内容，你也没有权限修改昨天。'
       );
     }
   } catch {
