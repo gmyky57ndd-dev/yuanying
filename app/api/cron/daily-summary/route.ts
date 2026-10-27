@@ -31,7 +31,30 @@ export async function POST(req: NextRequest) {
 
   try {
     const tz = await getConfigTimezone();
-    const date = getDateInTimezone(tz);
+    const today = getDateInTimezone(tz);
+    // #86/#87: GitHub's scheduler is frequently delayed by hours (observed:
+    // 01:30 UTC job actually ran at 06:26). Trust the local clock, not the cron:
+    // before noon we are closing out *yesterday*; in the evening, today.
+    const localHour = Number(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz,
+        hour: '2-digit',
+        hour12: false,
+      }).format(new Date())
+    );
+    const explicitDate = new URL(req.url).searchParams.get('date');
+    const date =
+      explicitDate && /^\d{4}-\d{2}-\d{2}$/.test(explicitDate)
+        ? explicitDate
+        : localHour < 12
+          ? (() => {
+              const y = new Date(`${today}T12:00:00Z`);
+              y.setUTCDate(y.getUTCDate() - 1);
+              return y.toISOString().slice(0, 10);
+            })()
+          : today;
+    const isToday = date === today;
+    const label = isToday ? '今天' : '昨天';
 
     // Idempotent: one summary per product day.
     const { data: existing } = await supabase
@@ -46,6 +69,7 @@ export async function POST(req: NextRequest) {
         ok: true,
         skipped: 'already_generated',
         date,
+        label,
         message_id: existing.id,
       });
     }
@@ -70,8 +94,8 @@ export async function POST(req: NextRequest) {
     const model = await getModel();
     const { text } = await generateText({
       model,
-      system: `你是元婴。用第一人称写今天的收尾总结。${SUMMARY_TONE_RULES}`,
-      prompt: `今天的记录如下（JSON）：\n${JSON.stringify(compact)}\n\n写 2–3 句人话：先说今天的重点（优先 notes），数字只作背景，不列清单，不给健康建议。最后用一句话问主人要不要把这段存下来。`,
+      system: `你是元婴。用第一人称写${label}（${date}）的收尾总结。${SUMMARY_TONE_RULES}`,
+      prompt: `要总结的日期是 ${date}（${label}）。记录如下（JSON）：\n${JSON.stringify(compact)}\n\n写 2–3 句人话：先说${label}的重点（优先 notes），数字只作背景，不列清单，不给健康建议。全为 0 时不要评判主人，说明可能是没记录/休息。最后问一句要不要把这段存下来。`,
       maxTokens: 320,
     });
 
@@ -113,6 +137,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       date,
+      label,
       message_id: inserted?.id ?? null,
       push,
     });

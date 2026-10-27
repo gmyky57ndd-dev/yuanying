@@ -24,3 +24,6 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" \
             -H 'Content-Type: application/json' \
             -d '{}' | tee /tmp/resp.json
+          # ES-070 DoD: the run fails if no message was produced.
+          node -e "const r=require('/tmp/resp.json'); if(!r.ok||!r.message_id){console.error('summary not generated',r);process.exit(1)} console.log('summary ok',r.date,r.message_id)"
+
