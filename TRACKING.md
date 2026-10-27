@@ -206,9 +206,10 @@ never by the section they happened to be written under.
 
 ### [P2-50] 晚间总结调度现实 + 端到端 DoD (ES-073, #86/#87)
 
-- **Status**: In Review (2026-10-27) · **Category**: Bug (Cron / DoD) · **Refs**: ES-073, ES-065, ES-070
+- **Status**: Done (2026-10-27) · **Category**: Bug (Cron / DoD) · **Refs**: ES-073, ES-065, ES-070
 - **Evidence**: the 01:30 UTC workflow actually ran at 06:19–06:28 UTC; the endpoint used the execution-day, so it summarised an empty "today".
 - **Fix**: target date from the local clock (before noon → yesterday, else today; `?date=` override); prompt/label say 昨天; zeros are not a judgement; the workflow now fails unless `{ok, message_id}` is returned.
+- **Verified (2026-10-27, production)**: dry run at 07:4x EDT targeted 2026-10-26; `?force=1` wrote message **826** with yesterday's real content; rows 773/821 marked `superseded_by`/`misdated` (nothing deleted); workflow now fails without a `message_id`.
 - **Docs**: `docs/specs/ES-073-evening-summary-schedule.md`.
 
 ### [P2-49] 早间简报逻辑 + 打断 Agent 循环 (ES-070) — P0

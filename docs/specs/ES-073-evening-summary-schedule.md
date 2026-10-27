@@ -26,14 +26,16 @@
 4. **DoD in CI**: `daily-summary.yml` now parses the response and exits non-zero
    unless `{ok: true, message_id}` is present — a silent no-op becomes a red run.
 
-## 3. Open item
+## 3. Historical correction
 
-The wrong `daily_summary` rows for 2026-10-25/26/27 remain in history (AGENTS §3:
-historical records are not deleted). They are distinguishable by
-`metadata.date`; future runs write the correct date.
+The wrongly-timed rows are preserved but marked (AGENTS §3):
+- id **773** (date 2026-10-26, generated at 02:28 EDT) → `metadata.superseded_by = 826`;
+- id **821** (date 2026-10-27, the empty "today") → `metadata.misdated = true`;
+- id **826** is the corrected 2026-10-26 summary.
+Nothing was deleted; the correction is visible in the metadata.
 
 ## 4. Acceptance
 
 - [x] A run at 07:42 EDT targets yesterday (dry-run verified).
-- [ ] The 21:30 product (or a delayed run) stores a message for the intended day.
+- [x] `?force=1` produced message **826** for 2026-10-26 with yesterday's real content (Apple ASO, YouTube uploads); the previous rows are marked superseded/misdated.
 - [x] The workflow fails when the endpoint returns no message.
