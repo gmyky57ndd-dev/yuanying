@@ -405,6 +405,22 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: false, error: 'note too long (max 2000 chars)' };
     }
     const tz = await getConfigTimezone();
+    // Dedupe: the direct path may have just written the same text.
+    const { data: dup } = await supabase
+      .from('signals')
+      .select('id')
+      .eq('name', 'note')
+      .filter('value->>text', 'eq', content)
+      .gte('created_at', new Date(Date.now() - 10000).toISOString())
+      .limit(1)
+      .maybeSingle();
+    if (dup?.id) {
+      return {
+        success: true,
+        data: { id: dup.id, date: getDateInTimezone(tz), text: content, deduped: true },
+        message: 'Note already saved.',
+      };
+    }
     const { data, error } = await supabase
       .from('signals')
       .insert({
@@ -1006,7 +1022,16 @@ ${bodyStatusReminder}`,
             .string()
             .describe('Note text, max 2000 characters; plain text, no metadata'),
         }),
-        execute: async ({ content }) => runToolForModel('add_note', { content }),
+        execute: async ({ content }) => {
+          if (noteSaved && content.trim() === noteSaved.text) {
+            return {
+              success: true,
+              data: { id: noteSaved.id, text: noteSaved.text, deduped: true },
+              message: 'Already saved by the server.',
+            };
+          }
+          return runToolForModel('add_note', { content });
+        },
       }),
       write_markdown: tool({
         description:
