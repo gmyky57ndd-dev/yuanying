@@ -397,6 +397,38 @@ async function runTool(name: string, args: any): Promise<any> {
     };
   }
 
+  if (name === 'add_note') {
+    // ES-071: append-only memory capture. INSERT only — no update, no delete.
+    const content = String(args?.content ?? '').trim();
+    if (!content) return { success: false, error: 'content required' };
+    if (content.length > 2000) {
+      return { success: false, error: 'note too long (max 2000 chars)' };
+    }
+    const tz = await getConfigTimezone();
+    const { data, error } = await supabase
+      .from('signals')
+      .insert({
+        name: 'note',
+        type: 'note',
+        value: {
+          text: content,
+          tags: [],
+          feedbackSuggested: false,
+          authored_by: 'yuanying',
+        },
+        source: 'yuanying_summary',
+        context: { source: 'yuanying_summary', via: 'add_note' },
+      })
+      .select('id')
+      .single();
+    if (error) return { success: false, error: error.message };
+    return {
+      success: true,
+      data: { id: data.id, date: getDateInTimezone(tz), text: content },
+      message: 'Note appended.',
+    };
+  }
+
   if (name === 'get_drive_doc') {
     const file = String(args?.file_id ?? '').trim();
     if (!file) return { success: false, error: 'file_id required' };
@@ -779,7 +811,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_steps, get_system_status, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
+          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_steps, get_system_status, add_note, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
 
 ${bodyStatusReminder}`,
       },
@@ -920,6 +952,16 @@ ${bodyStatusReminder}`,
             ),
         }),
         execute: async ({ path }) => runToolForModel('read_markdown', { path }),
+      }),
+      add_note: tool({
+        description:
+          "Append a note to the owner's daily note stream (the 记一笔 timeline). Use when the owner says '记下来 / 存进今天的笔记 / 把这段总结记下来'. This is INSERT-only: you cannot edit or delete existing notes, so never claim to update one.",
+        parameters: z.object({
+          content: z
+            .string()
+            .describe('Note text, max 2000 characters; plain text, no metadata'),
+        }),
+        execute: async ({ content }) => runToolForModel('add_note', { content }),
       }),
       write_markdown: tool({
         description:

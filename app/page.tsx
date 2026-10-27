@@ -696,6 +696,9 @@ export default function Home() {
       }, deviceIdRef.current);
       if (d.reply) {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
+        // ES-071: a tool may have appended a note; refresh the timeline.
+        loadNotes();
+        loadSignals();
         void speakReply(d.reply);
       } else {
         setError('没有收到回复，请重试');
