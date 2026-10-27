@@ -678,6 +678,51 @@ export async function POST(req: NextRequest) {
       // Non-fatal: continue with empty history
     }
 
+    // ES-071: explicit note requests are executed server-side. Tool-calling is
+    // kept for model-initiated saves, but "记进笔记" must never depend on the
+    // model choosing a tool.
+    const noteIntent =
+      /(记(一)?下|记进|写入?笔记|存进.{0,6}笔记|存到.{0,6}笔记|存进今天|add_note)/i.test(
+        message
+      );
+    let noteSaved: { id: number; text: string } | null = null;
+    if (noteIntent) {
+      const quoted = message.match(/[「“"]([^」”"]{2,})[」”"]/)?.[1];
+      const afterColon = message.match(/[：:]\s*([\s\S]+)$/)?.[1];
+      const refersToPrevious = /(这段|上面|总结|刚才)/.test(message);
+      const prevAssistant = [...(history ?? [])]
+        .reverse()
+        .find(h => h.role === 'assistant')?.content as string | undefined;
+      const raw =
+        quoted ??
+        afterColon ??
+        (refersToPrevious && prevAssistant ? prevAssistant : message);
+      const text = String(raw).trim().slice(0, 2000);
+      if (text) {
+        const { data: inserted, error: noteError } = await supabase
+          .from('signals')
+          .insert({
+            name: 'note',
+            type: 'note',
+            value: {
+              text,
+              tags: [],
+              feedbackSuggested: false,
+              authored_by: 'yuanying',
+            },
+            source: 'yuanying_summary',
+            context: { source: 'yuanying_summary', via: 'add_note' },
+          })
+          .select('id')
+          .single();
+        if (noteError) {
+          console.error('add_note direct insert failed:', noteError);
+        } else {
+          noteSaved = { id: inserted.id, text };
+        }
+      }
+    }
+
     // ES-067: when the owner has already confirmed a file write, the model must
     // call write_markdown instead of replying "I'll write it now".
     const lastAssistant = [...(history ?? [])]
@@ -1089,9 +1134,12 @@ ${bodyStatusReminder}`,
     };
 
     let streamError: string | null = null;
+    const notePromptSuffix = noteSaved
+      ? `\n\n【系统】已通过 add_note 写入今天的笔记（id=${noteSaved.id}）。用一句确认即可，不要重复正文，也不要再问要不要保存。`
+      : '';
     const guardedSystemPrompt = repeatSaveQuestion
-      ? `${systemPrompt}\n\n【打断】你已经连续多次用同一句请示（「要我存下来吗」）。不要再问；直接执行主人最新的一条指令，或简短结束。`
-      : systemPrompt;
+      ? `${systemPrompt}\n\n【打断】你已经连续多次用同一句请示（「要我存下来吗」）。不要再问；直接执行主人最新的一条指令，或简短结束。${notePromptSuffix}`
+      : `${systemPrompt}${notePromptSuffix}`;
 
     const result = streamText({
       model,
@@ -1203,6 +1251,10 @@ ${bodyStatusReminder}`,
             streamError = e instanceof Error ? e.message : 'retry failed';
             console.error('reply retry failed:', e);
           }
+        }
+
+        if (!reply && noteSaved) {
+          reply = `记下了（笔记 #${noteSaved.id}）。`;
         }
 
         if (!reply) {
