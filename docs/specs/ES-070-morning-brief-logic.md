@@ -31,8 +31,7 @@
 
 ## 3. Acceptance
 
-- [x] Morning brief uses the plan rules (dry run checked: no save question).
-- [x] `get_summary()` before 11:00 returns yesterday when asked for today
-      (unit-level guard in code; verify with the owner's morning interaction).
-- [ ] Empty data produces "昨天是个空白日", not "你没有做事".
-- [ ] Two consecutive save questions cannot repeat a third time.
+- [x] Morning brief uses the plan rules: production dry run returned a concrete plan with no save question.
+- [x] `get_summary()` before 11:00 returns yesterday: production chat "看一下今天的简报" returned yesterday's events and today's next step, no save question.
+- [x] Empty data produces "昨天是个空白日", not "你没有做事" (prompt + manifest rules).
+- [x] Two consecutive save questions cannot repeat a third time (prompt interrupt + reply strip; unit tests).

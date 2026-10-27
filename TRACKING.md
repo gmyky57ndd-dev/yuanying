@@ -206,9 +206,10 @@ never by the section they happened to be written under.
 
 ### [P2-49] 早间简报逻辑 + 打断 Agent 循环 (ES-070) — P0
 
-- **Status**: In Review (2026-10-27) · **Category**: Bug (Prompt/Logic + loop) · **Refs**: ES-070, ES-065, ES-071
+- **Status**: Done (2026-10-27) · **Category**: Bug (Prompt/Logic + loop) · **Refs**: ES-070, ES-065, ES-071
 - **Root cause**: the morning cron reused `SUMMARY_TONE_RULES`, which *requires* ending with 「要我存下来吗」；`get_summary` had no morning date guard；zeros were read as "you did nothing".
 - **Fix**: `MORNING_PLAN_RULES` (plan, yesterday only, zeros ≠ failure, never ask to save); `get_summary` returns yesterday before 11:00; prompt/manifest rules for empty days; loop breaker counts save questions in the last 3 assistant turns, interrupts the prompt and strips a repeated question from the reply.
+- **Verified (2026-10-27, production)**: morning-brief dry run returned a concrete plan with no save question; chat "看一下今天的简报" returned **yesterday's** events plus today's next step; 44/44 tests.
 - **Docs**: `docs/specs/ES-070-morning-brief-logic.md`.
 
 ### [P2-48] 专业分身：技能包与工具白名单 (ES-069, #85) — Future Sprint
