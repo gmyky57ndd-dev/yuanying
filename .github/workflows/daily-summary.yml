@@ -3,11 +3,9 @@ name: Daily Evening Summary
 # ES-065: Vercel Hobby cannot run a 21:30 cron reliably, so GitHub Actions is the
 # trigger. 01:30 UTC = 21:30 EDT (20:30 EST; DST shifts the local time by an hour).
 on:
-  schedule:
-    # ES-075: two UTC slots cover EDT and EST; the endpoint only acts between
-    # 21:00 and 22:00 local and skips the other run.
-    - cron: '35 1 * * *'
-    - cron: '35 2 * * *'
+  # ES-075: the primary trigger is Supabase pg_cron (job evening-summary-15m),
+  # which is not subject to GitHub's multi-hour schedule delays. This workflow is
+  # kept for manual runs only.
   workflow_dispatch:
 
 jobs:

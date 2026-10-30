@@ -22,10 +22,12 @@ export async function POST(req: NextRequest) {
       .eq('id', reminder_id)
       .maybeSingle();
 
-    const habit: string | null = HABITS.includes(name)
-      ? name
-      : HABITS.includes(rem?.name)
-        ? rem!.name
+    // #88: the reminder row is the source of truth for the habit; the client
+    // extra can be stale (e.g. a standup label on a water reminder).
+    const habit: string | null = HABITS.includes(rem?.name)
+      ? rem!.name
+      : HABITS.includes(name)
+        ? name
         : null;
 
     // #78: a reminder from a previous product day must not mark today done.
@@ -68,6 +70,27 @@ export async function POST(req: NextRequest) {
         source: 'reminder',
         context: { habit, reminder_name: habit, reminder_id },
       });
+
+      // #88: the collector also posts the habit signal, but that POST can fail
+      // offline and was lost silently (water stayed 0/6). Backfill it here with
+      // a 2-minute dedupe window so counts are correct exactly once.
+      const since = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+      const { data: existingHabit } = await supabase
+        .from('signals')
+        .select('id')
+        .eq('name', habit)
+        .gte('created_at', since)
+        .limit(1)
+        .maybeSingle();
+      if (!existingHabit) {
+        await supabase.from('signals').insert({
+          name: habit,
+          type: habit === 'water' ? 'count' : 'event',
+          value: habit === 'water' ? 1 : true,
+          source: 'reminder',
+          context: { via: 'reminder_act', reminder_id },
+        });
+      }
     }
 
     return NextResponse.json({ ok: true });

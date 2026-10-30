@@ -31,7 +31,20 @@ export async function POST(req: NextRequest) {
 
   try {
     const tz = await getConfigTimezone();
-    const now = at ? new Date(at) : new Date();
+    // A '+' in a query string decodes to a space ('...T21:35:00+08:00' →
+    // '... 08:00'), which used to throw "Invalid time value" (#88). Normalise
+    // and validate instead of 500.
+    let now = new Date();
+    if (at) {
+      const parsed = new Date(at.replace(/ /g, '+'));
+      if (Number.isNaN(parsed.getTime())) {
+        return NextResponse.json(
+          { error: 'invalid at parameter; expected ISO 8601', at },
+          { status: 400 }
+        );
+      }
+      now = parsed;
+    }
     const localHour = Number(
       new Intl.DateTimeFormat('en-GB', {
         timeZone: tz,
