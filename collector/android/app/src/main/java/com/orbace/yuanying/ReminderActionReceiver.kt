@@ -3,6 +3,7 @@ package com.orbace.yuanying
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import org.json.JSONObject
 
@@ -63,7 +64,10 @@ class ReminderActionReceiver : BroadcastReceiver() {
                         }
                     )
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                // #88: never lose an action silently; retry on the next run.
+                Log.w("ReminderAction", "action post failed", e)
+                PendingActions.enqueue(context, habit, action, id)
             } finally {
                 pending.finish()
             }

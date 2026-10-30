@@ -48,6 +48,8 @@ public class CollectorWorker extends Worker {
         }
 
         try {
+            PendingActions.INSTANCE.drain(ctx);
+
             // 1. 检查开关
             ConfigClient config = new ConfigClient();
             if (!config.isCollectionEnabled()) {
