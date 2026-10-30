@@ -91,6 +91,7 @@ object ReminderScheduler {
 
             val habits = fetchHabits()
             val signals = fetchTodaySignals()
+            reconcileMissed(context, habits, prefs, nowMs, dateKey)
 
             for (habit in habits) {
                 val name = habit.optString("name")
@@ -213,11 +214,18 @@ object ReminderScheduler {
             0
         }
 
-        prefs.edit().putLong("lf:$name", nowMs).apply()
-        prefs.edit().putInt("fired", prefs.getInt("fired", 0) + 1).apply()
-        notify(context, id, name, message)
-        speak(context, voice)
-        Log.i(TAG, "fired $name ($displayName) id=$id")
+        try {
+            notify(context, id, name, message)
+            prefs.edit().putLong("lf:$name", nowMs).apply()
+            prefs.edit().putInt("fired", prefs.getInt("fired", 0) + 1).apply()
+            logDelivery(context, name, "delivered", null)
+            speak(context, voice)
+            Log.i(TAG, "fired $name ($displayName) id=$id")
+        } catch (e: Exception) {
+            // ES-075: never lose a delivery silently.
+            logDelivery(context, name, "failed", e.message)
+            Log.e(TAG, "delivery failed for $name", e)
+        }
     }
 
     /** Best-effort HealthConnect read; null when unavailable or not permitted. */
@@ -260,6 +268,64 @@ object ReminderScheduler {
             NotificationManagerCompat.from(context).notify(9101, notif)
         } catch (e: Exception) {
             Log.w(TAG, "permission notice failed", e)
+        }
+    }
+
+    /** ES-075: one row per delivery attempt, delivered or failed. */
+    private fun logDelivery(
+        context: Context,
+        habit: String,
+        status: String,
+        error: String?
+    ) {
+        try {
+            val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+                .apply { timeZone = TimeZone.getTimeZone("UTC") }
+            val now = fmt.format(Date())
+            val payload = JSONObject().apply {
+                put("habit", habit)
+                put("scheduled_at", now)
+                put("fired_at", now)
+                put("status", status)
+                if (error != null) put("error_message", error.take(200))
+            }
+            ApiClient().post(ApiClient.BASE_URL + "/api/reminder/delivery", payload)
+        } catch (e: Exception) {
+            Log.w(TAG, "delivery log failed", e)
+        }
+    }
+
+    /**
+     * ES-075: a fixed-time reminder whose slot passed by >15 min without a
+     * delivery is logged as failed, so a killed process becomes visible.
+     */
+    private fun reconcileMissed(
+        context: Context,
+        habits: List<JSONObject>,
+        prefs: SharedPreferences,
+        nowMs: Long,
+        dateKey: String
+    ) {
+        for (habit in habits) {
+            val name = habit.optString("name")
+            val reminder = habit.optJSONObject("reminder") ?: continue
+            if (reminder.optString("mode") != "fixed") continue
+            val times = reminder.optJSONArray("times") ?: continue
+            for (i in 0 until times.length()) {
+                val minutes = parseHHMM(times.optString(i))
+                val slot = Calendar.getInstance().apply {
+                    set(Calendar.HOUR_OF_DAY, minutes / 60)
+                    set(Calendar.MINUTE, minutes % 60)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                if (nowMs < slot + 15 * 60 * 1000L) continue
+                if (prefs.getLong("lf:$name", 0L) >= slot) continue
+                val key = "missed:$name:$dateKey:$minutes"
+                if (prefs.getBoolean(key, false)) continue
+                prefs.edit().putBoolean(key, true).apply()
+                logDelivery(context, name, "failed", "missed: process not running")
+            }
         }
     }
 
@@ -423,11 +489,7 @@ object ReminderScheduler {
                 .addAction(0, "忽略", ignoredPi)
                 .build()
 
-            try {
-                NotificationManagerCompat.from(context).notify(1000 + id, evening)
-            } catch (e: SecurityException) {
-                Log.w(TAG, "notification permission not granted")
-            }
+            NotificationManagerCompat.from(context).notify(1000 + id, evening)
             return
         }
 
@@ -465,11 +527,7 @@ object ReminderScheduler {
             .addAction(0, "忽略", ignoredPi)
             .build()
 
-        try {
-            NotificationManagerCompat.from(context).notify(1000 + id, notif)
-        } catch (e: SecurityException) {
-            Log.w(TAG, "notification permission not granted")
-        }
+        NotificationManagerCompat.from(context).notify(1000 + id, notif)
     }
 
     private fun ensureChannel(context: Context) {

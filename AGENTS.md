@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.11
+**Version:** 1.12
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -314,12 +314,14 @@ If code is complete but a required check or owner verification is pending, use *
 ## 9. Reading order for new agents
 
 1. `AGENTS.md` — rules and current changelog
-2. `TRACKING.md` — current status, acceptance criteria, and project history
-3. Current requirements/specification for the task (check the repository, including `docs/`, for actual filenames)
-4. `core/identity.md`, `core/voice.md`, `core/values.md`, and `core/system-manifest.md` when present and relevant
-5. Pattern files such as `core/inferred-patterns.md`, `core/confirmed-patterns.md`, or `core/rejected-patterns.md`, if they exist and are relevant
-6. The schema and routes that implement the relevant data flow (inspect actual files; do not assume a `/api/summary/*` route or a summaries table exists)
-7. Relevant code, tests, migrations, and workflows
+2. `HARNESS-RULES.md` — operating rules for AI agents: diagnose from evidence,
+   idempotency, no silent failure, evidence-based DoD
+3. `TRACKING.md` — current status, acceptance criteria, and project history
+4. Current requirements/specification for the task (check the repository, including `docs/`, for actual filenames)
+5. `core/identity.md`, `core/voice.md`, `core/values.md`, and `core/system-manifest.md` when present and relevant
+6. Pattern files such as `core/inferred-patterns.md`, `core/confirmed-patterns.md`, or `core/rejected-patterns.md`, if they exist and are relevant
+7. The schema and routes that implement the relevant data flow (inspect actual files; do not assume a `/api/summary/*` route or a summaries table exists)
+8. Relevant code, tests, migrations, and workflows
 
 Do not begin implementation until the task's requirements and tracking context are understood. If a referenced document or learning artifact is missing, report that and locate the repository's current source of truth; do not rely on a stale filename.
 
@@ -341,6 +343,12 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.12 — 2026-10-30
+- Adopted `HARNESS-RULES.md`: evidence-first diagnosis, separate the independent
+  chains (server cron / local collector / one-shot scheduler), idempotency, no
+  silent failure, DoD with physical evidence, timezone boundary tests.
+- Added it to the reading order (§9).
 
 ### v1.11 — 2026-10-22
 - Added §13 Multi-Device Distributed Architecture: Supabase as the single source
@@ -464,4 +472,4 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ---
 
-**End of AGENTS.md v1.11**
+**End of AGENTS.md v1.12**

@@ -439,3 +439,15 @@ create table if not exists push_subscriptions (
   created_at timestamptz not null default now(),
   last_used_at timestamptz
 );
+
+-- ES-075: local reminder delivery log.
+create table if not exists reminder_deliveries (
+  id bigserial primary key,
+  habit text not null,
+  scheduled_at timestamptz not null,
+  fired_at timestamptz,
+  status text not null check (status in ('delivered', 'failed')),
+  error_message text,
+  device_id text,
+  created_at timestamptz not null default now()
+);

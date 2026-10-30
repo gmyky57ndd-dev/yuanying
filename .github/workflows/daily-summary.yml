@@ -4,7 +4,10 @@ name: Daily Evening Summary
 # trigger. 01:30 UTC = 21:30 EDT (20:30 EST; DST shifts the local time by an hour).
 on:
   schedule:
-    - cron: '30 1 * * *'
+    # ES-075: two UTC slots cover EDT and EST; the endpoint only acts between
+    # 21:00 and 22:00 local and skips the other run.
+    - cron: '35 1 * * *'
+    - cron: '35 2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -20,10 +23,10 @@ jobs:
             echo "::error::APP_URL repo secret is not set"
             exit 1
           fi
-          curl -fsS -X POST "$APP_URL/api/cron/daily-summary" \
+          curl -fsS -X POST "$APP_URL/api/cron/evening-summary" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H 'Content-Type: application/json' \
             -d '{}' | tee /tmp/resp.json
-          # ES-070 DoD: the run fails if no message was produced.
-          node -e "const r=require('/tmp/resp.json'); if(!r.ok||!r.message_id){console.error('summary not generated',r);process.exit(1)} console.log('summary ok',r.date,r.message_id)"
+          # ES-075 DoD: skipped runs are fine; a run that generates must produce a row.
+          node -e "const r=require('/tmp/resp.json'); if(!r.ok){console.error('summary failed',r);process.exit(1)} if(r.skipped){console.log('skipped',r.skipped);process.exit(0)} if(!r.message_id){console.error('summary not generated',r);process.exit(1)} console.log('summary ok',r.date,r.message_id)"
 
