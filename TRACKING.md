@@ -210,7 +210,8 @@ never by the section they happened to be written under.
 - **Chains isolated**: A server evening summary (`/api/cron/evening-summary`), B collector local 21:30 reminder (`reminder_deliveries`), C one-shot scheduler — never fixed in one blob again.
 - **A**: local-time guard 21:00–22:00, target date from the local clock, idempotent, direct summary (no "要不要总结"), workflow at 01:35/02:35 UTC.
 - **B**: `reminder_deliveries` (migration 028) + collector logging (delivered/failed) + missed-slot reconciliation.
-- **DoD**: 6 evidence cases in ES-075 §C.
+- **Evidence (2026-10-30)**: case 1 message **884** at a simulated 21:35; case 2 `already_generated`; case 3 empty-day summary without a question; case 6 timezone conversion (09:35 Beijing → 21:35 NY passes, reverse skips). Cases 4/5 verified at API level; **device rows pending v1.0.38 install**.
+- **DoD**: 6 evidence cases in ES-075 §C; item stays In Progress until 4/5 have device evidence.
 
 ### [P2-51] `add_note` 笔记追加工具 (ES-071)
 

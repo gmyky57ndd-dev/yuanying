@@ -67,5 +67,18 @@ create table reminder_deliveries (
 6. Switch `config.timezone` (America/New_York / Asia/Shanghai) → the guard fires
    at the matching local hour, no offset miss.
 
-Evidence is recorded in the tracking item and the issue comment; the item cannot
-be marked Done without it (HARNESS-RULES §3).
+### Evidence collected (2026-10-30)
+
+| Case | Evidence |
+| --- | --- |
+| 1. Normal trigger | `at=21:35 -04:00` → `{ok:true, date:'2026-10-30', message_id:884}`, `system_events` 200 |
+| 2. Idempotency | second call → `{skipped:'already_generated', message_id:884}` |
+| 3. Empty day | `date=2026-10-28&dry=1` → a short summary ("这一天很安静…明天可以先从一杯水开始"), no question, not empty |
+| 4. Local delivery | API verified (`POST /api/reminder/delivery` → 200, row visible via GET); **device row pending** |
+| 5. Failure tracking | API accepts `failed` + `error_message`; collector v1.0.38 logs failures and reconciles missed slots; **kill/restart device test pending** |
+| 6. Timezone | 09:35 Beijing → 21:35 NY passes the guard; 21:35 Beijing → 09:35 NY returns `skipped:'not_evening'` |
+
+Message 884 content: "这一天很安静…明天可以先从一杯水开始…" — no "要不要总结".
+
+Cases 4 and 5 need the v1.0.38 build on the phone; until then the item stays
+**In Progress** (HARNESS-RULES §3).
