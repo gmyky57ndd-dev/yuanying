@@ -28,9 +28,10 @@
    the evening text is a finished summary.
 7. **Idempotent**: an existing `evening_summary`/legacy `daily_summary` row for
    the date returns `{ok:true, skipped:'already_generated'}`.
-8. Trigger: `.github/workflows/daily-summary.yml` runs at **01:35 and 02:35 UTC**
-   (covers EDT/EST); the endpoint skips the run that is not 21:xx local, so a
-   delayed GitHub job still lands on the right evening.
+8. Trigger: **Supabase pg_cron** job `evening-summary-15m` (`*/15 * * * *`)
+   calls the endpoint via `pg_net`; the 21:00–22:00 local guard means only the
+   four 21:xx runs act. GitHub Actions was demoted to manual only — its schedules
+   repeatedly ran hours late (#88).
 
 ## B. `reminder_deliveries`
 
@@ -77,6 +78,9 @@ create table reminder_deliveries (
 | 4. Local delivery | API verified (`POST /api/reminder/delivery` → 200, row visible via GET); **device row pending** |
 | 5. Failure tracking | API accepts `failed` + `error_message`; collector v1.0.38 logs failures and reconciles missed slots; **kill/restart device test pending** |
 | 6. Timezone | 09:35 Beijing → 21:35 NY passes the guard; 21:35 Beijing → 09:35 NY returns `skipped:'not_evening'` |
+| #88 at parsing | raw `+` in `at` now parses (used to 500); `at=not-a-date` → **400** with a clear message |
+| #88 trigger | pg_cron job id 1 fired twice within 2 minutes, both `200 {skipped:'not_evening', local_hour:13}` — the DB scheduler is not subject to GitHub delays |
+| #88 water | `/api/reminder/act` now trusts the reminder row for the habit and backfills the habit signal (2-min dedupe); verified with a temporary water reminder (then removed) |
 
 Message 884 content: "这一天很安静…明天可以先从一杯水开始…" — no "要不要总结".
 
