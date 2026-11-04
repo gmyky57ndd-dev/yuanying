@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-53] 本地桥接（Vercel 暂停期间）(ES-076) — P0 · 临时
+
+- **Status**: Done (2026-11-04) · **Refs**: ES-076, INC-001
+- **Scope**: `next build` + `next start` on the Mac, Cloudflare quick tunnel, collector v1.0.40 with a `BuildConfig.API_BASE_URL`, `scripts/cron-local.sh` + crontab.
+- **Deviation**: `output: 'standalone'` not enabled (incompatible with `next start`; documented in the spec).
+- **Verified**: tunnel 200 (page + manifest); presence `bridge-local-1`; local cron `--force` → message **922**. Collector v1.0.40 built with the tunnel URL.
+- **Teardown**: kill the cloudflared/server jobs, `launchctl bootout gui/$(id -u)/com.yuanying.evening`, remove the plist once Vercel is back.
+
 ### [INC-001] 生产暂停：Vercel Hobby fair-use (Fluid CPU) — P0 · Blocked on Vercel
 
 - **Status**: Blocked (2026-11-04) · **Impact**: all URLs 402 `DEPLOYMENT_DISABLED`; PWA/collector unusable.

@@ -14,8 +14,8 @@ android {
         applicationId "com.orbace.yuanying"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 39
-        versionName "1.0.39"
+        versionCode 40
+        versionName "1.0.40"
         buildConfigField "String", "API_TOKEN",
             "\"${System.getenv('YUANYING_API_TOKEN') ?: ''}\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -46,6 +46,10 @@ android {
     }
     buildFeatures {
         buildConfig true
+
+        // ES-076: local bridge defaults; runtime override via "api_base".
+        buildConfigField "String", "API_BASE_URL", "\"https://headline-estimate-div-thereof.trycloudflare.com\""
+        buildConfigField "String", "PWA_URL", "\"https://headline-estimate-div-thereof.trycloudflare.com\""
     }
     kotlinOptions {
         jvmTarget = '17'

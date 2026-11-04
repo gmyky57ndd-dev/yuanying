@@ -26,6 +26,7 @@ public class CollectorWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+        ApiClient.init(getApplicationContext());
         Context ctx = getApplicationContext();
 
         // ES-040 / Issue #54: heartbeat so the PWA can show version + last report.

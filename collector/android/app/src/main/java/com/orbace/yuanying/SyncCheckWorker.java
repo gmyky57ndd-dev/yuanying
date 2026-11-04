@@ -28,6 +28,7 @@ public class SyncCheckWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
+        ApiClient.init(getApplicationContext());
         Context ctx = getApplicationContext();
         JSONObject config = new ConfigClient().getConfig();
         String requested = config.optString("collector_sync_requested_at", "");

@@ -25,6 +25,7 @@ class ReminderActionReceiver : BroadcastReceiver() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        ApiClient.init(context)
         val id = intent.getIntExtra("reminder_id", 0)
         val habit = intent.getStringExtra("habit")
         val notifId = intent.getIntExtra("notif_id", if (id > 0) 1000 + id else 0)

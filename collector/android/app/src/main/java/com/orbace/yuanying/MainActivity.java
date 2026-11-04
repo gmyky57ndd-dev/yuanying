@@ -37,7 +37,8 @@ import java.util.concurrent.TimeUnit;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String PWA_URL = "https://yuanying-rust.vercel.app";
+    // ES-076: same tunnel as the API while Vercel is paused.
+    private static final String PWA_URL = BuildConfig.PWA_URL;
     // Play internal-testing opt-in page: lets the owner pull the latest build
     // to the phone when the store list has not shown an update yet.
     private static final String INTERNAL_TEST_URL =
@@ -51,6 +52,13 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // ES-076: allow `adb shell am start -e api_base <url>` to repoint the
+        // collector at a new tunnel without rebuilding.
+        if (getIntent() != null && getIntent().getStringExtra("api_base") != null) {
+            ApiClient.setBaseUrl(this, getIntent().getStringExtra("api_base"));
+        }
+        ApiClient.init(this);
 
         // ES-054: open the refresh stream while we are in the foreground
         // (Android 12+ forbids starting a foreground service from background).

@@ -1,5 +1,7 @@
 package com.orbace.yuanying;
 
+import android.content.Context;
+
 import org.json.JSONObject;
 
 import java.util.concurrent.TimeUnit;
@@ -12,7 +14,33 @@ import okhttp3.Response;
 
 public class ApiClient {
 
-    public static final String BASE_URL = "https://yuanying-rust.vercel.app";
+    /**
+     * ES-076: during the Vercel pause the base URL is the local Cloudflare
+     * tunnel. It is a BuildConfig default, overridable at runtime through the
+     * "api_base" SharedPreferences key (set with an intent extra so a new
+     * tunnel URL does not require a rebuild).
+     */
+    public static String BASE_URL = BuildConfig.API_BASE_URL;
+
+    public static void init(Context context) {
+        try {
+            String override = context
+                .getSharedPreferences("yuanying_api", Context.MODE_PRIVATE)
+                .getString("api_base", null);
+            if (override != null && override.startsWith("http")) {
+                BASE_URL = override.replaceAll("/+$", "");
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    public static void setBaseUrl(Context context, String url) {
+        if (url == null || !url.startsWith("http")) return;
+        String clean = url.replaceAll("/+$", "");
+        context.getSharedPreferences("yuanying_api", Context.MODE_PRIVATE)
+            .edit().putString("api_base", clean).apply();
+        BASE_URL = clean;
+    }
 
     // ES-004: bearer token injected at build time (empty until configured).
     private static final String API_TOKEN = BuildConfig.API_TOKEN;
