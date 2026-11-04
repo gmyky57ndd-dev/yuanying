@@ -42,7 +42,7 @@ does not block a manual test. crontab entry (marker `# yy-evening`):
 
 ## 5. As-built (2026-11-04)
 
-- Tunnel: **https://yuanying-bridge.serveousercontent.com**
+- Tunnel: **https://yuanying-bridge.taila5ffe0.ts.net**
   (`cloudflared tunnel --url http://localhost:3000`, quick tunnel).
 - Server: `npm run build` + `npm run start` (job kept running in the background).
 - Collector: **v1.0.42**, `BuildConfig.API_BASE_URL` / `PWA_URL` point at the
@@ -51,7 +51,7 @@ does not block a manual test. crontab entry (marker `# yy-evening`):
 - **Cloudflare quick tunnels are not durable**: both URLs were revoked within
   ~1 hour (`Tunnel not found`, NXDOMAIN). The bridge now uses **serveo** with a
   registered SSH key and the fixed subdomain
-  `https://yuanying-bridge.serveousercontent.com`; `scripts/tunnel-local.sh`
+  `https://yuanying-bridge.taila5ffe0.ts.net`; `scripts/tunnel-local.sh`
   reconnects in a loop, so the URL survives disconnects.
 - Scheduling: **launchd** (`~/Library/LaunchAgents/com.yuanying.evening.plist`,
   21:35 daily) instead of crontab — `crontab` hangs under macOS TCC in this
