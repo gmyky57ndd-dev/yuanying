@@ -42,16 +42,17 @@ does not block a manual test. crontab entry (marker `# yy-evening`):
 
 ## 5. As-built (2026-11-04)
 
-- Tunnel: **https://adapter-cakes-realtors-resistant.trycloudflare.com**
+- Tunnel: **https://yuanying-bridge.serveousercontent.com**
   (`cloudflared tunnel --url http://localhost:3000`, quick tunnel).
 - Server: `npm run build` + `npm run start` (job kept running in the background).
-- Collector: **v1.0.41**, `BuildConfig.API_BASE_URL` / `PWA_URL` point at the
+- Collector: **v1.0.42**, `BuildConfig.API_BASE_URL` / `PWA_URL` point at the
   tunnel; runtime override via `adb shell am start -n com.orbace.yuanying/.MainActivity -e api_base <url>`
   (stored in `yuanying_api/api_base`, read by every worker).
-- **Quick tunnels are not durable**: the first URL was revoked by Cloudflare
-  after ~1 hour (`Unauthorized: Tunnel not found`, DNS NXDOMAIN). Restarting
-  `cloudflared` yields a new URL; repoint the collector with the `api_base`
-  override (no rebuild) and re-add the PWA to the home screen.
+- **Cloudflare quick tunnels are not durable**: both URLs were revoked within
+  ~1 hour (`Tunnel not found`, NXDOMAIN). The bridge now uses **serveo** with a
+  registered SSH key and the fixed subdomain
+  `https://yuanying-bridge.serveousercontent.com`; `scripts/tunnel-local.sh`
+  reconnects in a loop, so the URL survives disconnects.
 - Scheduling: **launchd** (`~/Library/LaunchAgents/com.yuanying.evening.plist`,
   21:35 daily) instead of crontab — `crontab` hangs under macOS TCC in this
   environment. `scripts/cron-local.sh` still works manually / from any scheduler.
