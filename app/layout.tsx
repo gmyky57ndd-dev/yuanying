@@ -15,8 +15,11 @@ export const metadata: Metadata = {
     title: '元婴',
   },
   icons: {
-    icon: '/avatar.png',
-    apple: '/avatar.png',
+    icon: [
+      { url: '/favicon-32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/avatar-192.png', sizes: '192x192', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
   },
 };
 
