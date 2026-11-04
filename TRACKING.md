@@ -209,7 +209,7 @@ never by the section they happened to be written under.
 - **Status**: Done (2026-11-04) · **Refs**: ES-076, INC-001
 - **Scope**: `next build` + `next start` on the Mac, Cloudflare quick tunnel, collector v1.0.40 with a `BuildConfig.API_BASE_URL`, `scripts/cron-local.sh` + crontab.
 - **Deviation**: `output: 'standalone'` not enabled (incompatible with `next start`; documented in the spec).
-- **Verified**: tunnel 200 (page + manifest); presence `bridge-local-1`; local cron `--force` → message **922**. Collector v1.0.40 built with the tunnel URL.
+- **Verified**: tunnel 200 (page + manifest); presence `bridge-local-1`; local cron `--force` → message **922**. Collector v1.0.41 built with the current tunnel URL; the first quick-tunnel URL was revoked by Cloudflare after ~1h (documented).
 - **Teardown**: kill the cloudflared/server jobs, `launchctl bootout gui/$(id -u)/com.yuanying.evening`, remove the plist once Vercel is back.
 
 ### [INC-001] 生产暂停：Vercel Hobby fair-use (Fluid CPU) — P0 · Blocked on Vercel

@@ -56,6 +56,8 @@ const MODEL_PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'];
 
 export default function Settings() {
   const [enabled, setEnabled] = useState(true);
+  const [origin, setOrigin] = useState('');
+  useEffect(() => setOrigin(window.location.origin), []);
   const [verboseTools, setVerboseTools] = useState(false);
   const [reminders, setReminders] = useState<Reminders>({
     water: true,
@@ -218,7 +220,7 @@ export default function Settings() {
       return;
     }
     alert(
-      '请用手机浏览器打开 https://yuanying-rust.vercel.app，然后在浏览器菜单中选择「添加到主屏幕」。'
+      `请用手机浏览器打开 ${window.location.origin}，然后在浏览器菜单中选择「添加到主屏幕」。`
     );
   }
 
@@ -610,7 +612,7 @@ export default function Settings() {
           )}
           <p className="text-[11px] text-stone-600 leading-relaxed">
             图标被删除后，用手机浏览器打开
-            https://yuanying-rust.vercel.app，再选择「添加到主屏幕」。
+            {origin || '当前地址'}，再选择「添加到主屏幕」。
           </p>
         </div>
       </div>
