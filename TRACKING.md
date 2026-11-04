@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [INC-001] 生产暂停：Vercel Hobby fair-use (Fluid CPU) — P0 · Blocked on Vercel
+
+- **Status**: Blocked (2026-11-04) · **Impact**: all URLs 402 `DEPLOYMENT_DISABLED`; PWA/collector unusable.
+- **Root cause**: team `yuanying` softBlock `FAIR_USE_LIMITS_EXCEEDED` / `fluidDuration`; blocked 2026-11-03T19:29:53Z, auto-unpause 2026-12-03T19:29:53Z. Deployment is READY; billing is active (not a payment failure).
+- **Owner decision**: request a manual unpause from Vercel support.
+- **Evidence + support text**: `docs/runbooks/2026-11-04-vercel-hobby-pause.md`.
+- **Fallback**: migrate to a new Hobby team/project (new URL; collector v1.0.40 + PWA re-link), ~30–60 min, owner approval needed.
+
 ### [P2-52] 晚间总结链路 + 本地送达日志 (ES-075) — P0
 
 - **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-075, #84, ES-065, ES-073
