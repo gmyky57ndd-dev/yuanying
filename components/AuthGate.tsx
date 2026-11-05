@@ -22,8 +22,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: pw }),
       });
-      if (r.ok) setState('in');
-      else alert('密码错误');
+      if (r.ok) {
+        setState('in');
+      } else {
+        // Distinguish a real 401 from a 402/proxy/network failure.
+        alert(`登录失败（HTTP ${r.status}）${r.status === 401 ? '：密码不匹配' : ''}`);
+      }
+    } catch (e) {
+      alert(`网络错误：${e instanceof Error ? e.message : 'unknown'}`);
     } finally {
       setBusy(false);
     }
