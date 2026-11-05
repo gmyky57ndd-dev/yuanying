@@ -9,7 +9,7 @@ export async function POST() {
   res.cookies.set(SESSION_COOKIE, '', {
     httpOnly: true,
     secure: true,
-    sameSite: 'lax',
+    sameSite: 'none',
     maxAge: 0,
     path: '/',
   });
