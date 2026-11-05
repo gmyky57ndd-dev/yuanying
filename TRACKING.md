@@ -209,6 +209,7 @@ never by the section they happened to be written under.
 - **Status**: Done (2026-11-04) · **Refs**: ES-076, INC-001
 - **Scope**: `next build` + `next start` on the Mac, Cloudflare quick tunnel, collector v1.0.40 with a `BuildConfig.API_BASE_URL`, `scripts/cron-local.sh` + crontab.
 - **Deviation**: `output: 'standalone'` not enabled (incompatible with `next start`; documented in the spec).
+- **Verified (2026-11-05)**: owner installed the new PWA from the Funnel, signed in, and sees the xiaowu icon. Root cause of the earlier login failure: `SameSite=Lax` session cookie not sent in standalone PWAs; fixed to `None; Secure`.
 - **Verified**: tunnel 200 (page + manifest); presence `bridge-local-1`; local cron `--force` → message **922**. Bridge uses **Tailscale Funnel** at `https://yuanying-bridge.taila5ffe0.ts.net` (Cloudflare quick tunnels revoked hourly; serveo was on phone DNS blocklists). Collector v1.0.43 defaults to it.
 - **Teardown**: kill the cloudflared/server jobs, `launchctl bootout gui/$(id -u)/com.yuanying.evening`, remove the plist once Vercel is back.
 

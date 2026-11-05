@@ -67,7 +67,17 @@ does not block a manual test. crontab entry (marker `# yy-evening`):
 - [x] Collector heartbeat reaches the local server (presence row).
 - [x] The local cron script generates an evening summary and pushes it.
 
-## 7. Security note
+## 7. Client sign-in fix (2026-11-05)
+
+The installed PWA rejected the (correct) password while the browser tab worked.
+Root cause: the session cookie was `SameSite=Lax`, which iOS/Android standalone
+web apps do not reliably send, so the app kept falling back to the login screen.
+Fix: `SameSite=None; Secure` on the session cookie (login + logout). The login
+screen now also reports the real HTTP status/network error instead of a blanket
+"wrong password". Icon files moved to versioned paths (`/icons/xiaowu-*`) so an
+installed PWA cannot reuse the cached old mark.
+
+## 8. Security note
 
 The tunnel is public. The app still requires the owner password; API routes keep
 the bearer `API_TOKEN`. The bridge is temporary and should be torn down (tunnel
