@@ -21,4 +21,4 @@ if ! tailscale --socket=/tmp/ts/sock status >/dev/null 2>&1; then
 fi
 
 tailscale --socket=/tmp/ts/sock funnel --bg 3000
-echo "bridge: https://yuanying-bridge.taila5ffe0.ts.net"
+echo "bridge: https://yuanying-bridge-1.taila5ffe0.ts.net"

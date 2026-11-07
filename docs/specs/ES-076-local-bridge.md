@@ -42,7 +42,7 @@ does not block a manual test. crontab entry (marker `# yy-evening`):
 
 ## 5. As-built (2026-11-04)
 
-- Tunnel: **https://yuanying-bridge.taila5ffe0.ts.net**
+- Tunnel: **https://yuanying-bridge-1.taila5ffe0.ts.net**
   (`cloudflared tunnel --url http://localhost:3000`, quick tunnel).
 - Server: `npm run build` + `npm run start` (job kept running in the background).
 - Collector: **v1.0.42**, `BuildConfig.API_BASE_URL` / `PWA_URL` point at the
@@ -51,7 +51,7 @@ does not block a manual test. crontab entry (marker `# yy-evening`):
 - **Cloudflare quick tunnels are not durable**: both URLs were revoked within
   ~1 hour (`Tunnel not found`, NXDOMAIN). The bridge now uses **serveo** with a
   registered SSH key and the fixed subdomain
-  `https://yuanying-bridge.taila5ffe0.ts.net`; `scripts/tunnel-local.sh`
+  `https://yuanying-bridge-1.taila5ffe0.ts.net`; `scripts/tunnel-local.sh`
   reconnects in a loop, so the URL survives disconnects.
 - Scheduling: **launchd** (`~/Library/LaunchAgents/com.yuanying.evening.plist`,
   21:35 daily) instead of crontab — `crontab` hangs under macOS TCC in this
@@ -77,7 +77,15 @@ screen now also reports the real HTTP status/network error instead of a blanket
 "wrong password". Icon files moved to versioned paths (`/icons/xiaowu-*`) so an
 installed PWA cannot reuse the cached old mark.
 
-## 8. Security note
+## 8. Node rename (2026-11-07)
+
+After a reboot the Tailscale state (previously in `/tmp`) was lost, so the node
+re-registered as `yuanying-bridge-1`; the old name stayed on the stale device and
+the admin rename was blocked. The bridge now uses
+`https://yuanying-bridge-1.taila5ffe0.ts.net` (collector v1.0.44). Tailscale state
+lives in `~/.yy-bridge/` so a reboot no longer forces a re-login.
+
+## 9. Security note
 
 The tunnel is public. The app still requires the owner password; API routes keep
 the bearer `API_TOKEN`. The bridge is temporary and should be torn down (tunnel
