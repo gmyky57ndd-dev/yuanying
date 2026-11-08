@@ -27,7 +27,8 @@ import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-KB_DIR = os.path.expanduser("~/yuanying/local_kb")
+# KB_DIR lets tests/demos build an isolated index (default: the owner's real KB).
+KB_DIR = os.path.expanduser(os.environ.get("KB_DIR", "~/yuanying/local_kb"))
 RAW_DIR = os.path.join(KB_DIR, "raw")
 INDEX_DIR = os.path.join(KB_DIR, "index")
 DB_PATH = os.path.join(INDEX_DIR, "sqlite.db")
@@ -36,6 +37,7 @@ OLLAMA = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 # HOST=0.0.0.0 exposes the KB to the LAN / Tailscale interface (Coolify VPS will
 # call it over the tailnet). Default stays loopback.
 BIND_HOST = os.environ.get("KB_HOST") or os.environ.get("HOST") or "127.0.0.1"
+BIND_PORT = int(os.environ.get("KB_PORT") or os.environ.get("PORT") or "8080")
 KB_TOKEN = os.environ.get("KB_TOKEN", "")
 EMBED_MODEL = os.environ.get("KB_EMBED_MODEL", "bge-m3")
 CHUNK_SIZE = 800
@@ -447,5 +449,5 @@ if __name__ == "__main__":
         print(f"embedded {embed_missing()} documents")
         raise SystemExit(0)
     stats()
-    print(f"Local KB service on {BIND_HOST}:8080 (kb={KB_DIR}, model={EMBED_MODEL}, token={'yes' if KB_TOKEN else 'no'})")
-    ThreadingHTTPServer((BIND_HOST, 8080), Handler).serve_forever()
+    print(f"Local KB service on {BIND_HOST}:{BIND_PORT} (kb={KB_DIR}, model={EMBED_MODEL}, token={'yes' if KB_TOKEN else 'no'})")
+    ThreadingHTTPServer((BIND_HOST, BIND_PORT), Handler).serve_forever()

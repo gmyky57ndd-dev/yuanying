@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-079 (highest assigned: **ES-079**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-080 (highest assigned: **ES-080**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-26c):** the morning-plan fix was first written
@@ -105,7 +105,8 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-074 | Coolify Migration (leave Vercel/Tailscale Funnel) | Proposal | 2026-11-07 | P2-54 |
 | ES-077 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
 | ES-078 | AI Architect Fenshen & Local RAG | Implemented | 2026-11-08 | P2-55 |
-| ES-079 | Evening Summary Pipeline + Delivery Log | Urgent Bug (P0) | 2026-10-30 | P2-52 |
+| ES-079 | Local RAG Engineering Skeleton & Collectors | Urgent (P0) | 2026-11-08 | P2-57 |
+| ES-080 | Evening Summary Pipeline + Delivery Log | Urgent Bug (P0) | 2026-10-30 | P2-52 |
 | ES-075 | Local-First AI Knowledge Base | Approved | 2026-11-08 | P2-56 |
 | ES-076 | Local Bridge During the Vercel Pause | Urgent (P0, temporary) | 2026-11-04 | P2-53 |
 | ES-072 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |
@@ -127,7 +128,8 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-070 (reminder receipt) | ES-072 | 2026-10-27 | Owner assigned ES-070 to the morning-briefing bug |
 | ES-071 (morning plan) | ES-074 | 2026-10-27 | Owner assigned ES-071 to the add_note tool |
 | ES-074 (morning plan) | **ES-077** | 2026-11-07 | Owner assigned ES-074 to the Coolify migration proposal |
-| ES-075 (evening pipeline) | **ES-079** | 2026-11-08 | Owner assigned ES-075 to the local-first knowledge base |
+| ES-075 (evening pipeline) | ES-079 | 2026-11-08 | Owner assigned ES-075 to the local-first knowledge base |
+| ES-079 (evening pipeline) | **ES-080** | 2026-11-08 | Owner assigned ES-079 to the Local RAG skeleton/collector task |
 
 Rule: the owner's assignment wins; the displaced document takes the next free
 number, every reference (INDEX, TRACKING, code comments, specs) is updated, and
