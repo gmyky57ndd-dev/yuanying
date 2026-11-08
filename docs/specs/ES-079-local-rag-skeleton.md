@@ -37,6 +37,25 @@
 3. **Proxy is a local sidecar**, not a cloud function: it forwards to
    `UPSTREAM` and writes only through the local KB service.
 
+## 3a. Architect tool set (addendum 2026-11-08)
+
+`fenshen.ai_architect.tools_whitelist` (migration 030):
+
+```json
+["web_search","search_local_kb","read_local_file","write_local_file",
+ "read_code_file","get_issue_status","trigger_reindex"]
+```
+
+New tools:
+
+| Tool | Behaviour |
+| --- | --- |
+| `read_code_file` | reads repo files under app/lib/components/scripts/supabase/collector/docs/core/public + root config files; blocks `..`, `.env*`, keys, `node_modules`, `.next`, `.git`, >512 KB, returns 20k chars |
+| `get_issue_status` | compact GitHub issue status (state/labels/title/url/comment count/last comment) |
+| `trigger_reindex` | `POST /reindex` on the local KB service (docs + chunks + embeddings), explicit failure when the service is down |
+
+The local service also exposes `/reindex` and `/embed`.
+
 ## 4. Acceptance evidence
 
 - `sqlite3 ~/yuanying/local_kb/index/sqlite.db ".tables"` →
@@ -45,3 +64,5 @@
   `id/source/model/title/tags/summary/created_at`).
 - `python3 scripts/test_kb_collect.py` → 4 tests OK.
 - Proxy e2e: captured file + temp `/health` `{docs:1, embedded:1}`.
+- Architect tools (dev :3001): reindex → `5 files / 5 chunks / embedded`; `read_code_file` correctly reported that `lib/api.ts` has no `getActiveModelInfo`; `get_issue_status` → "#88 还开着, 1 条评论".
+- `[fenshen] ai_architect active_tools=web_search,read_code_file,get_issue_status,trigger_reindex,search_local_kb,read_local_file,write_local_file`.
