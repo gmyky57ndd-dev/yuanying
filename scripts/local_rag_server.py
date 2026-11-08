@@ -429,6 +429,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"success": True, **ingest(data)})
             except Exception as exc:  # noqa: BLE001
                 return self._json(400, {"success": False, "error": str(exc)})
+        if self.path == "/reindex":
+            try:
+                files = reindex(True)
+                return self._json(200, {"success": True, "files": files, **stats()})
+            except Exception as exc:  # noqa: BLE001
+                return self._json(500, {"success": False, "error": str(exc)})
+        if self.path == "/embed":
+            try:
+                docs = embed_missing()
+                return self._json(200, {"success": True, "embedded_docs": docs, **stats()})
+            except Exception as exc:  # noqa: BLE001
+                return self._json(500, {"success": False, "error": str(exc)})
         if self.path == "/search":
             query = str(data.get("query", "")).strip()
             if not query:

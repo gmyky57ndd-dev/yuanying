@@ -597,6 +597,29 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, data: issue };
   }
 
+  if (name === 'get_issue_status') {
+    const issueNumber = Number(args?.issue_number);
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      return { success: false, error: 'issue_number must be a positive integer' };
+    }
+    const issue = await getIssue(issueNumber);
+    return {
+      success: true,
+      data: {
+        number: issue.number,
+        title: issue.title,
+        state: issue.state,
+        labels: issue.labels,
+        url: issue.url,
+        comments_count: issue.comments.length,
+        last_comment_at:
+          issue.comments.length > 0
+            ? issue.comments[issue.comments.length - 1].created_at
+            : null,
+      },
+    };
+  }
+
   if (name === 'write_markdown') {
     const filePath = String(args?.path ?? '').trim();
     const content = String(args?.content ?? '');
@@ -636,6 +659,87 @@ async function runTool(name: string, args: any): Promise<any> {
     const prompt = String(args?.prompt ?? '').trim();
     if (!prompt) return { success: false, error: 'prompt required' };
     return askExternalAgent(role || 'architect', prompt);
+  }
+
+  if (name === 'read_code_file') {
+    // ES-079: repo code reader for the architect fenshen (safe roots, no secrets).
+    const rel = String(args?.path ?? '')
+      .trim()
+      .replace(/^\/+/, '');
+    if (!rel) return { success: false, error: 'path required' };
+    if (
+      rel.includes('..') ||
+      /(^|\/)(node_modules|\.next|\.git)(\/|$)/.test(rel) ||
+      /(^|\/)\.env/.test(rel) ||
+      /\.(pem|key|keystore|p12)$/i.test(rel)
+    ) {
+      return { success: false, error: 'path not allowed' };
+    }
+    const roots = [
+      'app/', 'lib/', 'components/', 'scripts/', 'supabase/',
+      'collector/', 'docs/', 'core/', 'public/', 'types/',
+    ];
+    const rootFiles = [
+      'package.json', 'tsconfig.json', 'next.config.js', 'next.config.mjs',
+      'middleware.ts', 'AGENTS.md', 'TRACKING.md', 'README.md',
+    ];
+    if (!roots.some(r => rel.startsWith(r)) && !rootFiles.includes(rel)) {
+      return { success: false, error: 'path outside the allowed code roots' };
+    }
+    const abs = path.join(process.cwd(), rel);
+    if (!abs.startsWith(process.cwd() + path.sep)) {
+      return { success: false, error: 'invalid path' };
+    }
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+      return { success: false, error: 'file not found' };
+    }
+    const stat = fs.statSync(abs);
+    if (stat.size > 512 * 1024) {
+      return { success: false, error: 'file too large (max 512KB)' };
+    }
+    const content = fs.readFileSync(abs, 'utf8');
+    const cap = 20000;
+    return {
+      success: true,
+      data: {
+        path: rel,
+        content: Array.from(content).slice(0, cap).join(''),
+        truncated: content.length > cap,
+        total_chars: content.length,
+      },
+    };
+  }
+
+  if (name === 'trigger_reindex') {
+    // ES-079: rebuild the local KB index (docs + chunks + embeddings).
+    try {
+      const res = await fetch(`${LOCAL_RAG_URL}/reindex`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.KB_TOKEN
+            ? { Authorization: `Bearer ${process.env.KB_TOKEN}` }
+            : {}),
+        },
+        body: '{}',
+        signal: AbortSignal.timeout(120000),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        return {
+          success: false,
+          error: String(data?.error ?? `reindex failed (HTTP ${res.status})`),
+        };
+      }
+      return { success: true, ...data };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          '无法连接本地知识库服务（http://localhost:8080）。请运行 python3 scripts/local_rag_server.py。',
+        detail: e instanceof Error ? e.message : String(e),
+      };
+    }
   }
 
   if (name === 'read_local_file') {
@@ -975,7 +1079,8 @@ export async function POST(req: NextRequest) {
       'web_search', 'read_markdown', 'write_markdown', 'scheduler', 'get_issue',
       'ingest_external_chat', 'query_external_chats', 'ask_claude',
       'ask_external_agent', 'read_local_file', 'write_local_file', 'push_to_dev',
-      'search_local_kb', 'save_local_kb',
+      'search_local_kb', 'save_local_kb', 'read_code_file',
+      'get_issue_status', 'trigger_reindex',
     ];
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
@@ -1229,6 +1334,29 @@ ${bodyStatusReminder}`,
             ),
         }),
         execute: async ({ path }) => runToolForModel('read_markdown', { path }),
+      }),
+      read_code_file: tool({
+        description:
+          'Read a source file from the repository (app/, lib/, components/, scripts/, supabase/, collector/, docs/, core/, public/). Use for code audits. Secrets and build output are blocked.',
+        parameters: z.object({
+          path: z.string().describe('relative path, e.g. lib/api.ts'),
+        }),
+        execute: async ({ path }) => runToolForModel('read_code_file', { path }),
+      }),
+      get_issue_status: tool({
+        description:
+          'Get the compact status of a GitHub issue (state, labels, title, comment count, url). Use before claiming an issue is open/closed.',
+        parameters: z.object({
+          issue_number: z.number().int().positive(),
+        }),
+        execute: async ({ issue_number }) =>
+          runToolForModel('get_issue_status', { issue_number }),
+      }),
+      trigger_reindex: tool({
+        description:
+          'Rebuild the local knowledge base index (documents, chunks, embeddings). Use after importing documents or when search results look stale.',
+        parameters: z.object({}),
+        execute: async () => runToolForModel('trigger_reindex', {}),
       }),
       search_local_kb: tool({
         description:

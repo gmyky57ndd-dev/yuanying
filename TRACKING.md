@@ -209,6 +209,7 @@ never by the section they happened to be written under.
 - **Status**: Done (2026-11-08) · **Category**: Infrastructure / Local-first · **Refs**: ES-079, ES-075
 - **Delivered**: `scripts/ingest.py`, `scripts/kb_proxy.py`, `schema/kb.sql`, `index/README.md`, parser tests; existing service/collector hardened with `KB_DIR`/`KB_HOST`/`KB_PORT` envs.
 - **Verified**: FTS5 tables (`kb_fts`, `kb_chunks_fts`) present; `bge-m3|1024` chunks; dedupe by SHA-256 (re-import → 2 duplicates); ChatGPT mapping-tree test; proxy capture e2e.
+- **Addendum (2026-11-08)**: `ai_architect` whitelist → `web_search, search_local_kb, read_local_file, write_local_file, read_code_file, get_issue_status, trigger_reindex` (migration 030); new tools implemented; `/reindex` + `/embed` endpoints. Verified in dev: reindex 5 files/5 chunks/embedded; read_code_file on `lib/api.ts`; issue #88 status.
 - **Deviation**: the private `.db` is not committed (public repo); schema + `--reindex` reproduce it.
 
 ### [P2-56] 本地优先 AI 知识库 (ES-075) — In Progress
