@@ -49,3 +49,7 @@ collector/keystore/
 collector/android/keystore.properties
 *.jks
 *.keystore
+
+# ES-075: local KB index is private and rebuildable from raw/
+*.db
+*.db-journal

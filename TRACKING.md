@@ -204,6 +204,13 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-57] Local RAG 工程骨架 + 采集器 (ES-079) — Done
+
+- **Status**: Done (2026-11-08) · **Category**: Infrastructure / Local-first · **Refs**: ES-079, ES-075
+- **Delivered**: `scripts/ingest.py`, `scripts/kb_proxy.py`, `schema/kb.sql`, `index/README.md`, parser tests; existing service/collector hardened with `KB_DIR`/`KB_HOST`/`KB_PORT` envs.
+- **Verified**: FTS5 tables (`kb_fts`, `kb_chunks_fts`) present; `bge-m3|1024` chunks; dedupe by SHA-256 (re-import → 2 duplicates); ChatGPT mapping-tree test; proxy capture e2e.
+- **Deviation**: the private `.db` is not committed (public repo); schema + `--reindex` reproduce it.
+
 ### [P2-56] 本地优先 AI 知识库 (ES-075) — In Progress
 
 - **Status**: Done (2026-11-08) · **Category**: Architecture / Local-first · **Refs**: ES-075, ES-078
@@ -251,7 +258,7 @@ never by the section they happened to be written under.
 
 ### [P2-52] 晚间总结链路 + 本地送达日志 (ES-075) — P0
 
-- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-079, #84, ES-065, ES-073
+- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-080, #84, ES-065, ES-073
 - **Chains isolated**: A server evening summary (`/api/cron/evening-summary`), B collector local 21:30 reminder (`reminder_deliveries`), C one-shot scheduler — never fixed in one blob again.
 - **A**: local-time guard 21:00–22:00, target date from the local clock, idempotent, direct summary (no "要不要总结"), workflow at 01:35/02:35 UTC.
 - **B**: `reminder_deliveries` (migration 028) + collector logging (delivered/failed) + missed-slot reconciliation.
