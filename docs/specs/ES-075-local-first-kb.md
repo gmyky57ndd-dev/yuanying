@@ -72,7 +72,34 @@ created_at: 2026-11-08T12:00:00Z
   Python dependencies, single file, easy backup); the Chroma adapter is a later
   drop-in. This keeps the "no heavy deps" rule while preserving the B schema.
 
-## 6. Operational
+## 6. Collector (Phase 2, 2026-11-08)
+
+`scripts/kb_collect.py` imports exports into the same raw/ + index pipeline:
+
+- **DeepSeek first**: JSON list / `{conversations|data|chats|sessions:[...]}` /
+  JSONL; each conversation may use `messages[]`, `chat_messages[]`,
+  `conversation[]`, or a ChatGPT-style `mapping` tree.
+- `.md`/`.txt` files are ingested as a single manual document.
+- Title from `title|name|subject`, else the first user line; summary = first
+  assistant line (≤160 chars).
+- **Dedupe** by SHA-256 of the normalised body per source: a re-import reports
+  `duplicate` and writes nothing.
+- `--dry-run`, `--limit`, directory recursion, `--source auto` by filename.
+- All writes go through the local service `/ingest`, so indexing/embeddings are
+  identical to manual capture.
+
+## 7. Networking (owner decision)
+
+- The KB never moves to the VPS. The future Coolify Next.js will call the Mac
+  over **Tailscale**.
+- `HOST=0.0.0.0` (alias `KB_HOST`) makes the Python service listen on the
+  tailnet interface; default remains `127.0.0.1`.
+- `KB_TOKEN` optionally requires `Authorization: Bearer …` on every request —
+  recommended whenever binding to `0.0.0.0`.
+- Next.js reads `LOCAL_RAG_URL` (default `http://localhost:8080`) for
+  `/api/kb/*`, the `search_local_kb` tool and the ingest tool.
+
+## 8. Operational
 
 - `scripts/local_rag_server.py --reindex` rebuilds docs+chunks (+ embeddings).
 - `--embed` fills chunks that lack vectors.
@@ -80,7 +107,7 @@ created_at: 2026-11-08T12:00:00Z
 - The Next.js cloud deployment cannot write local files by design; ingest fails
   loudly (503) there.
 
-## 7. Acceptance
+## 9. Acceptance
 
 - [ ] An imported conversation is a Markdown file under `raw/<source>/` with
       frontmatter.
@@ -90,7 +117,7 @@ created_at: 2026-11-08T12:00:00Z
 - [ ] The same query reaches the result through `/api/kb/search` and the
       `search_local_kb` tool.
 
-## 8. Evidence (2026-11-08)
+## 10. Evidence (2026-11-08)
 
 | Check | Result |
 | --- | --- |
@@ -104,3 +131,6 @@ created_at: 2026-11-08T12:00:00Z
 | Hybrid keyword | "Tailscale" → `semantic:true, match:hybrid` |
 | Ollama down | `semantic:false, match:keyword`, results still returned |
 | Model | `bge-m3:latest` 1.2 GB, 1024-d, local `/api/embed` |
+| Collector (DeepSeek) | 2 conversations → `raw/deepseek/2026-11-08_2032_*.md`, both `embedded` |
+| Collector dedupe | re-import → `duplicate: 2`, no new files (3 total) |
+| HOST=0.0.0.0 | `lsof` → `TCP *:8080 (LISTEN)`; restored to `127.0.0.1` |
