@@ -38,6 +38,8 @@ import {
   describeEvent,
 } from '@/lib/system-events';
 
+const LOCAL_RAG_URL = (process.env.LOCAL_RAG_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
+
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
@@ -405,7 +407,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch('http://127.0.0.1:8080/search', {
+      const res = await fetch(`${LOCAL_RAG_URL}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
@@ -449,7 +451,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const text = String(args?.text ?? '').trim();
     if (!text) return { success: false, error: 'text required' };
     try {
-      const res = await fetch('http://127.0.0.1:8080/ingest', {
+      const res = await fetch(`${LOCAL_RAG_URL}/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -986,7 +988,7 @@ export async function POST(req: NextRequest) {
     );
     if (ragQuestion && toolWhitelist?.includes('search_local_kb')) {
       try {
-        const health = await fetch('http://127.0.0.1:8080/health', {
+        const health = await fetch(`${LOCAL_RAG_URL}/health`, {
           signal: AbortSignal.timeout(1500),
         });
         if (!health.ok) throw new Error(`HTTP ${health.status}`);
@@ -1035,7 +1037,7 @@ export async function POST(req: NextRequest) {
     let kbContext = '';
     if (ragQuestion && toolWhitelist?.includes('search_local_kb') && !ragError) {
       try {
-        const r = await fetch('http://127.0.0.1:8080/search', {
+        const r = await fetch(`${LOCAL_RAG_URL}/search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: message }),

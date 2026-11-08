@@ -33,6 +33,10 @@ INDEX_DIR = os.path.join(KB_DIR, "index")
 DB_PATH = os.path.join(INDEX_DIR, "sqlite.db")
 SOURCES = ("deepseek", "chatgpt", "claude", "manual")
 OLLAMA = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
+# HOST=0.0.0.0 exposes the KB to the LAN / Tailscale interface (Coolify VPS will
+# call it over the tailnet). Default stays loopback.
+BIND_HOST = os.environ.get("KB_HOST") or os.environ.get("HOST") or "127.0.0.1"
+KB_TOKEN = os.environ.get("KB_TOKEN", "")
 EMBED_MODEL = os.environ.get("KB_EMBED_MODEL", "bge-m3")
 CHUNK_SIZE = 800
 CHUNK_OVERLAP = 100
@@ -159,7 +163,7 @@ def index_doc(conn, path, do_embed=True):
             doc_id, rel, meta.get("source", ""), meta.get("model", ""),
             meta.get("title", os.path.basename(path)), meta.get("tags", ""),
             meta.get("summary", ""), meta.get("created_at", ""),
-            hashlib.sha256(raw.encode()).hexdigest(), now,
+            hashlib.sha256(body.strip().encode()).hexdigest(), now,
         ),
     )
     conn.execute(
@@ -352,7 +356,16 @@ def ingest(payload):
     if not text:
         raise ValueError("text required")
     now = datetime.now(timezone.utc)
-    digest = hashlib.sha256(text.encode()).hexdigest()[:8]
+    full_sha = hashlib.sha256(text.strip().encode()).hexdigest()
+    conn = db()
+    dup = conn.execute(
+        "select path from kb_docs where sha256 = ? and source = ? limit 1",
+        (full_sha, source),
+    ).fetchone()
+    if dup:
+        conn.close()
+        return {"path": dup[0], "id": "", "duplicate": True, "chunks": 0, "embedded": False}
+    digest = full_sha[:8]
     doc_id = f"{now.strftime('%Y%m%d%H%M')}-{digest}"
     folder = os.path.join(RAW_DIR, source)
     path = os.path.join(folder, f"{now.strftime('%Y-%m-%d_%H%M')}_{digest}.md")
@@ -378,6 +391,11 @@ def ingest(payload):
 
 
 class Handler(BaseHTTPRequestHandler):
+    def _authorized(self):
+        if not KB_TOKEN:
+            return True
+        return self.headers.get("Authorization") == f"Bearer {KB_TOKEN}"
+
     def _json(self, status, payload):
         body = json.dumps(payload, ensure_ascii=False).encode()
         self.send_response(status)
@@ -387,6 +405,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if not self._authorized():
+            return self._json(401, {"success": False, "error": "unauthorized"})
         if self.path != "/health":
             return self._json(404, {"success": False, "error": "not found"})
         return self._json(
@@ -395,6 +415,8 @@ class Handler(BaseHTTPRequestHandler):
         )
 
     def do_POST(self):
+        if not self._authorized():
+            return self._json(401, {"success": False, "error": "unauthorized"})
         try:
             length = int(self.headers.get("Content-Length", "0"))
             data = json.loads(self.rfile.read(length).decode() or "{}")
@@ -425,5 +447,5 @@ if __name__ == "__main__":
         print(f"embedded {embed_missing()} documents")
         raise SystemExit(0)
     stats()
-    print(f"Local KB service on 127.0.0.1:8080 (kb={KB_DIR}, model={EMBED_MODEL})")
-    ThreadingHTTPServer(("127.0.0.1", 8080), Handler).serve_forever()
+    print(f"Local KB service on {BIND_HOST}:8080 (kb={KB_DIR}, model={EMBED_MODEL}, token={'yes' if KB_TOKEN else 'no'})")
+    ThreadingHTTPServer((BIND_HOST, 8080), Handler).serve_forever()

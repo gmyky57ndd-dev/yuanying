@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const LOCAL_RAG_URL = (process.env.LOCAL_RAG_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +18,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: 'invalid JSON' }, { status: 400 });
   }
   try {
-    const res = await fetch('http://127.0.0.1:8080/ingest', {
+    const res = await fetch(`${LOCAL_RAG_URL}/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

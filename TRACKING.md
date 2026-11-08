@@ -209,6 +209,8 @@ never by the section they happened to be written under.
 - **Status**: Done (2026-11-08) · **Category**: Architecture / Local-first · **Refs**: ES-075, ES-078
 - **Rule**: imported conversations are Markdown under `~/yuanying/local_kb/raw/`; the index is a rebuildable SQLite FTS5 DB; Supabase gets no long text (path/summary only, optional).
 - **MVP**: `/api/kb/ingest` + `/api/kb/search` proxy to the local service; `save_local_kb` tool; explicit 503 when the local service is down; no ChromaDB/vector dependency.
+- **Collector (2026-11-08)**: `scripts/kb_collect.py` imports DeepSeek JSON/JSONL (messages / chat_messages / mapping tree), title/summary heuristics, SHA-256 dedupe, dry-run, directory recursion; 2 sample conversations ingested and re-import reported as duplicates.
+- **Networking**: `HOST`/`KB_HOST` (0.0.0.0 for tailnet), optional `KB_TOKEN`, `LOCAL_RAG_URL` in Next (default localhost:8080).
 - **Plan A implemented (2026-11-08)**: Ollama + bge-m3 (1024-d), 800/100 chunking, SQLite `kb_chunks` vectors + FTS5, RRF hybrid recall, `semantic/match` flags, keyword fallback when Ollama is down.
 - **Verified**: hybrid query "内网穿透 组网工具" → semantic hit on the Tailscale docs; keyword "Tailscale" → hybrid; Ollama stopped → `semantic:false` keyword-only.
 - **Verified**: ingested `raw/deepseek/2026-11-08_1937_e6cc3885.md` (frontmatter intact); Supabase has 0 rows with the imported body; `/api/kb/search?q=Tailscale` returns it; the local service answers with Next stopped (`docs:3, raw:2`); `save_local_kb` wrote `raw/manual/2026-11-08_1937_c4b44d98.md`.
