@@ -426,7 +426,12 @@ async function runTool(name: string, args: any): Promise<any> {
           message: '本地知识库中没有找到相关内容。',
         };
       }
-      return { success: true, results };
+      return {
+        success: true,
+        results,
+        semantic: data?.semantic === true,
+        match: data?.match ?? 'keyword',
+      };
     } catch (e) {
       return {
         success: false,

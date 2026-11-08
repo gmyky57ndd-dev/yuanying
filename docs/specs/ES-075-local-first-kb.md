@@ -54,17 +54,33 @@ created_at: 2026-11-08T12:00:00Z
 - The phone PWA uses the same route; it only reaches the Mac through the
   (temporary) bridge. No body ever leaves the machine.
 
-## 5. MVP decisions / deviations
+## 5. Implementation (Plan A, schema shaped for Plan B)
 
-1. **No ChromaDB/LanceDB** in the MVP (owner's "no heavy dependencies" rule):
-   SQLite FTS5 via Python's stdlib is enough; semantic search is a later step.
-2. The index is **rebuildable**: `scripts/local_rag_server.py --reindex` scans
-   `raw/**/*.md` and repopulates FTS5.
-3. The Next.js cloud deployment cannot write local files by design; the ingest
-   route is only functional where the app runs on the owner's machine (local
-   bridge / future Coolify VPS with the same service). It fails loudly elsewhere.
+- **Embeddings:** Ollama + **bge-m3** (1024-d, multilingual), served at
+  `127.0.0.1:11434`; `EMBED_MODEL` overridable by env.
+- **Chunking:** 800 chars, 100 overlap; stable chunk ids
+  `sha256(path:index)[:16]`.
+- **Schema (B-ready):** `kb_docs`, `kb_chunks(id, doc_path, chunk_index, text,
+  model, dim, embedding, updated_at)` + FTS5 tables (`kb_fts`, `kb_chunks_fts`).
+  The chunk rows map 1:1 to a Chroma/Qdrant collection, so the index layer can
+  be swapped without touching files or the API.
+- **Hybrid retrieval:** FTS5 (BM25, chunk level) + cosine over bge-m3 vectors,
+  merged with Reciprocal Rank Fusion (`k=60`); results carry
+  `semantic: true|false` and `match: keyword|semantic|hybrid`.
+- **Degradation:** Ollama down → keyword-only, `semantic:false` (never pretend).
+- **Deviation:** vectors live in SQLite instead of Chroma for the MVP (no extra
+  Python dependencies, single file, easy backup); the Chroma adapter is a later
+  drop-in. This keeps the "no heavy deps" rule while preserving the B schema.
 
-## 6. Acceptance
+## 6. Operational
+
+- `scripts/local_rag_server.py --reindex` rebuilds docs+chunks (+ embeddings).
+- `--embed` fills chunks that lack vectors.
+- `--reindex --no-embed` is the offline rebuild.
+- The Next.js cloud deployment cannot write local files by design; ingest fails
+  loudly (503) there.
+
+## 7. Acceptance
 
 - [ ] An imported conversation is a Markdown file under `raw/<source>/` with
       frontmatter.
@@ -74,7 +90,7 @@ created_at: 2026-11-08T12:00:00Z
 - [ ] The same query reaches the result through `/api/kb/search` and the
       `search_local_kb` tool.
 
-## 7. Evidence (2026-11-08)
+## 8. Evidence (2026-11-08)
 
 | Check | Result |
 | --- | --- |
@@ -84,3 +100,7 @@ created_at: 2026-11-08T12:00:00Z
 | Local service without Next/Supabase | `GET :8080/health` → `{"ok":true,"docs":3,"raw":2}`; `POST /search` returns Coolify |
 | Chat tool `save_local_kb` | wrote `raw/manual/2026-11-08_1937_c4b44d98.md`, reply "存好了" |
 | Index | SQLite FTS5 `kb` table: `docs/test.md`, `raw/deepseek/...`, `raw/manual/...` |
+| Semantic paraphrase | "内网穿透 组网工具" → `semantic:true, match:semantic`, 3 docs (Tailscale first) |
+| Hybrid keyword | "Tailscale" → `semantic:true, match:hybrid` |
+| Ollama down | `semantic:false, match:keyword`, results still returned |
+| Model | `bge-m3:latest` 1.2 GB, 1024-d, local `/api/embed` |
