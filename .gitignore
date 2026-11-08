@@ -53,3 +53,6 @@ collector/android/keystore.properties
 # ES-075: local KB index is private and rebuildable from raw/
 *.db
 *.db-journal
+
+# ES-079: a public demo index is allowed; the live private DB stays ignored
+!index/demo.db
