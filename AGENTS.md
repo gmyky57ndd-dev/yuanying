@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.12
+**Version:** 1.13
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -259,6 +259,17 @@ an ES number.
 
 ---
 
+### Infrastructure and network changes
+
+9. **Infrastructure changes require explicit owner approval.** Any change to
+   domain, hosting provider, DNS, proxy/CDN, tunnel, or VPS is proposed first
+   (with cost, risk, rollback) and executed only after the owner approves. Do
+   not make "temporary" infrastructure changes without approval.
+10. **Tailscale Serve/Funnel is not a production hosting layer.** It may be used
+    only as a temporary debugging channel and as the internal management network
+    for the Coolify VPS. Production requires a real host with a real domain
+    (ES-074).
+
 ## 6. Data and timezone rules
 
 User-facing daily counts (such as water, steps, app usage, or reminders) must use the product's intended calendar day and must not accidentally accumulate across days. Retain historical records unless an approved requirement says otherwise.
@@ -343,6 +354,10 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.13 — 2026-11-07
+- Added infrastructure-approval rules: propose before changing domain/host/
+  network; Tailscale Funnel is debug/management only, not production (ES-074).
 
 ### v1.12 — 2026-10-30
 - Adopted `HARNESS-RULES.md`: evidence-first diagnosis, separate the independent
@@ -472,4 +487,4 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ---
 
-**End of AGENTS.md v1.12**
+**End of AGENTS.md v1.13**
