@@ -397,6 +397,48 @@ async function runTool(name: string, args: any): Promise<any> {
     };
   }
 
+  if (name === 'search_local_kb') {
+    // ES-078: local-only retrieval. A failure MUST be explicit — never let the
+    // cloud model guess when the Python service is down.
+    const query = String(args?.query ?? '').trim();
+    if (!query) return { success: false, error: 'query required' };
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const res = await fetch('http://127.0.0.1:8080/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        return {
+          success: false,
+          error: `本地 RAG 服务返回 HTTP ${res.status}；请确认 python3 scripts/local_rag_server.py 正常运行。`,
+        };
+      }
+      const data = await res.json();
+      const results = Array.isArray(data?.results) ? data.results : [];
+      if (results.length === 0) {
+        return {
+          success: true,
+          results: [],
+          message: '本地知识库中没有找到相关内容。',
+        };
+      }
+      return { success: true, results };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          '无法连接本地 RAG 服务（http://localhost:8080）。请提醒用户运行 python3 scripts/local_rag_server.py。',
+        detail: e instanceof Error ? e.message : String(e),
+      };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   if (name === 'add_note') {
     // ES-071: append-only memory capture. INSERT only — no update, no delete.
     const content = String(args?.content ?? '').trim();
@@ -589,10 +631,34 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const message = body?.message;
+    const requestedFenshenId =
+      typeof body?.fenshen_id === 'string' ? body.fenshen_id.trim() : '';
+    // ES-078: a failed local-RAG call must never be answered from memory.
+    let ragError: string | null = null;
 
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'message required' }, { status: 400 });
     }
+
+    // ES-078: request-level fenshen selection (defaults to config.active_fenshen).
+    let requestFenshen = await getActiveFenshen();
+    if (requestedFenshenId) {
+      const { data: row } = await supabase
+        .from('fenshen')
+        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind')
+        .eq('id', requestedFenshenId)
+        .maybeSingle();
+      if (row) requestFenshen = row as any;
+      else {
+        return NextResponse.json(
+          { error: `unknown fenshen: ${requestedFenshenId}` },
+          { status: 400 }
+        );
+      }
+    }
+    console.log(
+      `[fenshen] request=${requestedFenshenId || '(default)'} active=${requestFenshen?.id ?? 'none'} whitelist=${JSON.stringify(requestFenshen?.tools_whitelist ?? null)}`
+    );
 
     if (message.length > 4000) {
       return NextResponse.json(
@@ -814,6 +880,7 @@ export async function POST(req: NextRequest) {
     const repeatSaveQuestion =
       recentSaveQuestionCount((history ?? []) as any, 3) >= 2;
     const systemPrompt = await buildSystemPrompt({
+      fenshen: requestFenshen,
       signals: todaysSignals,
       now: new Date().toISOString(),
       steps: stepsRes.data?.[0]?.value ?? null,
@@ -859,6 +926,113 @@ export async function POST(req: NextRequest) {
       typeof bodyCfg.collector_last_report_at === 'string'
         ? bodyCfg.collector_last_report_at
         : 'unknown';
+    // ES-078: the authoritative tool list follows the active fenshen whitelist.
+    const ALL_TOOL_NAMES = [
+      'get_notes', 'get_conversation_records', 'get_summary', 'get_steps',
+      'get_system_status', 'add_note', 'get_drive_doc', 'get_model_info',
+      'web_search', 'read_markdown', 'write_markdown', 'scheduler', 'get_issue',
+      'ingest_external_chat', 'query_external_chats', 'ask_claude',
+      'ask_external_agent', 'read_local_file', 'write_local_file', 'push_to_dev',
+      'search_local_kb',
+    ];
+    const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
+      ? requestFenshen!.tools_whitelist
+      : null;
+    // ES-078: if this fenshen depends on local RAG and the question is a
+    // knowledge question, check the service before generation so a dead RAG
+    // can never be answered from memory.
+    const ragQuestion = /(部署|架构|方案|计划|RAG|知识库|论文|MCP|agent|Agent)/.test(
+      message
+    );
+    if (ragQuestion && toolWhitelist?.includes('search_local_kb')) {
+      try {
+        const health = await fetch('http://127.0.0.1:8080/health', {
+          signal: AbortSignal.timeout(1500),
+        });
+        if (!health.ok) throw new Error(`HTTP ${health.status}`);
+      } catch {
+        ragError =
+          '无法连接本地 RAG 服务（http://localhost:8080）。请先运行 python3 scripts/local_rag_server.py。';
+      }
+    }
+
+    // ES-078: when the local RAG is required but down, do not call the model at
+    // all — stream the explicit failure (and persist it) so history cannot be
+    // reused as knowledge.
+    if (ragError && ragQuestion) {
+      const reply = ragError;
+      await supabase.from('messages').insert([
+        {
+          role: 'user',
+          content: message,
+          session_id,
+          device_id,
+          metadata: { device, fenshen_id: requestFenshen?.id },
+        },
+        {
+          role: 'assistant',
+          content: reply,
+          session_id,
+          device_id,
+          metadata: {
+            device,
+            fenshen_id: requestFenshen?.id,
+            rag_unavailable: true,
+          },
+        },
+      ]);
+      return new Response(`0:${JSON.stringify(reply)}\n`, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'x-vercel-ai-data-stream': 'v1',
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+
+    // ES-078: pre-fetch grounding so the answer never relies on chat history.
+    let kbContext = '';
+    if (ragQuestion && toolWhitelist?.includes('search_local_kb') && !ragError) {
+      try {
+        const r = await fetch('http://127.0.0.1:8080/search', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: message }),
+          signal: AbortSignal.timeout(2500),
+        });
+        const d = await r.json();
+        const results = Array.isArray(d?.results) ? d.results : [];
+        if (results.length) {
+          kbContext = `\n\n【本地知识库检索结果】\n${results
+            .map(
+              (x: any, i: number) =>
+                `[${i + 1}] ${x.file}: ${String(x.snippet ?? '').slice(0, 1200)}`
+            )
+            .join('\n')}\n请优先依据以上本地文档回答；文档不足时明确说明。`;
+        }
+      } catch {
+        // health already passed; a failed search falls back to the error path
+        ragError =
+          '无法连接本地 RAG 服务（http://localhost:8080）。请先运行 python3 scripts/local_rag_server.py。';
+      }
+    }
+
+    const allowedToolNames = toolWhitelist
+      ? ALL_TOOL_NAMES.filter(name => toolWhitelist.includes(name))
+      : ALL_TOOL_NAMES;
+    const toolAvailability = `Authoritative tool availability for this request: ${
+      allowedToolNames.join(', ') || '(none)'
+    }.${
+      toolWhitelist
+        ? ' Tools outside this list are NOT available to you; never claim or attempt them.'
+        : ''
+    } Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.${
+      toolWhitelist
+        ? '\n\n【权限边界】当前分身只能使用上述工具。若主人要求列表之外的操作（发 Issue、写文件、推送代码、改配置等），必须直接说“我没有这个权限”，不要起草、不要承诺、也不要问“要发吗”。'
+        : ''
+    }`;
+
     const bodyStatusReminder = `Authoritative current versions for this request: PWA v${APP_VERSION}; LLM ${
       modelInfo ? `${modelInfo.provider}/${modelInfo.model_name}` : 'unknown'
     }; Collector v${collectorVersion} (last report ${collectorLastReport}). When asked about versions, use these values and ignore any earlier version claims in chat history.`;
@@ -872,7 +1046,7 @@ export async function POST(req: NextRequest) {
       {
         role: 'system' as const,
         content:
-          `Authoritative tool availability for this request: get_notes, get_conversation_records, get_summary, get_steps, get_system_status, add_note, get_drive_doc, get_model_info, web_search, read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, push_to_dev. Ignore any earlier message claiming you lack one of these tools. For current external knowledge or documentation, call web_search. For a repository Markdown file, call read_markdown.
+          `${toolAvailability}
 
 ${bodyStatusReminder}`,
       },
@@ -1013,6 +1187,24 @@ ${bodyStatusReminder}`,
             ),
         }),
         execute: async ({ path }) => runToolForModel('read_markdown', { path }),
+      }),
+      search_local_kb: tool({
+        description:
+          "Search the owner's LOCAL private knowledge base (~/yuanying/local_kb) for architecture documents, papers and deployment notes. Call this FIRST for architecture/deployment questions. The data stays on the local machine; only the returned snippets are sent to the cloud model.",
+        parameters: z.object({
+          query: z
+            .string()
+            .describe('keywords, e.g. "MCP" or "部署计划"'),
+        }),
+        execute: async ({ query }) => {
+          const result = (await runToolForModel('search_local_kb', {
+            query,
+          })) as any;
+          if (result && result.success === false) {
+            ragError = String(result.error ?? 'local RAG failed');
+          }
+          return result;
+        },
       }),
       add_note: tool({
         description:
@@ -1165,15 +1357,28 @@ ${bodyStatusReminder}`,
     const guardedSystemPrompt = repeatSaveQuestion
       ? `${systemPrompt}\n\n【打断】你已经连续多次用同一句请示（「要我存下来吗」）。不要再问；直接执行主人最新的一条指令，或简短结束。${notePromptSuffix}`
       : `${systemPrompt}${notePromptSuffix}`;
+    const finalSystemPrompt = kbContext
+      ? `${guardedSystemPrompt}${kbContext}`
+      : guardedSystemPrompt;
+
+    const activeTools = toolWhitelist
+      ? Object.fromEntries(
+          Object.entries(tools).filter(([name]) => allowedToolNames.includes(name))
+        )
+      : tools;
+    console.log(
+      `[fenshen] ${requestFenshen?.id ?? 'default'} active_tools=${Object.keys(activeTools).join(',') || '(none)'}`
+    );
 
     const result = streamText({
       model,
-      system: guardedSystemPrompt,
+      system: finalSystemPrompt,
       messages,
-      tools,
-      toolChoice: writeIntent
-        ? ({ type: 'tool', toolName: 'write_markdown' } as const)
-        : undefined,
+      tools: activeTools,
+      toolChoice:
+        writeIntent && activeTools.write_markdown
+          ? ({ type: 'tool', toolName: 'write_markdown' } as const)
+          : undefined,
       maxSteps: 5,
       temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
       maxTokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
@@ -1219,13 +1424,13 @@ ${bodyStatusReminder}`,
 
         // ES-067: never trust prose for a write. If the tool ran, say what it did;
         // if it did not run, retry once with a forced tool call.
-        if (writeIntent && !writeResult) {
+        if (writeIntent && !writeResult && activeTools.write_markdown) {
           try {
             await generateText({
               model,
               system: systemPrompt,
               messages,
-              tools,
+              tools: activeTools,
               toolChoice: { type: 'tool', toolName: 'write_markdown' },
               maxSteps: 2,
               maxTokens: 400,
@@ -1249,6 +1454,16 @@ ${bodyStatusReminder}`,
         if (repeatSaveQuestion && hasSaveQuestion(reply)) {
           reply = stripSaveQuestion(reply);
           console.warn('stripped repeated save question');
+        }
+
+        // ES-078: if the local RAG was down, never let the model answer from
+        // history/memory — force the explicit failure text.
+        if (
+          ragError &&
+          ragQuestion &&
+          !/(无法连接|未启动|RAG 服务|localhost:8080)/i.test(reply)
+        ) {
+          reply = ragError;
         }
 
         // ES-067: strip leaked tool-call markers before the text reaches the UI.

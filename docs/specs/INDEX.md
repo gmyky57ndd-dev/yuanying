@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-077 (highest assigned: **ES-077**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-078 (highest assigned: **ES-078**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-26c):** the morning-plan fix was first written
@@ -104,6 +104,7 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-071 | add_note Tool for Seamless Memory Capture | Approved | 2026-10-27 | P2-51 |
 | ES-074 | Coolify Migration (leave Vercel/Tailscale Funnel) | Proposal | 2026-11-07 | P2-54 |
 | ES-077 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
+| ES-078 | AI Architect Fenshen & Local RAG | Implemented | 2026-11-08 | P2-55 |
 | ES-075 | Evening Summary Pipeline + Delivery Log | Urgent Bug (P0) | 2026-10-30 | P2-52 |
 | ES-076 | Local Bridge During the Vercel Pause | Urgent (P0, temporary) | 2026-11-04 | P2-53 |
 | ES-072 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |

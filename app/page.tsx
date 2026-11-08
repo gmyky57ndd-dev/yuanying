@@ -149,6 +149,11 @@ export default function Home() {
   const vadStreamRef = useRef<MediaStream | null>(null);
   const stopGraceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [transcribing, setTranscribing] = useState(false);
+  // ES-078: request-level fenshen selection (defaults to config.active_fenshen).
+  const [fenshenId, setFenshenId] = useState('');
+  const [fenshenList, setFenshenList] = useState<
+    Array<{ id: string; display_name: string }>
+  >([]);
 
   const [historyReady, setHistoryReady] = useState(false);
   const deviceIdRef = useRef<string>('');
@@ -514,10 +519,17 @@ export default function Home() {
     try {
       const r = await fetchWithTimeout(`${API_BASE}/api/fenshen`, {});
       const d = await r.json();
-      const active = (d.fenshen ?? []).find(
-        (f: FenshenInfo) => f.id === d.active
+      const rows: any[] = d.fenshen ?? [];
+      setFenshenList(
+        rows.map(f => ({ id: String(f.id), display_name: String(f.display_name) }))
       );
-      setFenshen(active ?? (d.fenshen?.[0] ?? null));
+      const saved =
+        typeof window !== 'undefined'
+          ? window.localStorage.getItem('yy_fenshen')
+          : null;
+      if (saved && rows.some(f => f.id === saved)) setFenshenId(saved);
+      const active = rows.find((f: FenshenInfo) => f.id === d.active);
+      setFenshen(active ?? (rows[0] ?? null));
     } catch {}
   }
 
@@ -693,7 +705,7 @@ export default function Home() {
             setToolStatus('已发送，正在整理…');
           }
         }
-      }, deviceIdRef.current);
+      }, deviceIdRef.current, fenshenId || undefined);
       if (d.reply) {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
         // ES-071: a tool may have appended a note; refresh the timeline.
@@ -1716,6 +1728,37 @@ export default function Home() {
       {transcribing && (
         <div className="px-4 pb-1 text-[11px] text-stone-500">正在转写语音…</div>
       )}
+
+      {/* ES-078: fenshen switcher (request-level; no deploy needed). */}
+      <div className="relative z-20 flex items-center gap-2 px-3 pt-2">
+        <select
+          value={fenshenId}
+          onChange={e => {
+            const next = e.target.value;
+            setFenshenId(next);
+            try {
+              window.localStorage.setItem('yy_fenshen', next);
+            } catch {}
+          }}
+          aria-label="分身"
+          className="bg-stone-900 border border-stone-800 rounded-full px-3 py-1 text-xs text-stone-300 outline-none"
+        >
+          <option value="">小悟（默认）</option>
+          {fenshenList
+            .filter(f => f.id !== 'xiaowu')
+            .map(f => (
+              <option key={f.id} value={f.id}>
+                {f.display_name}
+              </option>
+            ))}
+        </select>
+        {fenshenId && (
+          <span className="text-[11px] text-emerald-400">
+            {fenshenList.find(f => f.id === fenshenId)?.display_name || fenshenId}{' '}
+            在线
+          </span>
+        )}
+      </div>
 
       {/* Input. z-20 + opaque background: nothing can sit above the field and
           eat the tap (a covered input focuses nothing and the IME never opens). */}

@@ -21,7 +21,8 @@ export async function postChat(
   message: string,
   session_id?: string,
   onToolEvent?: (event: any) => void,
-  device_id?: string
+  device_id?: string,
+  fenshenId?: string
 ) {
   // ES-062: a coarse device label; never a fingerprint.
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
@@ -35,7 +36,13 @@ export async function postChat(
   const res = await fetchWithTimeout(`${API_BASE}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, session_id, device, device_id }),
+    body: JSON.stringify({
+      message,
+      session_id,
+      device,
+      device_id,
+      fenshen_id: fenshenId || undefined,
+    }),
   });
 
   if (!res.ok) {

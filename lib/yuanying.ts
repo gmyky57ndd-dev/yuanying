@@ -296,6 +296,9 @@ export type ActiveFenshen = {
   display_name: string;
   prompt_md: string;
   avatar_url: string | null;
+  /** null = all tools (persona); [] = none; [...] = exactly these (ES-069). */
+  tools_whitelist?: string[] | null;
+  kind?: 'persona' | 'professional';
 };
 
 /**
@@ -310,7 +313,7 @@ export async function getActiveFenshen(): Promise<ActiveFenshen | null> {
     .maybeSingle();
   const id = typeof cfg?.value === 'string' ? cfg.value : 'xiaowu';
 
-  const cols = 'id, display_name, prompt_md, avatar_url';
+  const cols = 'id, display_name, prompt_md, avatar_url, tools_whitelist, kind';
   const { data } = await supabase
     .from('fenshen')
     .select(cols)
@@ -328,10 +331,12 @@ export async function getActiveFenshen(): Promise<ActiveFenshen | null> {
 }
 
 export async function buildSystemPrompt(
-  opts: BuildOptions = {}
+  opts: BuildOptions & { fenshen?: ActiveFenshen | null } = {}
 ): Promise<string> {
   const core = loadCore();
-  const fenshen = await getActiveFenshen();
+  // ES-078: a request may carry fenshen_id; the explicit choice wins.
+  const fenshen =
+    opts.fenshen !== undefined ? opts.fenshen : await getActiveFenshen();
   const signalCtx = buildSignalContext(
     opts.signals ?? [],
     opts.timezone ?? 'Asia/Shanghai'

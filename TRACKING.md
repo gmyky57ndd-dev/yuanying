@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-55] AI 架构师分身 + 本地 RAG (ES-078) — Done
+
+- **Status**: Done (2026-11-08) · **Category**: Architecture (Multi-Agent/RAG) · **Refs**: ES-078, ES-069, ES-074
+- **Delivered**: `fenshen.kind/tools_whitelist/skill_prompt` (migration 029) + `ai_architect` row + `core/fenshen/ai_architect/profile.md`; `scripts/local_rag_server.py` (port 8080, keyword+tokens); `/api/chat` accepts `fenshen_id`, filters the tool set before the LLM call, logs `active_tools`, prompts refusal for unlisted actions; `search_local_kb` with explicit failure; composer switcher + badge.
+- **Evidence**: test 1 "我没有这个权限"; test 2 `POST /search 200` → Coolify; test 3 deterministic "无法连接本地 RAG 服务"; default xiaowu keeps all tools.
+- **Deviations**: `system_prompt` → `prompt_md`; tokenised search; deterministic failure stream when RAG is down (documented in ES-078).
+- **Docs**: `docs/specs/ES-078-ai-architect-rag.md`.
+
 ### [P2-54] Coolify 迁移提案 (ES-074) — 待 owner 批准
 
 - **Status**: Proposal (2026-11-07) · **Category**: Infrastructure · **Refs**: ES-074, INC-001
