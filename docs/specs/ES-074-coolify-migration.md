@@ -90,5 +90,6 @@ owner ──Tailscale──► VPS SSH / Coolify UI   (management only, not publ
 2. Domain: which one, and who controls DNS?
 3. Budget approval for the VPS + domain (if new).
 4. Cutover window preference.
-5. Keep the temporary bridge running (debug only) until Coolify is live, or take
-   it down now?
+5. **Answered (2026-11-07): keep the temporary bridge running as debug-only**
+   until Coolify is live. It is not a production path; shut it down with
+   `tailscale funnel --https=443 off` + `launchctl bootout gui/$(id -u)/com.yuanying.web`.

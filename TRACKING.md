@@ -209,7 +209,7 @@ never by the section they happened to be written under.
 - **Status**: Proposal (2026-11-07) · **Category**: Infrastructure · **Refs**: ES-074, INC-001
 - **Directive**: infrastructure changes need explicit approval; Tailscale Funnel is not production; Tailscale only as the VPS management network.
 - **Plan**: one VPS + Coolify + Docker Next.js app + real domain + Let's Encrypt; Supabase unchanged; Coolify scheduled task for the 21:35 summary; collector v1.0.45.
-- **Blocking questions**: VPS provider/region, domain/DNS, budget, cutover window, whether to keep the temporary bridge meanwhile.
+- **Blocking questions**: VPS provider/region, domain/DNS, budget, cutover window. Bridge decision: **kept as debug-only** until Coolify is live.
 - **Docs**: `docs/specs/ES-074-coolify-migration.md`.
 
 ### [P2-53] 本地桥接（Vercel 暂停期间）(ES-076) — P0 · 临时
