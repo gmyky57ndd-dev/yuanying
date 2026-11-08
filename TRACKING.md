@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-56] 本地优先 AI 知识库 (ES-075) — In Progress
+
+- **Status**: Done (2026-11-08) · **Category**: Architecture / Local-first · **Refs**: ES-075, ES-078
+- **Rule**: imported conversations are Markdown under `~/yuanying/local_kb/raw/`; the index is a rebuildable SQLite FTS5 DB; Supabase gets no long text (path/summary only, optional).
+- **MVP**: `/api/kb/ingest` + `/api/kb/search` proxy to the local service; `save_local_kb` tool; explicit 503 when the local service is down; no ChromaDB/vector dependency.
+- **Verified**: ingested `raw/deepseek/2026-11-08_1937_e6cc3885.md` (frontmatter intact); Supabase has 0 rows with the imported body; `/api/kb/search?q=Tailscale` returns it; the local service answers with Next stopped (`docs:3, raw:2`); `save_local_kb` wrote `raw/manual/2026-11-08_1937_c4b44d98.md`.
+- **Docs**: `docs/specs/ES-075-local-first-kb.md`.
+
 ### [P2-55] AI 架构师分身 + 本地 RAG (ES-078) — Done
 
 - **Status**: Done (2026-11-08) · **Category**: Architecture (Multi-Agent/RAG) · **Refs**: ES-078, ES-069, ES-074
@@ -239,7 +247,7 @@ never by the section they happened to be written under.
 
 ### [P2-52] 晚间总结链路 + 本地送达日志 (ES-075) — P0
 
-- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-075, #84, ES-065, ES-073
+- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-079, #84, ES-065, ES-073
 - **Chains isolated**: A server evening summary (`/api/cron/evening-summary`), B collector local 21:30 reminder (`reminder_deliveries`), C one-shot scheduler — never fixed in one blob again.
 - **A**: local-time guard 21:00–22:00, target date from the local clock, idempotent, direct summary (no "要不要总结"), workflow at 01:35/02:35 UTC.
 - **B**: `reminder_deliveries` (migration 028) + collector logging (delivered/failed) + missed-slot reconciliation.

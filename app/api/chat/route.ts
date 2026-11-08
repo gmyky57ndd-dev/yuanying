@@ -439,6 +439,41 @@ async function runTool(name: string, args: any): Promise<any> {
     }
   }
 
+  if (name === 'save_local_kb') {
+    // ES-075: local disk only. No Supabase fallback.
+    const text = String(args?.text ?? '').trim();
+    if (!text) return { success: false, error: 'text required' };
+    try {
+      const res = await fetch('http://127.0.0.1:8080/ingest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text,
+          source: String(args?.source ?? 'manual'),
+          title: args?.title ? String(args.title) : undefined,
+          summary: args?.summary ? String(args.summary) : undefined,
+          tags: Array.isArray(args?.tags) ? args.tags : [],
+        }),
+        signal: AbortSignal.timeout(8000),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        return {
+          success: false,
+          error: String(data?.error ?? `本地知识库写入失败（HTTP ${res.status}）`),
+        };
+      }
+      return { success: true, path: data.path, id: data.id };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          '无法连接本地知识库服务（http://localhost:8080）。请运行 python3 scripts/local_rag_server.py。',
+        detail: e instanceof Error ? e.message : String(e),
+      };
+    }
+  }
+
   if (name === 'add_note') {
     // ES-071: append-only memory capture. INSERT only — no update, no delete.
     const content = String(args?.content ?? '').trim();
@@ -933,7 +968,7 @@ export async function POST(req: NextRequest) {
       'web_search', 'read_markdown', 'write_markdown', 'scheduler', 'get_issue',
       'ingest_external_chat', 'query_external_chats', 'ask_claude',
       'ask_external_agent', 'read_local_file', 'write_local_file', 'push_to_dev',
-      'search_local_kb',
+      'search_local_kb', 'save_local_kb',
     ];
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
@@ -1205,6 +1240,21 @@ ${bodyStatusReminder}`,
           }
           return result;
         },
+      }),
+      save_local_kb: tool({
+        description:
+          "Save an imported conversation (DeepSeek/ChatGPT/Claude) or a long note to the owner's LOCAL knowledge base as a Markdown file with frontmatter. Use when the owner says 存进本地知识库 / 把这段对话存起来. Never store the body in Supabase.",
+        parameters: z.object({
+          text: z.string().describe('the full conversation/markdown body'),
+          source: z
+            .enum(['deepseek', 'chatgpt', 'claude', 'manual'])
+            .optional()
+            .describe('where the conversation came from'),
+          title: z.string().optional(),
+          summary: z.string().optional().describe('1–2 sentences, safe to mirror'),
+          tags: z.array(z.string()).optional(),
+        }),
+        execute: async args => runToolForModel('save_local_kb', args),
       }),
       add_note: tool({
         description:
