@@ -1,7 +1,11 @@
 # Local KB index
 
-The live database is **not** committed here: it contains private conversations
-and this repository is public (data-sovereignty red line). It lives at:
+`index/demo.db` is a **public demo** built only from `docs/test.md` (1 document,
+1 chunk, bge-m3 1024-d). It is committed so reviewers can inspect the real
+schema and FTS5 tables without exposing anything private.
+
+The **live** database is **not** committed: it contains private conversations and
+this repository is public (data-sovereignty red line). It lives at:
 
 ```
 ~/yuanying/local_kb/index/sqlite.db
