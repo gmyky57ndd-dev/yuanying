@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-54] Coolify 迁移提案 (ES-074) — 待 owner 批准
+
+- **Status**: Proposal (2026-11-07) · **Category**: Infrastructure · **Refs**: ES-074, INC-001
+- **Directive**: infrastructure changes need explicit approval; Tailscale Funnel is not production; Tailscale only as the VPS management network.
+- **Plan**: one VPS + Coolify + Docker Next.js app + real domain + Let's Encrypt; Supabase unchanged; Coolify scheduled task for the 21:35 summary; collector v1.0.45.
+- **Blocking questions**: VPS provider/region, domain/DNS, budget, cutover window, whether to keep the temporary bridge meanwhile.
+- **Docs**: `docs/specs/ES-074-coolify-migration.md`.
+
 ### [P2-53] 本地桥接（Vercel 暂停期间）(ES-076) — P0 · 临时
 
 - **Status**: Done (2026-11-04) · **Refs**: ES-076, INC-001
@@ -295,11 +303,11 @@ never by the section they happened to be written under.
 - **Fix**: gate the realtime effect on `historyReady`; scroll only when the message count grows; skip state updates when ids+content are unchanged; event rows carry `source` and show `· 提醒回执`.
 - **Docs**: `docs/specs/ES-066-chat-replay-scroll.md`.
 
-### [P2-43] 早安问候应给今日计划而非空总结 (ES-074, #79)
+### [P2-43] 早安问候应给今日计划而非空总结 (ES-077, #79)
 
-- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-074
+- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-077
 - **Fix**: before 11:00 with no signals today, the prompt forbids a "今天…" summary and asks for a 2–3 sentence plan based on yesterday.
-- **Docs**: `docs/specs/ES-074-morning-plan.md`.
+- **Docs**: `docs/specs/ES-077-morning-plan.md`.
 
 ### [P2-44] 提醒回执跨日与起床前误记 (ES-072, #78)
 

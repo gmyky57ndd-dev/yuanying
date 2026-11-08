@@ -3,7 +3,7 @@
 This is the single source of truth for all ES documents. Before creating a new
 ES, check the highest number here and increment. Never reuse a number.
 
-**Range:** ES-001 → ES-076 (highest assigned: **ES-076**; ES-057/058 unassigned)
+**Range:** ES-001 → ES-077 (highest assigned: **ES-077**; ES-057/058 unassigned)
 **Status column:** spec status. Implementation status lives in `TRACKING.md`.
 
 > **Collision resolution (2026-10-26c):** the morning-plan fix was first written
@@ -102,7 +102,8 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-068 | Voice Input Accuracy & UX | Approved | 2026-10-26 | P2-46 |
 | ES-069 | Professional Fenshen Architecture (Skill & Tool Whitelisting) | Approved (Future Sprint) | 2026-10-26 | P2-48 |
 | ES-071 | add_note Tool for Seamless Memory Capture | Approved | 2026-10-27 | P2-51 |
-| ES-074 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
+| ES-074 | Coolify Migration (leave Vercel/Tailscale Funnel) | Proposal | 2026-11-07 | P2-54 |
+| ES-077 | Morning Plan vs Daily Summary | Bug fix | 2026-10-24 | P2-43 |
 | ES-075 | Evening Summary Pipeline + Delivery Log | Urgent Bug (P0) | 2026-10-30 | P2-52 |
 | ES-076 | Local Bridge During the Vercel Pause | Urgent (P0, temporary) | 2026-11-04 | P2-53 |
 | ES-072 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |
@@ -122,7 +123,8 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-069 (morning plan) | **ES-071** | 2026-10-26 | Owner assigned ES-069 to professional fenshen |
 | ES-068 (reminder receipt) | ES-070 | 2026-10-26 | Owner assigned ES-068 to voice input |
 | ES-070 (reminder receipt) | ES-072 | 2026-10-27 | Owner assigned ES-070 to the morning-briefing bug |
-| ES-071 (morning plan) | **ES-074** | 2026-10-27 | Owner assigned ES-071 to the add_note tool |
+| ES-071 (morning plan) | ES-074 | 2026-10-27 | Owner assigned ES-071 to the add_note tool |
+| ES-074 (morning plan) | **ES-077** | 2026-11-07 | Owner assigned ES-074 to the Coolify migration proposal |
 
 Rule: the owner's assignment wins; the displaced document takes the next free
 number, every reference (INDEX, TRACKING, code comments, specs) is updated, and
