@@ -8,6 +8,9 @@ const CAP_BY_TOOL: Record<string, number> = {
   get_issue: 5000,
   // Reading a file is only useful with its body; keep a generous bound.
   read_markdown: 16000,
+  read_code_file: 16000,
+  search_local_kb: 6000,
+  trigger_reindex: 2000,
 };
 
 function clip(value: string, max: number): string {
