@@ -597,6 +597,14 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, data: issue };
   }
 
+  if (name === 'get_github_issue') {
+    const issueNumber = Number(args?.issue_number);
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      return { success: false, error: 'issue_number must be a positive integer' };
+    }
+    return { success: true, data: await getIssue(issueNumber) };
+  }
+
   if (name === 'get_issue_status') {
     const issueNumber = Number(args?.issue_number);
     if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
@@ -1080,7 +1088,7 @@ export async function POST(req: NextRequest) {
       'ingest_external_chat', 'query_external_chats', 'ask_claude',
       'ask_external_agent', 'read_local_file', 'write_local_file', 'push_to_dev',
       'search_local_kb', 'save_local_kb', 'read_code_file',
-      'get_issue_status', 'trigger_reindex',
+      'get_issue_status', 'get_github_issue', 'trigger_reindex',
     ];
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
@@ -1342,6 +1350,15 @@ ${bodyStatusReminder}`,
           path: z.string().describe('relative path, e.g. lib/api.ts'),
         }),
         execute: async ({ path }) => runToolForModel('read_code_file', { path }),
+      }),
+      get_github_issue: tool({
+        description:
+          'Fetch the details, comments, and status of a specific GitHub issue.',
+        parameters: z.object({
+          issue_number: z.number().int().positive().describe('The issue number'),
+        }),
+        execute: async ({ issue_number }) =>
+          runToolForModel('get_github_issue', { issue_number }),
       }),
       get_issue_status: tool({
         description:

@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.13
+**Version:** 1.14
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -270,6 +270,16 @@ an ES number.
     for the Coolify VPS. Production requires a real host with a real domain
     (ES-074).
 
+### Where documents live (ES-077)
+
+1. **Large documents and the private knowledge base** live on the owner's Mac at
+   `~/yuanying/local_kb/` (`raw/` is the truth, `index/` is rebuildable). They are
+   never uploaded to Supabase, Vercel, Coolify or any cloud service.
+2. **Code and design specs (ES)** live in the GitHub repository under `docs/`
+   (`docs/specs/INDEX.md` is the registry).
+3. **Communication and feedback** (bug reports, approvals, review replies) happen
+   in GitHub Issues; read them with `get_github_issue`.
+
 ## 6. Data and timezone rules
 
 User-facing daily counts (such as water, steps, app usage, or reminders) must use the product's intended calendar day and must not accidentally accumulate across days. Retain historical records unless an approved requirement says otherwise.
@@ -354,6 +364,10 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.14 — 2026-11-08
+- Added the document-location boundaries (local KB / repo docs / GitHub Issues).
+- `get_github_issue` tool for reading issue details + comments (ES-077).
 
 ### v1.13 — 2026-11-07
 - Added infrastructure-approval rules: propose before changing domain/host/
@@ -487,4 +501,4 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ---
 
-**End of AGENTS.md v1.13**
+**End of AGENTS.md v1.14**
