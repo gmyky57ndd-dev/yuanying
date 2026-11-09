@@ -1453,18 +1453,22 @@ ${bodyStatusReminder}`,
       }),
       read_local_file: tool({
         description:
-          'Read a file from the mailbox/ directory. Use for the local AI-to-AI file bridge.',
+          'Read a local file: mailbox/ (AI-to-AI bridge) or a local KB document under local_kb/docs/. The local KB never leaves the Mac.',
         parameters: z.object({
-          path: z.string().describe('Path under mailbox/, e.g. mailbox/inbox/x.md'),
+          path: z
+            .string()
+            .describe('mailbox/inbox/x.md or local_kb/docs/prd.md'),
         }),
         execute: async ({ path }) =>
           runToolForModel('read_local_file', { path }),
       }),
       write_local_file: tool({
         description:
-          'Write a file under mailbox/ through a Git commit. Use only when the owner asks to hand a message to another AI. Allowed: mailbox/**.md/.txt/.json.',
+          'Write a local file: mailbox/ (Git-backed handoff to another AI) or a local KB document under local_kb/docs/ (saved on the Mac at ~/yuanying/local_kb/docs/, never uploaded). Allowed: .md/.txt/.json.',
         parameters: z.object({
-          path: z.string().describe('Path under mailbox/'),
+          path: z
+            .string()
+            .describe('mailbox/outbox/x.md or local_kb/docs/prd.md'),
           content: z.string().describe('Full file content'),
         }),
         execute: async ({ path, content }) =>

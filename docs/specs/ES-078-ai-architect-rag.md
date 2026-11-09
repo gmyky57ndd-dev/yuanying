@@ -73,6 +73,22 @@ Logs: `[fenshen] ai_architect active_tools=get_conversation_records,web_search,s
 - Note: `get_github_issue(89)` returns the PR body (GitHub exposes PRs via the
   issues API) and reports **no comments** — the PR has none.
 
+## 5b. ai_pm — 拓维 (AI-PM) (2026-11-08)
+
+- Row: `ai_pm`, display_name **拓维 (AI-PM)**, kind `professional`, avatar
+  `/avatars/ai_pm.png` (placeholder), prompt from the owner's FENSHEN spec.
+- Whitelist (7): `web_search, get_notes, get_conversation_records, push_to_dev,
+  get_github_issue, read_local_file, write_local_file`.
+- `read_local_file` / `write_local_file` now also accept `local_kb/docs/*`
+  (resolved to `~/yuanying/local_kb/docs/`; local-only, never GitHub/cloud).
+- Verified:
+  - `active_tools=get_notes,get_conversation_records,web_search,get_github_issue,read_local_file,write_local_file,push_to_dev`
+  - PRD write → `~/yuanying/local_kb/docs/ai_pm_smoke.md`
+  - web_search ran but the provider returned titles only; the PM refused to
+    invent prices.
+  - get_conversation_records returned 8 records and a grounded Vercel summary.
+  - `execute_code` request → "我没有这个权限" + the exact 7-tool list.
+
 ## 6. Operational note
 
 `search_local_kb` targets `127.0.0.1:8080`, so it only works where the Python
