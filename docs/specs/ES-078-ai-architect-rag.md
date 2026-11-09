@@ -101,6 +101,19 @@ Logs: `[fenshen] ai_architect active_tools=get_conversation_records,web_search,s
   `docs/pm/README.md` written (commit `8efa88e`); local
   `local_kb/docs/ai_pm_capabilities.md` written; GitHub README read back.
 
+## 5d. 拓维 file rules & PRD contract (2026-11-09)
+
+- Prompt rules: relative paths only (`local_kb/docs/...`); read
+  `local_kb/docs/BWP_PRD_V3.md`, write `local_kb/docs/BWP_PRD_V4.md`; on a
+  missing file stop retrying and ask the owner to paste/drag the file.
+- Absolute paths (`/Users/...`, `C:\`) are rejected in code with a clear
+  "use a relative path" error; a missing local document returns the exact
+  fallback sentence for the model to relay.
+- PRD structure required: version/date, change summary, goals & first
+  principles, business flow, AI intervention points/tool design, acceptance
+  criteria. A local template lives at
+  `~/yuanying/local_kb/docs/_PRD_TEMPLATE.md`.
+
 ## 6. Operational note
 
 `search_local_kb` targets `127.0.0.1:8080`, so it only works where the Python

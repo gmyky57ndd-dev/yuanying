@@ -10,7 +10,14 @@ function normalize(input: string): string {
   // ES-078: PRDs may be written to the local knowledge base (Mac only).
   rel = rel.replace(/^yuanying\/local_kb\//, 'local_kb/');
   if (!rel || rel.startsWith('/') || rel.split('/').includes('..') || rel.includes('\0')) {
-    throw new Error('Unsafe path.');
+    throw new Error(
+      '绝对路径不可用：请使用相对路径，如 local_kb/docs/BWP_PRD_V3.md。'
+    );
+  }
+  if (/^[A-Za-z]:\//.test(rel)) {
+    throw new Error(
+      '绝对路径不可用：请使用相对路径，如 local_kb/docs/BWP_PRD_V3.md。'
+    );
   }
   if (
     !rel.startsWith('mailbox/') &&
@@ -67,7 +74,11 @@ export async function readMailbox(input: string): Promise<{
   const rel = normalize(input);
   if (isLocalKb(rel)) {
     const full = localKbPath(rel);
-    if (!fs.existsSync(full)) throw new Error(`File not found: ${rel}`);
+    if (!fs.existsSync(full)) {
+      throw new Error(
+        `文件不存在：${rel}。我无法直接读取你电脑上的文件，请把文件拖进对话框，或者把内容粘贴给我。`
+      );
+    }
     const text = fs.readFileSync(full, 'utf-8');
     return { success: true, data: { path: rel, text, chars: Array.from(text).length } };
   }
