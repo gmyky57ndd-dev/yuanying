@@ -239,6 +239,7 @@ never by the section they happened to be written under.
 - **Evidence**: test 1 "我没有这个权限"; test 2 `POST /search 200` → Coolify; test 3 deterministic "无法连接本地 RAG 服务"; default xiaowu keeps all tools.
 - **Deviations**: `system_prompt` → `prompt_md`; tokenised search; deterministic failure stream when RAG is down (documented in ES-078).
 - **Addendum (2026-11-08)**: `ai_architect` whitelist now exactly `web_search, get_notes, get_conversation_records, push_to_dev, get_github_issue` (migration 032); `ai_pm` created with the same set. Verified `[tool] get_github_issue #88` with real comment text.
+- **ai_pm 拓维 (2026-11-08)**: row + prompt + avatar + 7-tool whitelist; `read_local_file`/`write_local_file` accept `local_kb/docs/*` (local-only). Verified PRD write, web_search, conversation records, and refusal of `execute_code`.
 - **Docs**: `docs/specs/ES-078-ai-architect-rag.md`.
 
 ### [P2-54] Coolify 迁移提案 (ES-074) — 待 owner 批准
