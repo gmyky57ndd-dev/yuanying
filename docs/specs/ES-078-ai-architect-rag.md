@@ -61,6 +61,18 @@ column (activation is `config.active_fenshen`). The prompt is stored in
 
 Logs: `[fenshen] ai_architect active_tools=get_conversation_records,web_search,search_local_kb,read_local_file`.
 
+## 5a. Tool-whitelist fix (2026-11-08)
+
+- `ai_architect` whitelist → `["web_search","get_notes","get_conversation_records","push_to_dev","get_github_issue"]`
+  (migration 032).
+- New `ai_pm` fenshen ("AI 产品经理", professional) with the same whitelist and
+  `core/fenshen/ai_pm/profile.md`.
+- Verified: `[fenshen] ai_architect active_tools=get_notes,get_conversation_records,web_search,get_github_issue,push_to_dev`
+  and `[tool] get_github_issue #88`; the reply quoted the Dev comment's four
+  items instead of inventing them.
+- Note: `get_github_issue(89)` returns the PR body (GitHub exposes PRs via the
+  issues API) and reports **no comments** — the PR has none.
+
 ## 6. Operational note
 
 `search_local_kb` targets `127.0.0.1:8080`, so it only works where the Python

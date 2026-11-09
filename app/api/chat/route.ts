@@ -602,6 +602,7 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
       return { success: false, error: 'issue_number must be a positive integer' };
     }
+    console.log(`[tool] get_github_issue #${issueNumber}`);
     return { success: true, data: await getIssue(issueNumber) };
   }
 
