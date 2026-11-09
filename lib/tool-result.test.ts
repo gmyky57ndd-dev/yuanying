@@ -218,3 +218,12 @@ test('read_markdown handles the wrapped { data: string, meta } shape', () => {
   assert.strictEqual(result.data.content, 'line one\nline two');
   assert.strictEqual(result.data.path, 'core/habits.md');
 });
+
+test('stripToolMarkers removes textual tool_call blocks', () => {
+  const { text, hadMarkers } = stripToolMarkers(
+    '看这个<tool_call>{"name":"read_local_file","arguments":{"path":"x"}}</tool_call>'
+  );
+  assert.strictEqual(hadMarkers, true);
+  assert.strictEqual(text, '看这个');
+  assert.ok(!text.includes('tool_call'));
+});

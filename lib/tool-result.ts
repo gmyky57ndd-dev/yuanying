@@ -9,6 +9,7 @@ const CAP_BY_TOOL: Record<string, number> = {
   // Reading a file is only useful with its body; keep a generous bound.
   read_markdown: 16000,
   read_code_file: 16000,
+  read_local_file: 16000,
   get_github_issue: 6000,
   search_local_kb: 6000,
   trigger_reindex: 2000,
@@ -186,12 +187,22 @@ function summarize(name: string, result: any): any {
     case 'ask_claude':
     case 'ask_external_agent':
       return result;
-    case 'read_local_file':
+    case 'read_local_file': {
+      // ES-079: the body is the point — dropping it made the PM report
+      // "only the path and length came back".
+      const text = String(result.data?.text ?? result.text ?? '');
+      const cap = 12000;
       return {
         success: true,
-        data: { path: result.data?.path, chars: result.data?.chars },
-        message: 'Mailbox file loaded.',
+        data: {
+          path: result.data?.path,
+          chars: result.data?.chars ?? text.length,
+          content: clip(text, cap),
+          truncated: text.length > cap,
+        },
+        message: 'Local file loaded.',
       };
+    }
     case 'write_local_file':
       return result;
     case 'write_markdown':
@@ -255,6 +266,9 @@ export function stripToolMarkers(input: string): {
   hadMarkers: boolean;
 } {
   const patterns = [
+    // ES-079: textual tool-call blocks (whole block, not just the tags).
+    /<(tool_calls?|function_calls?)(?:\s[^>]*)?>[\s\S]*?<\/\1>/gi,
+    /<\|tool_calls?\|>[\s\S]*?<(?:\|\/|\/\|)tool_calls?\|>/gi,
     /<\/?[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^>]*>/gi,
     /<\/?[｜|]{1,2}[^<>]{0,400}[｜|]{1,2}>/g,
     /<\|\s*\/?\s*(?:DSML|tool_call|tool_calls|function_call)[^>]*>/gi,

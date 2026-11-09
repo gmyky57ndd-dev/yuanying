@@ -22,6 +22,7 @@ import { readMarkdown } from '@/lib/read-markdown';
 import { writeMarkdown } from '@/lib/write-markdown';
 import { scheduleMessage } from '@/lib/scheduler';
 import { normalizeToolResult, stripToolMarkers } from '@/lib/tool-result';
+import { extractTextualToolCalls } from '@/lib/textual-tool-call';
 import {
   recentSaveQuestionCount,
   hasSaveQuestion,
@@ -1457,7 +1458,7 @@ ${bodyStatusReminder}`,
       }),
       read_local_file: tool({
         description:
-          'Read a file: mailbox/ (AI-to-AI bridge), a local KB document under local_kb/docs/ (stays on the Mac), or a product doc under docs/pm/ (GitHub-backed).',
+          'Read a file with a RELATIVE path only (absolute paths are forbidden): mailbox/ (AI-to-AI bridge), local_kb/docs/ (stays on the Mac), or docs/pm/ (GitHub-backed).',
         parameters: z.object({
           path: z
             .string()
@@ -1683,6 +1684,39 @@ ${bodyStatusReminder}`,
           console.warn('stripped tool markers from reply');
         }
         reply = cleaned.text;
+
+        // ES-079: execute textual <tool_call> markup as a real call (whitelist
+        // only), then summarise the result instead of showing raw JSON.
+        const textual = extractTextualToolCalls(reply);
+        const toolSet = activeTools as Record<string, unknown>;
+        if (textual.calls.length > 0) {
+          reply = textual.text;
+          for (const call of textual.calls.slice(0, 2)) {
+            if (!toolSet[call.name]) {
+              reply = `${reply}\n（未执行 ${call.name}：该工具不在当前分身的权限内）`.trim();
+              continue;
+            }
+            const toolResult = await runToolSafely(call.name, call.args);
+            console.log(
+              `[textual tool] ${call.name} -> ${toolResult?.success === false ? 'error' : 'ok'}`
+            );
+            try {
+              const follow = await generateText({
+                model,
+                system: `${systemPrompt}\n\n工具 ${call.name} 已执行，结果是：${JSON.stringify(
+                  toolResult
+                ).slice(0, 3000)}。用一两句话回复主人，不要重复原始 JSON。`,
+                messages: [{ role: 'user', content: message }],
+                maxTokens: 300,
+              });
+              const followText = follow.text?.trim();
+              if (followText) reply = followText;
+            } catch (e) {
+              console.error('textual tool follow-up failed', e);
+              reply = `${reply}\n（已执行 ${call.name}，但总结失败）`.trim();
+            }
+          }
+        }
 
         // ES-060: one automatic retry before surfacing a failure. The model
         // sometimes ends a tool turn with no final text; retrying with the same
