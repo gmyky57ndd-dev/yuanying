@@ -38,6 +38,8 @@ import {
   describeEvent,
 } from '@/lib/system-events';
 
+const LOCAL_RAG_URL = (process.env.LOCAL_RAG_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
+
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
@@ -53,7 +55,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const { start, end } = getDayRange(date, tz);
     const { data } = await supabase
       .from('signals')
-      .select('value, created_at')
+      .select('value, created_at, feedback_status, context')
       .eq('name', 'note')
       .gte('created_at', start.toISOString())
       .lt('created_at', end.toISOString())
@@ -62,6 +64,10 @@ async function runTool(name: string, args: any): Promise<any> {
     const notes = (data ?? []).map((r: any) => ({
       text: r.value?.text ?? '',
       at: r.created_at,
+      tags: Array.isArray(r.value?.tags) ? r.value.tags : [],
+      feedback: r.value?.feedback === true,
+      status: r.feedback_status ?? 'new',
+      issue_url: r.context?.github_issue_url ?? null,
     }));
     return {
       success: true,
@@ -405,7 +411,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
     try {
-      const res = await fetch('http://127.0.0.1:8080/search', {
+      const res = await fetch(`${LOCAL_RAG_URL}/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query }),
@@ -449,7 +455,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const text = String(args?.text ?? '').trim();
     if (!text) return { success: false, error: 'text required' };
     try {
-      const res = await fetch('http://127.0.0.1:8080/ingest', {
+      const res = await fetch(`${LOCAL_RAG_URL}/ingest`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -595,6 +601,38 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, data: issue };
   }
 
+  if (name === 'get_github_issue') {
+    const issueNumber = Number(args?.issue_number);
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      return { success: false, error: 'issue_number must be a positive integer' };
+    }
+    console.log(`[tool] get_github_issue #${issueNumber}`);
+    return { success: true, data: await getIssue(issueNumber) };
+  }
+
+  if (name === 'get_issue_status') {
+    const issueNumber = Number(args?.issue_number);
+    if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
+      return { success: false, error: 'issue_number must be a positive integer' };
+    }
+    const issue = await getIssue(issueNumber);
+    return {
+      success: true,
+      data: {
+        number: issue.number,
+        title: issue.title,
+        state: issue.state,
+        labels: issue.labels,
+        url: issue.url,
+        comments_count: issue.comments.length,
+        last_comment_at:
+          issue.comments.length > 0
+            ? issue.comments[issue.comments.length - 1].created_at
+            : null,
+      },
+    };
+  }
+
   if (name === 'write_markdown') {
     const filePath = String(args?.path ?? '').trim();
     const content = String(args?.content ?? '');
@@ -634,6 +672,87 @@ async function runTool(name: string, args: any): Promise<any> {
     const prompt = String(args?.prompt ?? '').trim();
     if (!prompt) return { success: false, error: 'prompt required' };
     return askExternalAgent(role || 'architect', prompt);
+  }
+
+  if (name === 'read_code_file') {
+    // ES-079: repo code reader for the architect fenshen (safe roots, no secrets).
+    const rel = String(args?.path ?? '')
+      .trim()
+      .replace(/^\/+/, '');
+    if (!rel) return { success: false, error: 'path required' };
+    if (
+      rel.includes('..') ||
+      /(^|\/)(node_modules|\.next|\.git)(\/|$)/.test(rel) ||
+      /(^|\/)\.env/.test(rel) ||
+      /\.(pem|key|keystore|p12)$/i.test(rel)
+    ) {
+      return { success: false, error: 'path not allowed' };
+    }
+    const roots = [
+      'app/', 'lib/', 'components/', 'scripts/', 'supabase/',
+      'collector/', 'docs/', 'core/', 'public/', 'types/',
+    ];
+    const rootFiles = [
+      'package.json', 'tsconfig.json', 'next.config.js', 'next.config.mjs',
+      'middleware.ts', 'AGENTS.md', 'TRACKING.md', 'README.md',
+    ];
+    if (!roots.some(r => rel.startsWith(r)) && !rootFiles.includes(rel)) {
+      return { success: false, error: 'path outside the allowed code roots' };
+    }
+    const abs = path.join(process.cwd(), rel);
+    if (!abs.startsWith(process.cwd() + path.sep)) {
+      return { success: false, error: 'invalid path' };
+    }
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) {
+      return { success: false, error: 'file not found' };
+    }
+    const stat = fs.statSync(abs);
+    if (stat.size > 512 * 1024) {
+      return { success: false, error: 'file too large (max 512KB)' };
+    }
+    const content = fs.readFileSync(abs, 'utf8');
+    const cap = 20000;
+    return {
+      success: true,
+      data: {
+        path: rel,
+        content: Array.from(content).slice(0, cap).join(''),
+        truncated: content.length > cap,
+        total_chars: content.length,
+      },
+    };
+  }
+
+  if (name === 'trigger_reindex') {
+    // ES-079: rebuild the local KB index (docs + chunks + embeddings).
+    try {
+      const res = await fetch(`${LOCAL_RAG_URL}/reindex`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(process.env.KB_TOKEN
+            ? { Authorization: `Bearer ${process.env.KB_TOKEN}` }
+            : {}),
+        },
+        body: '{}',
+        signal: AbortSignal.timeout(120000),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.success === false) {
+        return {
+          success: false,
+          error: String(data?.error ?? `reindex failed (HTTP ${res.status})`),
+        };
+      }
+      return { success: true, ...data };
+    } catch (e) {
+      return {
+        success: false,
+        error:
+          '无法连接本地知识库服务（http://localhost:8080）。请运行 python3 scripts/local_rag_server.py。',
+        detail: e instanceof Error ? e.message : String(e),
+      };
+    }
   }
 
   if (name === 'read_local_file') {
@@ -973,7 +1092,8 @@ export async function POST(req: NextRequest) {
       'web_search', 'read_markdown', 'write_markdown', 'scheduler', 'get_issue',
       'ingest_external_chat', 'query_external_chats', 'ask_claude',
       'ask_external_agent', 'read_local_file', 'write_local_file', 'push_to_dev',
-      'search_local_kb', 'save_local_kb',
+      'search_local_kb', 'save_local_kb', 'read_code_file',
+      'get_issue_status', 'get_github_issue', 'trigger_reindex',
     ];
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
@@ -986,7 +1106,7 @@ export async function POST(req: NextRequest) {
     );
     if (ragQuestion && toolWhitelist?.includes('search_local_kb')) {
       try {
-        const health = await fetch('http://127.0.0.1:8080/health', {
+        const health = await fetch(`${LOCAL_RAG_URL}/health`, {
           signal: AbortSignal.timeout(1500),
         });
         if (!health.ok) throw new Error(`HTTP ${health.status}`);
@@ -1035,7 +1155,7 @@ export async function POST(req: NextRequest) {
     let kbContext = '';
     if (ragQuestion && toolWhitelist?.includes('search_local_kb') && !ragError) {
       try {
-        const r = await fetch('http://127.0.0.1:8080/search', {
+        const r = await fetch(`${LOCAL_RAG_URL}/search`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ query: message }),
@@ -1228,6 +1348,38 @@ ${bodyStatusReminder}`,
         }),
         execute: async ({ path }) => runToolForModel('read_markdown', { path }),
       }),
+      read_code_file: tool({
+        description:
+          'Read a source file from the repository (app/, lib/, components/, scripts/, supabase/, collector/, docs/, core/, public/). Use for code audits. Secrets and build output are blocked.',
+        parameters: z.object({
+          path: z.string().describe('relative path, e.g. lib/api.ts'),
+        }),
+        execute: async ({ path }) => runToolForModel('read_code_file', { path }),
+      }),
+      get_github_issue: tool({
+        description:
+          'Fetch the details, comments, and status of a specific GitHub issue.',
+        parameters: z.object({
+          issue_number: z.number().int().positive().describe('The issue number'),
+        }),
+        execute: async ({ issue_number }) =>
+          runToolForModel('get_github_issue', { issue_number }),
+      }),
+      get_issue_status: tool({
+        description:
+          'Get the compact status of a GitHub issue (state, labels, title, comment count, url). Use before claiming an issue is open/closed.',
+        parameters: z.object({
+          issue_number: z.number().int().positive(),
+        }),
+        execute: async ({ issue_number }) =>
+          runToolForModel('get_issue_status', { issue_number }),
+      }),
+      trigger_reindex: tool({
+        description:
+          'Rebuild the local knowledge base index (documents, chunks, embeddings). Use after importing documents or when search results look stale.',
+        parameters: z.object({}),
+        execute: async () => runToolForModel('trigger_reindex', {}),
+      }),
       search_local_kb: tool({
         description:
           "Search the owner's LOCAL private knowledge base (~/yuanying/local_kb) for architecture documents, papers and deployment notes. Call this FIRST for architecture/deployment questions. The data stays on the local machine; only the returned snippets are sent to the cloud model.",
@@ -1305,18 +1457,22 @@ ${bodyStatusReminder}`,
       }),
       read_local_file: tool({
         description:
-          'Read a file from the mailbox/ directory. Use for the local AI-to-AI file bridge.',
+          'Read a file: mailbox/ (AI-to-AI bridge), a local KB document under local_kb/docs/ (stays on the Mac), or a product doc under docs/pm/ (GitHub-backed).',
         parameters: z.object({
-          path: z.string().describe('Path under mailbox/, e.g. mailbox/inbox/x.md'),
+          path: z
+            .string()
+            .describe('mailbox/inbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
         }),
         execute: async ({ path }) =>
           runToolForModel('read_local_file', { path }),
       }),
       write_local_file: tool({
         description:
-          'Write a file under mailbox/ through a Git commit. Use only when the owner asks to hand a message to another AI. Allowed: mailbox/**.md/.txt/.json.',
+          'Write a file: mailbox/ (Git-backed handoff), local_kb/docs/ (saved on the Mac at ~/yuanying/local_kb/docs/, never uploaded), or docs/pm/ (committed to GitHub). Allowed: .md/.txt/.json.',
         parameters: z.object({
-          path: z.string().describe('Path under mailbox/'),
+          path: z
+            .string()
+            .describe('mailbox/outbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
           content: z.string().describe('Full file content'),
         }),
         execute: async ({ path, content }) =>

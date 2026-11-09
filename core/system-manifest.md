@@ -30,6 +30,11 @@ Home never shows past days. History is read-only memory.
 - **状态含义**：`ok` 正常；`no_permission` HealthConnect 权限丢失；`no_records` 读不到记录；`post_failed` 上传失败；`error` 读取异常；`unsupported` 设备不支持。
 - 被问「为什么步数不更新」时，先看 Body Status 与设置页的「步数同步」状态，再回答；不要猜。
 
+## 文档存放边界 (Where Documents Live)
+1. **大文档与私有知识库**：只存在本地 Mac 的 `~/yuanying/local_kb/`（`raw/` 是真相，`index/` 可重建），绝不上传 Supabase / Vercel / Coolify 或任何云服务。
+2. **代码与设计规范（ES）**：存在 GitHub 仓库的 `docs/`（`docs/specs/INDEX.md` 是索引）。
+3. **沟通与反馈**：走 GitHub Issues；用 `get_github_issue` 读取正文与评论。
+
 ## 语音输入 (Voice Input)
 - 语音转写可能包含口吃、重复、口水话、同音字错误（如 "Issue" → "医学"）。
 - 元婴应忽略噪声，直接提取核心指令；**绝不**评论主人的语法或转写质量。

@@ -1,21 +1,48 @@
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 
 const MAX_CHARS = 200_000;
 const ALLOWED_EXT = ['.md', '.txt', '.json'];
 
 function normalize(input: string): string {
-  const rel = input.replace(/\\/g, '/').replace(/^\.\/+/, '').trim();
+  let rel = input.replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/^~\//, '').trim();
+  // ES-078: PRDs may be written to the local knowledge base (Mac only).
+  rel = rel.replace(/^yuanying\/local_kb\//, 'local_kb/');
   if (!rel || rel.startsWith('/') || rel.split('/').includes('..') || rel.includes('\0')) {
-    throw new Error('Unsafe path.');
+    throw new Error(
+      '绝对路径不可用：请使用相对路径，如 local_kb/docs/BWP_PRD_V3.md。'
+    );
   }
-  if (!rel.startsWith('mailbox/')) {
-    throw new Error('Path must start with mailbox/.');
+  if (/^[A-Za-z]:\//.test(rel)) {
+    throw new Error(
+      '绝对路径不可用：请使用相对路径，如 local_kb/docs/BWP_PRD_V3.md。'
+    );
+  }
+  if (
+    !rel.startsWith('mailbox/') &&
+    !rel.startsWith('local_kb/docs/') &&
+    !rel.startsWith('docs/pm/')
+  ) {
+    throw new Error('Path must start with mailbox/, local_kb/docs/ or docs/pm/.');
   }
   if (!ALLOWED_EXT.some(ext => rel.endsWith(ext))) {
-    throw new Error('Only .md, .txt, and .json mailbox files are supported.');
+    throw new Error('Only .md, .txt, and .json files are supported.');
+  }
+  if (rel.startsWith('local_kb/')) {
+    // Local-first: never route a KB document to GitHub.
+    return rel;
   }
   return rel;
+}
+
+function isLocalKb(rel: string): boolean {
+  return rel.startsWith('local_kb/');
+}
+
+function localKbPath(rel: string): string {
+  const rest = rel.replace(/^local_kb\//, '');
+  return path.join(os.homedir(), 'yuanying', 'local_kb', rest);
 }
 
 function encodePath(value: string): string {
@@ -45,6 +72,16 @@ export async function readMailbox(input: string): Promise<{
   data: { path: string; text: string; chars: number };
 }> {
   const rel = normalize(input);
+  if (isLocalKb(rel)) {
+    const full = localKbPath(rel);
+    if (!fs.existsSync(full)) {
+      throw new Error(
+        `文件不存在：${rel}。我无法直接读取你电脑上的文件，请把文件拖进对话框，或者把内容粘贴给我。`
+      );
+    }
+    const text = fs.readFileSync(full, 'utf-8');
+    return { success: true, data: { path: rel, text, chars: Array.from(text).length } };
+  }
   const full = path.join(process.cwd(), rel);
 
   // Local development reads the working tree; production uses GitHub so writes
@@ -93,6 +130,22 @@ export async function writeMailbox(input: string, content: string): Promise<{
   if (!content.trim()) throw new Error('content is required');
   if (Array.from(content).length > MAX_CHARS) {
     throw new Error(`content too large (max ${MAX_CHARS} characters)`);
+  }
+
+  if (isLocalKb(rel)) {
+    const full = localKbPath(rel);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    const existed = fs.existsSync(full);
+    fs.writeFileSync(full, content, 'utf-8');
+    return {
+      success: true,
+      data: {
+        path: rel,
+        action: existed ? 'updated' : 'created',
+        commit_sha: '',
+        chars: Array.from(content).length,
+      },
+    };
   }
 
   if (process.env.NODE_ENV !== 'production' || !canUseGitHub()) {

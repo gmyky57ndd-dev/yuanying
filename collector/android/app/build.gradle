@@ -14,8 +14,8 @@ android {
         applicationId "com.orbace.yuanying"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 44
-        versionName "1.0.44"
+        versionCode 45
+        versionName "1.0.45"
         buildConfigField "String", "API_TOKEN",
             "\"${System.getenv('YUANYING_API_TOKEN') ?: ''}\""
         // ES-076: local bridge defaults; runtime override via "api_base".

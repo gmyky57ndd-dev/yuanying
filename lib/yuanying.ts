@@ -23,6 +23,9 @@ interface BuildOptions {
     window_end?: string | null;
     aggregation?: string | null;
     raw_value?: number | null;
+    partial?: boolean;
+    sources_count?: number | null;
+    sources?: unknown;
   } | null;
   feedbackNotes?: Array<{
     text: string;
@@ -206,6 +209,15 @@ function buildDailyContext(opts: BuildOptions): string {
         c.window_start ?? '?'
       } → ${c.window_end ?? '?'} · aggregation ${c.aggregation ?? 'unknown'}`
     );
+    const suspect =
+      c.partial === true ||
+      (typeof c.sources_count === 'number' && c.sources_count > 1) ||
+      c.aggregation === 'max_per_origin';
+    if (suspect) {
+      lines.push(
+        '- ⚠️ 步数来自多来源合并（max per origin / partial），引用时必须注明「（当前步数数据可能存在偏差）」，不得当作精确值。'
+      );
+    }
   }
   if (opts.waterCount !== undefined) {
     lines.push(`- Water today: ${opts.waterCount} / 6`);

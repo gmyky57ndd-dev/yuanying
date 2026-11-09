@@ -204,11 +204,38 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-59] P0 数据可信度 + 反馈闭环 (ES-080) — In Progress
+
+- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-080, #8, ES-082
+- **Steps**: collector now uses Health Connect `COUNT_TOTAL` aggregate (de-dupes overlapping intervals across origins); per-origin audit kept; fallback `max_per_origin`; **v1.0.45**.
+- **Water**: `/api/reminder/act` backfills the habit signal with `source=reminder` (2-min dedupe); verified with a temp reminder.
+- **Disclaimer**: chat + summary prompts require 「（当前步数数据可能存在偏差）」 when steps are merged/partial.
+- **Feedback UX**: removed note-row `Copy as Text`; Save to Inbox primary + toast; `New` badge suppressed.
+- **Pending**: owner installs v1.0.45 and confirms one deduplicated step total.
+
+### [P2-58] 文档边界 + get_github_issue 工具 (ES-077) — Done
+
+- **Status**: Done (2026-11-08) · **Category**: Tools / Governance · **Refs**: ES-077, ES-079
+- **Boundaries**: local KB (Mac) / repo `docs/` / GitHub Issues; written into AGENTS v1.14 and `core/system-manifest.md`.
+- **Tool**: `get_github_issue(issue_number)` returns details + comments + status; 6000-char cap; added to the architect whitelist (migration 031).
+- **Verified**: architect read issue #88 and summarized its four blockers from the comments.
+- **Note**: incoming spec was truncated mid-JSON; no further criteria were provided.
+
+### [P2-57] Local RAG 工程骨架 + 采集器 (ES-079) — Done
+
+- **Status**: Done (2026-11-08) · **Category**: Infrastructure / Local-first · **Refs**: ES-079, ES-075
+- **Delivered**: `scripts/ingest.py`, `scripts/kb_proxy.py`, `schema/kb.sql`, `index/README.md`, parser tests; existing service/collector hardened with `KB_DIR`/`KB_HOST`/`KB_PORT` envs.
+- **Verified**: FTS5 tables (`kb_fts`, `kb_chunks_fts`) present; `bge-m3|1024` chunks; dedupe by SHA-256 (re-import → 2 duplicates); ChatGPT mapping-tree test; proxy capture e2e.
+- **Addendum (2026-11-08)**: `ai_architect` whitelist → `web_search, search_local_kb, read_local_file, write_local_file, read_code_file, get_issue_status, trigger_reindex` (migration 030); new tools implemented; `/reindex` + `/embed` endpoints. Verified in dev: reindex 5 files/5 chunks/embedded; read_code_file on `lib/api.ts`; issue #88 status.
+- **Deviation**: the private `.db` is not committed (public repo); schema + `--reindex` reproduce it.
+
 ### [P2-56] 本地优先 AI 知识库 (ES-075) — In Progress
 
 - **Status**: Done (2026-11-08) · **Category**: Architecture / Local-first · **Refs**: ES-075, ES-078
 - **Rule**: imported conversations are Markdown under `~/yuanying/local_kb/raw/`; the index is a rebuildable SQLite FTS5 DB; Supabase gets no long text (path/summary only, optional).
 - **MVP**: `/api/kb/ingest` + `/api/kb/search` proxy to the local service; `save_local_kb` tool; explicit 503 when the local service is down; no ChromaDB/vector dependency.
+- **Collector (2026-11-08)**: `scripts/kb_collect.py` imports DeepSeek JSON/JSONL (messages / chat_messages / mapping tree), title/summary heuristics, SHA-256 dedupe, dry-run, directory recursion; 2 sample conversations ingested and re-import reported as duplicates.
+- **Networking**: `HOST`/`KB_HOST` (0.0.0.0 for tailnet), optional `KB_TOKEN`, `LOCAL_RAG_URL` in Next (default localhost:8080).
 - **Plan A implemented (2026-11-08)**: Ollama + bge-m3 (1024-d), 800/100 chunking, SQLite `kb_chunks` vectors + FTS5, RRF hybrid recall, `semantic/match` flags, keyword fallback when Ollama is down.
 - **Verified**: hybrid query "内网穿透 组网工具" → semantic hit on the Tailscale docs; keyword "Tailscale" → hybrid; Ollama stopped → `semantic:false` keyword-only.
 - **Verified**: ingested `raw/deepseek/2026-11-08_1937_e6cc3885.md` (frontmatter intact); Supabase has 0 rows with the imported body; `/api/kb/search?q=Tailscale` returns it; the local service answers with Next stopped (`docs:3, raw:2`); `save_local_kb` wrote `raw/manual/2026-11-08_1937_c4b44d98.md`.
@@ -220,6 +247,10 @@ never by the section they happened to be written under.
 - **Delivered**: `fenshen.kind/tools_whitelist/skill_prompt` (migration 029) + `ai_architect` row + `core/fenshen/ai_architect/profile.md`; `scripts/local_rag_server.py` (port 8080, keyword+tokens); `/api/chat` accepts `fenshen_id`, filters the tool set before the LLM call, logs `active_tools`, prompts refusal for unlisted actions; `search_local_kb` with explicit failure; composer switcher + badge.
 - **Evidence**: test 1 "我没有这个权限"; test 2 `POST /search 200` → Coolify; test 3 deterministic "无法连接本地 RAG 服务"; default xiaowu keeps all tools.
 - **Deviations**: `system_prompt` → `prompt_md`; tokenised search; deterministic failure stream when RAG is down (documented in ES-078).
+- **Addendum (2026-11-08)**: `ai_architect` whitelist now exactly `web_search, get_notes, get_conversation_records, push_to_dev, get_github_issue` (migration 032); `ai_pm` created with the same set. Verified `[tool] get_github_issue #88` with real comment text.
+- **ai_pm 拓维 (2026-11-08)**: row + prompt + avatar + 7-tool whitelist; `read_local_file`/`write_local_file` accept `local_kb/docs/*` (local-only). Verified PRD write, web_search, conversation records, and refusal of `execute_code`.
+- **拓维 read/write (2026-11-09)**: `get_notes` exposes feedback status/tags/issue URL; file tools accept `mailbox/`, `local_kb/docs/` and `docs/pm/`. Verified feedback triage, GitHub PRD write (`docs/pm/README.md`, commit 8efa88e), local capabilities doc, and GitHub read-back.
+- **拓维 file/PRD rules (2026-11-09)**: relative paths only; absolute paths rejected in code; missing local doc returns the paste/drag fallback; PRD contract (version/date, change summary, goals, flow, AI points, acceptance) in the prompt + local template.
 - **Docs**: `docs/specs/ES-078-ai-architect-rag.md`.
 
 ### [P2-54] Coolify 迁移提案 (ES-074) — 待 owner 批准
@@ -249,7 +280,7 @@ never by the section they happened to be written under.
 
 ### [P2-52] 晚间总结链路 + 本地送达日志 (ES-075) — P0
 
-- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-079, #84, ES-065, ES-073
+- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-082, #84, ES-065, ES-073
 - **Chains isolated**: A server evening summary (`/api/cron/evening-summary`), B collector local 21:30 reminder (`reminder_deliveries`), C one-shot scheduler — never fixed in one blob again.
 - **A**: local-time guard 21:00–22:00, target date from the local clock, idempotent, direct summary (no "要不要总结"), workflow at 01:35/02:35 UTC.
 - **B**: `reminder_deliveries` (migration 028) + collector logging (delivered/failed) + missed-slot reconciliation.
@@ -321,11 +352,11 @@ never by the section they happened to be written under.
 - **Fix**: gate the realtime effect on `historyReady`; scroll only when the message count grows; skip state updates when ids+content are unchanged; event rows carry `source` and show `· 提醒回执`.
 - **Docs**: `docs/specs/ES-066-chat-replay-scroll.md`.
 
-### [P2-43] 早安问候应给今日计划而非空总结 (ES-077, #79)
+### [P2-43] 早安问候应给今日计划而非空总结 (ES-081, #79)
 
-- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-077
+- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-081
 - **Fix**: before 11:00 with no signals today, the prompt forbids a "今天…" summary and asks for a 2–3 sentence plan based on yesterday.
-- **Docs**: `docs/specs/ES-077-morning-plan.md`.
+- **Docs**: `docs/specs/ES-081-morning-plan.md`.
 
 ### [P2-44] 提醒回执跨日与起床前误记 (ES-072, #78)
 

@@ -21,22 +21,25 @@ test('silent push_to_dev returns only status/issue/url', () => {
   assert.strictEqual(result.data, undefined);
 });
 
-test('silent get_notes returns count + titles, not full text', () => {
+test('silent get_notes returns count + trimmed items with feedback status', () => {
   const result = normalizeToolResult(
     'get_notes',
     {
       success: true,
       data: [
-        { text: 'a'.repeat(200) },
+        { text: 'a'.repeat(400), feedback: true, status: 'pushed', tags: ['ux'] },
         { text: 'short note' },
       ],
     },
     false
   );
   assert.strictEqual(result.data.count, 2);
-  assert.strictEqual(result.data.titles.length, 2);
-  assert.ok(result.data.titles[0].length <= 80);
-  assert.strictEqual(result.data.titles[1], 'short note');
+  assert.strictEqual(result.data.items.length, 2);
+  assert.ok(result.data.items[0].text.length <= 300);
+  assert.strictEqual(result.data.items[0].feedback, true);
+  assert.strictEqual(result.data.items[0].status, 'pushed');
+  assert.strictEqual(result.data.items[1].text, 'short note');
+  assert.strictEqual(result.data.items[1].status, null);
 });
 
 test('verbose mode truncates long results at 800 chars', () => {

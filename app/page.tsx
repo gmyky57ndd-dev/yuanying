@@ -8,7 +8,7 @@ import {
   formatDuration,
   StreamEntry,
 } from '@/lib/activity-stream';
-import { formatForAI, formatForDev, feedbackTitle } from '@/lib/feedback-format';
+import { formatForDev, feedbackTitle } from '@/lib/feedback-format';
 import { FeedbackStatusBadge } from '@/components/FeedbackStatusBadge';
 import { AvatarStage } from '@/components/AvatarStage';
 
@@ -151,6 +151,13 @@ export default function Home() {
   const [transcribing, setTranscribing] = useState(false);
   // ES-078: request-level fenshen selection (defaults to config.active_fenshen).
   const [fenshenId, setFenshenId] = useState('');
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showToast(message: string) {
+    setToast(message);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 2200);
+  }
   const [fenshenList, setFenshenList] = useState<
     Array<{ id: string; display_name: string }>
   >([]);
@@ -469,6 +476,7 @@ export default function Home() {
         alert(`Inbox: ${d.error ?? r.status}`);
         return;
       }
+      showToast('已存入本地收件箱');
       alert(`已提交到 inbox\n${d.path ?? ''}`);
       setMsgMenu(null);
       loadMessages();
@@ -803,17 +811,6 @@ export default function Home() {
 
   // ES-014 / ES-018: feedback forwarding.
   type NoteEntry = { text: string; tags: string[]; at: string; ref?: number };
-  async function copyText(text: string, msg: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      alert(msg);
-    } catch {
-      alert('复制失败');
-    }
-  }
-  function copyForAIEntry(n: NoteEntry) {
-    copyText(formatForAI(n), '已复制（Copy as Text）');
-  }
   async function pushToDevEntry(n: NoteEntry) {
     try {
       const r = await fetchWithTimeout(
@@ -1476,7 +1473,9 @@ export default function Home() {
                     )}
                     {open && e.feedback && (
                       <div className="ml-[52px] mt-1 flex flex-wrap items-center gap-1">
-                        <FeedbackStatusBadge status={e.status} />
+                        {e.status && e.status !== 'new' && (
+                          <FeedbackStatusBadge status={e.status} />
+                        )}
                         {e.issueUrl ? (
                           <a
                             href={e.issueUrl}
@@ -1497,22 +1496,11 @@ export default function Home() {
                         {(!e.status || e.status === 'new') && (
                           <button
                             onClick={() => saveToInbox(e.ref)}
-                            className="text-[10px] bg-stone-800 text-stone-300 rounded-full px-2 py-0.5"
+                            className="text-[10px] bg-stone-700 text-white rounded-full px-2 py-0.5"
                           >
                             Save to Inbox
                           </button>
                         )}
-                        <span
-                          className="mx-0.5 h-3 w-px bg-stone-800"
-                          aria-hidden
-                        />
-                        <button
-                          onClick={() => copyForAIEntry(e)}
-                          className="text-[10px] border border-stone-800 text-stone-400 rounded-full px-2 py-0.5"
-                          title="仅复制到剪贴板，不改变状态，也不通知 Dev"
-                        >
-                          Copy as Text
-                        </button>
                       </div>
                     )}
                   </li>
@@ -1905,6 +1893,13 @@ export default function Home() {
               差值通常是同步延迟，不是重复计数。
             </p>
           </div>
+        </div>
+      )}
+
+      {/* ES-080: explicit feedback for local saves / pushes. */}
+      {toast && (
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 rounded-full border border-stone-700 bg-stone-800/95 px-4 py-2 text-xs text-stone-100 shadow-lg">
+          {toast}
         </div>
       )}
     </div>

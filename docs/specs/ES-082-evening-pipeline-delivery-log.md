@@ -1,4 +1,4 @@
-# ES-079 — Evening Summary Pipeline + Delivery Log (3 chains, isolated)
+# ES-082 — Evening Summary Pipeline + Delivery Log (3 chains, isolated)
 
 - **Status:** Urgent Bug (P0). **Tracking:** P2-52. Refs: #84, ES-065, ES-073,
   HARNESS-RULES §1 (isolate the chains), §2 (idempotency, no silent failure), §3 (DoD evidence).

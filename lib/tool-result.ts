@@ -8,6 +8,10 @@ const CAP_BY_TOOL: Record<string, number> = {
   get_issue: 5000,
   // Reading a file is only useful with its body; keep a generous bound.
   read_markdown: 16000,
+  read_code_file: 16000,
+  get_github_issue: 6000,
+  search_local_kb: 6000,
+  trigger_reindex: 2000,
 };
 
 function clip(value: string, max: number): string {
@@ -25,7 +29,14 @@ function summarize(name: string, result: any): any {
         success: true,
         data: {
           count: notes.length,
-          titles: notes.map((n: any) => clip(String(n.text ?? ''), 80)),
+          items: notes.slice(0, 12).map((n: any) => ({
+            text: clip(String(n.text ?? ''), 300),
+            at: n.at ?? null,
+            tags: Array.isArray(n.tags) ? n.tags : [],
+            feedback: n.feedback === true,
+            status: n.feedback ? n.status ?? 'new' : null,
+            issue_url: n.issue_url ?? null,
+          })),
         },
         message: 'Done.',
       };

@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import kotlinx.coroutines.runBlocking
@@ -85,7 +86,26 @@ class StepsCollector(private val ctx: Context) {
             val grouped = allRecords.groupBy { it.metadata.dataOrigin.packageName }
             val originSums = grouped.mapValues { (_, recs) -> recs.sumOf { it.count } }
             val rawTotal = originSums.values.sum()
-            val total = originSums.values.maxOrNull() ?: 0
+            val maxPerOrigin = originSums.values.maxOrNull() ?: 0L
+
+            // Issue #8: max-per-origin still over-counts when a single origin
+            // holds overlapping records (e.g. phone + watch merged under Fit).
+            // Health Connect's own aggregate de-duplicates intervals, so use it
+            // as the authoritative total and keep the per-origin read for audit.
+            val aggregateTotal = try {
+                val agg = c.aggregate(
+                    AggregateRequest(
+                        metrics = setOf(StepsRecord.COUNT_TOTAL),
+                        timeRangeFilter = TimeRangeFilter.between(startOfDay, now)
+                    )
+                )
+                agg[StepsRecord.COUNT_TOTAL]
+            } catch (e: Exception) {
+                Log.w(TAG, "aggregate failed; falling back to max per origin", e)
+                null
+            }
+            val total = aggregateTotal ?: maxPerOrigin
+            val aggregation = if (aggregateTotal != null) "healthconnect_count_total" else "max_per_origin"
 
             val byOrigin = originSums.map { (pkg, steps) ->
                 JSONObject().apply {
@@ -110,8 +130,9 @@ class StepsCollector(private val ctx: Context) {
                 put("device", android.os.Build.MANUFACTURER + " " + android.os.Build.MODEL)
                 // ES-011 §3 provenance: enough for 元婴 to explain the value.
                 put("source", "merged")
-                put("aggregation", "max_per_origin")
+                put("aggregation", aggregation)
                 put("raw_value", rawTotal)
+                put("max_per_origin", maxPerOrigin)
                 put("sources", sources)
                 put("sources_count", byOrigin.size)
                 put("records_count", allRecords.size)

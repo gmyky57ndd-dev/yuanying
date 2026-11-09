@@ -1,6 +1,6 @@
 # 元婴 (Yuanying) — Agent & Developer Rules
 
-**Version:** 1.13
+**Version:** 1.15
 **Status:** Active  
 **Audience:** AI coding agents, human developers, tech lead  
 **Applies to:** Work in this repository  
@@ -270,6 +270,16 @@ an ES number.
     for the Coolify VPS. Production requires a real host with a real domain
     (ES-074).
 
+### Where documents live (ES-077)
+
+1. **Large documents and the private knowledge base** live on the owner's Mac at
+   `~/yuanying/local_kb/` (`raw/` is the truth, `index/` is rebuildable). They are
+   never uploaded to Supabase, Vercel, Coolify or any cloud service.
+2. **Code and design specs (ES)** live in the GitHub repository under `docs/`
+   (`docs/specs/INDEX.md` is the registry).
+3. **Communication and feedback** (bug reports, approvals, review replies) happen
+   in GitHub Issues; read them with `get_github_issue`.
+
 ## 6. Data and timezone rules
 
 User-facing daily counts (such as water, steps, app usage, or reminders) must use the product's intended calendar day and must not accidentally accumulate across days. Retain historical records unless an approved requirement says otherwise.
@@ -327,12 +337,14 @@ If code is complete but a required check or owner verification is pending, use *
 1. `AGENTS.md` — rules and current changelog
 2. `HARNESS-RULES.md` — operating rules for AI agents: diagnose from evidence,
    idempotency, no silent failure, evidence-based DoD
-3. `TRACKING.md` — current status, acceptance criteria, and project history
-4. Current requirements/specification for the task (check the repository, including `docs/`, for actual filenames)
-5. `core/identity.md`, `core/voice.md`, `core/values.md`, and `core/system-manifest.md` when present and relevant
-6. Pattern files such as `core/inferred-patterns.md`, `core/confirmed-patterns.md`, or `core/rejected-patterns.md`, if they exist and are relevant
-7. The schema and routes that implement the relevant data flow (inspect actual files; do not assume a `/api/summary/*` route or a summaries table exists)
-8. Relevant code, tests, migrations, and workflows
+3. `docs/roles/dev-harness.md` — the Dev/Harness role contract (no scope creep,
+   agent-to-agent protocol, evidence-based acceptance)
+4. `TRACKING.md` — current status, acceptance criteria, and project history
+5. Current requirements/specification for the task (check the repository, including `docs/`, for actual filenames)
+6. `core/identity.md`, `core/voice.md`, `core/values.md`, and `core/system-manifest.md` when present and relevant
+7. Pattern files such as `core/inferred-patterns.md`, `core/confirmed-patterns.md`, or `core/rejected-patterns.md`, if they exist and are relevant
+8. The schema and routes that implement the relevant data flow (inspect actual files; do not assume a `/api/summary/*` route or a summaries table exists)
+9. Relevant code, tests, migrations, and workflows
 
 Do not begin implementation until the task's requirements and tracking context are understood. If a referenced document or learning artifact is missing, report that and locate the repository's current source of truth; do not rely on a stale filename.
 
@@ -354,6 +366,15 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 ---
 
 ## 11. Changelog
+
+### v1.15 — 2026-11-09
+- Added `docs/roles/dev-harness.md` to the reading order: the Dev/Harness role
+  contract (no unapproved infra changes, issue-based cross-agent protocol,
+  evidence-based acceptance).
+
+### v1.14 — 2026-11-08
+- Added the document-location boundaries (local KB / repo docs / GitHub Issues).
+- `get_github_issue` tool for reading issue details + comments (ES-077).
 
 ### v1.13 — 2026-11-07
 - Added infrastructure-approval rules: propose before changing domain/host/
@@ -487,4 +508,4 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ---
 
-**End of AGENTS.md v1.13**
+**End of AGENTS.md v1.15**
