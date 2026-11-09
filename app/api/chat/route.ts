@@ -759,7 +759,29 @@ async function runTool(name: string, args: any): Promise<any> {
   if (name === 'read_local_file') {
     const filePath = String(args?.path ?? '').trim();
     if (!filePath) return { success: false, error: 'path required' };
-    return readMailbox(filePath);
+    const result = await readMailbox(filePath);
+    const text = String(result.data?.text ?? '');
+    const offset = Math.max(0, Number(args?.offset ?? 0) || 0);
+    const limit = Math.min(
+      Math.max(Number(args?.limit ?? 60000) || 60000, 1000),
+      60000
+    );
+    const content = text.slice(offset, offset + limit);
+    return {
+      success: true,
+      data: {
+        path: result.data?.path ?? filePath,
+        offset,
+        limit,
+        total_chars: text.length,
+        next_offset:
+          offset + content.length < text.length
+            ? offset + content.length
+            : null,
+        truncated: offset + content.length < text.length,
+        content,
+      },
+    };
   }
 
   if (name === 'write_local_file') {
@@ -1463,9 +1485,22 @@ ${bodyStatusReminder}`,
           path: z
             .string()
             .describe('mailbox/inbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
+          offset: z
+            .number()
+            .int()
+            .min(0)
+            .optional()
+            .describe('character offset; use next_offset to page through a long file'),
+          limit: z
+            .number()
+            .int()
+            .min(1000)
+            .max(60000)
+            .optional()
+            .describe('max characters this call (default 60000, max 60000)'),
         }),
-        execute: async ({ path }) =>
-          runToolForModel('read_local_file', { path }),
+        execute: async ({ path, offset, limit }) =>
+          runToolForModel('read_local_file', { path, offset, limit }),
       }),
       write_local_file: tool({
         description:

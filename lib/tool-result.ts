@@ -9,7 +9,7 @@ const CAP_BY_TOOL: Record<string, number> = {
   // Reading a file is only useful with its body; keep a generous bound.
   read_markdown: 16000,
   read_code_file: 16000,
-  read_local_file: 16000,
+  read_local_file: 70000,
   get_github_issue: 6000,
   search_local_kb: 6000,
   trigger_reindex: 2000,
@@ -190,15 +190,17 @@ function summarize(name: string, result: any): any {
     case 'read_local_file': {
       // ES-079: the body is the point — dropping it made the PM report
       // "only the path and length came back".
-      const text = String(result.data?.text ?? result.text ?? '');
-      const cap = 12000;
+      const text = String(result.data?.content ?? result.data?.text ?? result.text ?? '');
+      const cap = 60000;
       return {
         success: true,
         data: {
           path: result.data?.path,
-          chars: result.data?.chars ?? text.length,
+          chars: result.data?.total_chars ?? result.data?.chars ?? text.length,
+          offset: result.data?.offset ?? 0,
+          next_offset: result.data?.next_offset ?? null,
           content: clip(text, cap),
-          truncated: text.length > cap,
+          truncated: result.data?.truncated ?? text.length > cap,
         },
         message: 'Local file loaded.',
       };

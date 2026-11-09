@@ -153,6 +153,7 @@ export default function Home() {
   const [fenshenId, setFenshenId] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [pendingFile, setPendingFile] = useState<{ name: string; text: string } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function showToast(message: string) {
@@ -705,7 +706,7 @@ export default function Home() {
     }
     try {
       const text = await file.text();
-      setPendingFile({ name: file.name, text: text.slice(0, 20000) });
+      setPendingFile({ name: file.name, text: text.slice(0, 60000) });
       showToast(`已附加 ${file.name}`);
     } catch {
       showToast('读取文件失败');
@@ -1114,6 +1115,21 @@ export default function Home() {
     <div
       className="fixed inset-x-0 top-0 flex flex-col overflow-hidden bg-stone-950 text-stone-100"
       style={{ height: 'var(--app-h, 100dvh)' }}
+      onDragOver={e => {
+        // ES-079: accept a file drop anywhere in the app; without this the
+        // browser navigates to the file instead.
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={e => {
+        if (e.currentTarget === e.target) setDragging(false);
+      }}
+      onDrop={e => {
+        e.preventDefault();
+        setDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) void attachFile(file);
+      }}
     >
       <div className="md:hidden">
         <AvatarStage
@@ -1958,6 +1974,14 @@ export default function Home() {
               显示值取各来源最大值（max per origin），不是相加。不同来源是独立采样，
               差值通常是同步延迟，不是重复计数。
             </p>
+          </div>
+        </div>
+      )}
+
+      {dragging && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80">
+          <div className="rounded-2xl border border-stone-700 bg-stone-900 px-6 py-4 text-sm text-stone-200">
+            松开以附加 .md / .txt / .json 文件
           </div>
         </div>
       )}

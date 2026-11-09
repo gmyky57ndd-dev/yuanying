@@ -210,7 +210,7 @@ never by the section they happened to be written under.
 - **Textual calls**: sanitizer removes `<tool_call>` blocks; `lib/textual-tool-call.ts` parses tagged/piped/fenced calls and `/api/chat` executes them (whitelist only) before summarising the real result; client strips too.
 - **Paths**: relative only; absolute paths rejected in code; missing file returns the paste/drag fallback.
 - **Attachment**: composer ＋/drag-drop reads `.md/.txt/.json` (≤20k chars) and prepends the text.
-- **Fixed**: `read_local_file` now returns the body (12k) instead of path/length only.
+- **Fixed**: `read_local_file` returns the body with offset/limit paging (default 60k); full BWP_PRD_V3 read (37,942 chars). Global drag-drop overlay.
 - **Evidence**: 48 tests; real BWP_PRD_V3 read → version/goal/sections; no marker leak.
 - **Docs**: `docs/specs/ES-079-toolcall-filebridge.md`.
 

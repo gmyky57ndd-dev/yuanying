@@ -23,11 +23,12 @@
   paths (`/Users/...`, `C:\`) are rejected in code with a relative-path hint.
 - A missing `local_kb/docs/...` file returns the exact fallback sentence:
   「我无法直接读取你电脑上的文件，请把文件拖进对话框，或者把内容粘贴给我。」
-- **Composer attachment**: drag-and-drop or the ＋ button reads `.md/.txt/.json`
-  (≤2MB, first 20k chars) and prepends the text to the message, so a cloud
-  backend never needs the file path. `core/system-manifest.md` updated.
-- `read_local_file` results now include the **body** (12k cap) instead of only
-  path/length — the PM previously reported "only the path and length came back".
+- **Composer attachment**: drag-and-drop **anywhere in the app** (global overlay)
+  or the ＋ button reads `.md/.txt/.json` (≤2MB, first 60k chars) and prepends the
+  text to the message. `core/system-manifest.md` updated.
+- `read_local_file` returns the **body** with `offset`/`limit` paging
+  (default 60k, max 60k, `next_offset` when truncated) — it previously returned
+  only path/length, then only 12k. BWP_PRD_V3 (42,342 B) is read in full.
 
 ## 3. Evidence
 
@@ -41,6 +42,8 @@ pass 48
 Real read: `local_kb/docs/BWP_PRD_V3.md` (42,342 bytes) →
 the PM reported `Business Work Pad v3.0 / 2026-06-23 / Reviewed & Revised`,
 the product goal and the main sections, with no `<tool_call>` or DSML text.
+Full read: 37,942 characters, `next_offset` null, last chapters 16–18
+(Pricing / Development Phases / Open Questions).
 
 ## 4. Notes
 
