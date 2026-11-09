@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-59] P0 数据可信度 + 反馈闭环 (ES-080) — In Progress
+
+- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-080, #8, ES-082
+- **Steps**: collector now uses Health Connect `COUNT_TOTAL` aggregate (de-dupes overlapping intervals across origins); per-origin audit kept; fallback `max_per_origin`; **v1.0.45**.
+- **Water**: `/api/reminder/act` backfills the habit signal with `source=reminder` (2-min dedupe); verified with a temp reminder.
+- **Disclaimer**: chat + summary prompts require 「（当前步数数据可能存在偏差）」 when steps are merged/partial.
+- **Feedback UX**: removed note-row `Copy as Text`; Save to Inbox primary + toast; `New` badge suppressed.
+- **Pending**: owner installs v1.0.45 and confirms one deduplicated step total.
+
 ### [P2-58] 文档边界 + get_github_issue 工具 (ES-077) — Done
 
 - **Status**: Done (2026-11-08) · **Category**: Tools / Governance · **Refs**: ES-077, ES-079
@@ -269,7 +278,7 @@ never by the section they happened to be written under.
 
 ### [P2-52] 晚间总结链路 + 本地送达日志 (ES-075) — P0
 
-- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-080, #84, ES-065, ES-073
+- **Status**: In Progress (2026-10-30) · **Category**: Bug (Cron + Android + DoD) · **Refs**: ES-082, #84, ES-065, ES-073
 - **Chains isolated**: A server evening summary (`/api/cron/evening-summary`), B collector local 21:30 reminder (`reminder_deliveries`), C one-shot scheduler — never fixed in one blob again.
 - **A**: local-time guard 21:00–22:00, target date from the local clock, idempotent, direct summary (no "要不要总结"), workflow at 01:35/02:35 UTC.
 - **B**: `reminder_deliveries` (migration 028) + collector logging (delivered/failed) + missed-slot reconciliation.
