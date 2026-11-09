@@ -12,8 +12,12 @@ function normalize(input: string): string {
   if (!rel || rel.startsWith('/') || rel.split('/').includes('..') || rel.includes('\0')) {
     throw new Error('Unsafe path.');
   }
-  if (!rel.startsWith('mailbox/') && !rel.startsWith('local_kb/docs/')) {
-    throw new Error('Path must start with mailbox/ or local_kb/docs/.');
+  if (
+    !rel.startsWith('mailbox/') &&
+    !rel.startsWith('local_kb/docs/') &&
+    !rel.startsWith('docs/pm/')
+  ) {
+    throw new Error('Path must start with mailbox/, local_kb/docs/ or docs/pm/.');
   }
   if (!ALLOWED_EXT.some(ext => rel.endsWith(ext))) {
     throw new Error('Only .md, .txt, and .json files are supported.');

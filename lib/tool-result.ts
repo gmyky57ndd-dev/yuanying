@@ -29,7 +29,14 @@ function summarize(name: string, result: any): any {
         success: true,
         data: {
           count: notes.length,
-          titles: notes.map((n: any) => clip(String(n.text ?? ''), 80)),
+          items: notes.slice(0, 12).map((n: any) => ({
+            text: clip(String(n.text ?? ''), 300),
+            at: n.at ?? null,
+            tags: Array.isArray(n.tags) ? n.tags : [],
+            feedback: n.feedback === true,
+            status: n.feedback ? n.status ?? 'new' : null,
+            issue_url: n.issue_url ?? null,
+          })),
         },
         message: 'Done.',
       };

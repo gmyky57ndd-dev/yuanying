@@ -89,6 +89,18 @@ Logs: `[fenshen] ai_architect active_tools=get_conversation_records,web_search,s
   - get_conversation_records returned 8 records and a grounded Vercel summary.
   - `execute_code` request → "我没有这个权限" + the exact 7-tool list.
 
+## 5c. 拓维 read/write scope (2026-11-09)
+
+- `get_notes` now returns feedback metadata (feedback flag, status, tags, issue
+  URL) so the PM can triage feedback instead of guessing.
+- `read_local_file` / `write_local_file` accept three roots:
+  - `mailbox/…` — AI-to-AI handoff (GitHub in production);
+  - `local_kb/docs/…` — `~/yuanying/local_kb/docs/` on the Mac, never uploaded;
+  - `docs/pm/…` — product docs committed to the GitHub repo.
+- Verified in production: feedback review listed `[pushed]`/`[new]` statuses;
+  `docs/pm/README.md` written (commit `8efa88e`); local
+  `local_kb/docs/ai_pm_capabilities.md` written; GitHub README read back.
+
 ## 6. Operational note
 
 `search_local_kb` targets `127.0.0.1:8080`, so it only works where the Python

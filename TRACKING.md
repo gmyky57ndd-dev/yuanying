@@ -249,6 +249,7 @@ never by the section they happened to be written under.
 - **Deviations**: `system_prompt` → `prompt_md`; tokenised search; deterministic failure stream when RAG is down (documented in ES-078).
 - **Addendum (2026-11-08)**: `ai_architect` whitelist now exactly `web_search, get_notes, get_conversation_records, push_to_dev, get_github_issue` (migration 032); `ai_pm` created with the same set. Verified `[tool] get_github_issue #88` with real comment text.
 - **ai_pm 拓维 (2026-11-08)**: row + prompt + avatar + 7-tool whitelist; `read_local_file`/`write_local_file` accept `local_kb/docs/*` (local-only). Verified PRD write, web_search, conversation records, and refusal of `execute_code`.
+- **拓维 read/write (2026-11-09)**: `get_notes` exposes feedback status/tags/issue URL; file tools accept `mailbox/`, `local_kb/docs/` and `docs/pm/`. Verified feedback triage, GitHub PRD write (`docs/pm/README.md`, commit 8efa88e), local capabilities doc, and GitHub read-back.
 - **Docs**: `docs/specs/ES-078-ai-architect-rag.md`.
 
 ### [P2-54] Coolify 迁移提案 (ES-074) — 待 owner 批准

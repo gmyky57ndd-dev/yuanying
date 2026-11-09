@@ -55,7 +55,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const { start, end } = getDayRange(date, tz);
     const { data } = await supabase
       .from('signals')
-      .select('value, created_at')
+      .select('value, created_at, feedback_status, context')
       .eq('name', 'note')
       .gte('created_at', start.toISOString())
       .lt('created_at', end.toISOString())
@@ -64,6 +64,10 @@ async function runTool(name: string, args: any): Promise<any> {
     const notes = (data ?? []).map((r: any) => ({
       text: r.value?.text ?? '',
       at: r.created_at,
+      tags: Array.isArray(r.value?.tags) ? r.value.tags : [],
+      feedback: r.value?.feedback === true,
+      status: r.feedback_status ?? 'new',
+      issue_url: r.context?.github_issue_url ?? null,
     }));
     return {
       success: true,
@@ -1453,22 +1457,22 @@ ${bodyStatusReminder}`,
       }),
       read_local_file: tool({
         description:
-          'Read a local file: mailbox/ (AI-to-AI bridge) or a local KB document under local_kb/docs/. The local KB never leaves the Mac.',
+          'Read a file: mailbox/ (AI-to-AI bridge), a local KB document under local_kb/docs/ (stays on the Mac), or a product doc under docs/pm/ (GitHub-backed).',
         parameters: z.object({
           path: z
             .string()
-            .describe('mailbox/inbox/x.md or local_kb/docs/prd.md'),
+            .describe('mailbox/inbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
         }),
         execute: async ({ path }) =>
           runToolForModel('read_local_file', { path }),
       }),
       write_local_file: tool({
         description:
-          'Write a local file: mailbox/ (Git-backed handoff to another AI) or a local KB document under local_kb/docs/ (saved on the Mac at ~/yuanying/local_kb/docs/, never uploaded). Allowed: .md/.txt/.json.',
+          'Write a file: mailbox/ (Git-backed handoff), local_kb/docs/ (saved on the Mac at ~/yuanying/local_kb/docs/, never uploaded), or docs/pm/ (committed to GitHub). Allowed: .md/.txt/.json.',
         parameters: z.object({
           path: z
             .string()
-            .describe('mailbox/outbox/x.md or local_kb/docs/prd.md'),
+            .describe('mailbox/outbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
           content: z.string().describe('Full file content'),
         }),
         execute: async ({ path, content }) =>
