@@ -1258,6 +1258,7 @@ ${bodyStatusReminder}`,
     ) => normalizeToolResult(name, await runToolSafely(name, args), verboseTools);
 
     let writeResult: any = null;
+    let writeFileResult: any = null;
     const tools = {
       get_notes: tool({
         description:
@@ -1511,8 +1512,14 @@ ${bodyStatusReminder}`,
             .describe('mailbox/outbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
           content: z.string().describe('Full file content'),
         }),
-        execute: async ({ path, content }) =>
-          runToolForModel('write_local_file', { path, content }),
+        execute: async ({ path, content }) => {
+          const result = await runToolForModel('write_local_file', {
+            path,
+            content,
+          });
+          writeFileResult = result;
+          return result;
+        },
       }),
       ingest_external_chat: tool({
         description:
@@ -1750,6 +1757,39 @@ ${bodyStatusReminder}`,
               console.error('textual tool follow-up failed', e);
               reply = `${reply}\n（已执行 ${call.name}，但总结失败）`.trim();
             }
+          }
+        }
+
+        // ES-079: the PM sometimes hallucinated that write_local_file was not
+        // available even though its schema was passed. If the owner asked for a
+        // document and nothing was written, force one real tool call.
+        const docWriteIntent =
+          /(写|生成|保存|落盘|write|save)/i.test(message) &&
+          /(PRD|文档|报告|\.md|docs\/|local_kb)/i.test(message);
+        if (
+          docWriteIntent &&
+          toolSet.write_local_file &&
+          !writeFileResult
+        ) {
+          try {
+            await generateText({
+              model,
+              system: `${systemPrompt}\n\n你确实拥有 write_local_file 工具。必须用它把文档写入指定路径；禁止声称没有权限或让 Owner 另找会话。`,
+              messages,
+              tools: activeTools,
+              toolChoice: { type: 'tool', toolName: 'write_local_file' },
+              maxSteps: 1,
+              maxTokens: 2500,
+            });
+            if (writeFileResult?.success) {
+              reply = `已写入：${writeFileResult.data?.path}（${
+                writeFileResult.data?.action ?? 'written'
+              }）`;
+            } else if (writeFileResult) {
+              reply = `写入失败：${writeFileResult.error ?? 'unknown'}`;
+            }
+          } catch (e) {
+            console.error('forced write_local_file retry failed', e);
           }
         }
 

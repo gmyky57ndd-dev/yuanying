@@ -212,6 +212,7 @@ never by the section they happened to be written under.
 - **Attachment**: composer ＋/drag-drop reads `.md/.txt/.json` (≤20k chars) and prepends the text.
 - **Fixed**: `read_local_file` returns the body with offset/limit paging (default 60k); full BWP_PRD_V3 read (37,942 chars). Global drag-drop overlay.
 - **Evidence**: 48 tests; real BWP_PRD_V3 read → version/goal/sections; no marker leak.
+- **Forced write fallback (2026-11-09)**: if a doc-write request produced no write, the route forces one `write_local_file` call (`toolChoice`, maxSteps 1) and replies from the real result. Verified: V4 draft written (1,885 B).
 - **Docs**: `docs/specs/ES-079-toolcall-filebridge.md`.
 
 ### [P2-59] P0 数据可信度 + 反馈闭环 (ES-080) — In Progress

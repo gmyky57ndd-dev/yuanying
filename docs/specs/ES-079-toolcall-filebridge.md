@@ -45,6 +45,22 @@ the product goal and the main sections, with no `<tool_call>` or DSML text.
 Full read: 37,942 characters, `next_offset` null, last chapters 16–18
 (Pricing / Development Phases / Open Questions).
 
+## 3a. Forced write fallback (2026-11-09)
+
+The PM twice claimed `write_local_file` was not available even though the
+schema was passed (`active_tools=…,write_local_file` in the log). Behaviour is
+now deterministic:
+
+- `write_local_file` captures its result in the request scope;
+- if the message asks for a document (write verb + PRD/docs/.md/local_kb) and
+  nothing was written, the route forces one `generateText` with
+  `toolChoice: { type: 'tool', toolName: 'write_local_file' }`, `maxSteps: 1`;
+- the reply is then generated from the real tool result ("已写入 …"), never from
+  the model's claim of missing permission.
+
+Verified: "基于 BWP_PRD_V3 写 300 字 V4 草稿" → `local_kb/docs/BWP_PRD_V4.md`
+(1,885 bytes, version/goals/acceptance sections).
+
 ## 4. Notes
 
 - The owner asked for File System Access API or a `localhost:3001` bridge; the
