@@ -1939,8 +1939,22 @@ ${bodyStatusReminder}`,
         // #84: never persist an empty assistant turn.
         const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
         const { error: insErr } = await supabase.from('messages').insert([
-          { role: 'user', content: message, session_id, device_id, metadata: { device } },
-          { role: 'assistant', content: safeReply, session_id, device_id, metadata: { device } },
+          {
+            role: 'user',
+            content: message,
+            session_id,
+            device_id,
+            project_id: projectId || null,
+            metadata: { device, project_id: projectId || null },
+          },
+          {
+            role: 'assistant',
+            content: safeReply,
+            session_id,
+            device_id,
+            project_id: projectId || null,
+            metadata: { device, project_id: projectId || null },
+          },
         ]);
 
         if (insErr) console.error('insert failed:', insErr);

@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-61] Project Workpad 架构 (ES-080) — In Progress
+
+- **Status**: In Progress (2026-11-10) · **Category**: Architecture / Product · **Refs**: ES-080, BWP_PRD_V3
+- **Data**: `projects` (yuanying/bwp/aso), `messages.project_id`, `signals.project_id`, `project_docs`; BWP_PRD_V3 seeded (37,942 chars); existing rows backfilled to yuanying.
+- **Backend**: project-scoped chat history + persistence, project context in the prompt, `read_project_doc` tool, `/api/projects` + `/api/projects/docs`.
+- **UI**: project selector (persisted), `postChat` carries `project_id`.
+- **Verified**: PM read the cloud V3 and wrote `BWP_PRD_V4_cloud.md` (3,775 B); messages stored with `project_id=bwp`.
+- **Pending**: on-device UI switch confirmation; explicit PM→DSH Issue handoff test.
+
 ### [P2-60] 工具调用解析 + 本地文件桥 (ES-079) — Done
 
 - **Status**: Done (2026-11-09) · **Refs**: ES-079, ES-078
