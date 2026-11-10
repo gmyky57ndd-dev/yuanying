@@ -35,6 +35,11 @@ Home never shows past days. History is read-only memory.
 2. **代码与设计规范（ES）**：存在 GitHub 仓库的 `docs/`（`docs/specs/INDEX.md` 是索引）。
 3. **沟通与反馈**：走 GitHub Issues；用 `get_github_issue` 读取正文与评论。
 
+## 本地文件与附件 (Local Files)
+- `read_local_file` / `write_local_file` 只接受相对路径：`mailbox/…`、`local_kb/docs/…`、`docs/pm/…`；**禁止绝对路径**（`/Users/...`、`C:\`）。
+- 聊天输入框支持 **拖拽/＋按钮附加文件**（.md/.txt/.json，≤2MB，内容截取 20k 字作为消息前缀），这样云端分身无需访问本地路径也能读到内容。
+- 读取 `local_kb/docs/…` 失败时，如实提示主人把文件拖进对话或粘贴内容。
+
 ## 语音输入 (Voice Input)
 - 语音转写可能包含口吃、重复、口水话、同音字错误（如 "Issue" → "医学"）。
 - 元婴应忽略噪声，直接提取核心指令；**绝不**评论主人的语法或转写质量。

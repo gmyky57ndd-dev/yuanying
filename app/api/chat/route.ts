@@ -22,6 +22,7 @@ import { readMarkdown } from '@/lib/read-markdown';
 import { writeMarkdown } from '@/lib/write-markdown';
 import { scheduleMessage } from '@/lib/scheduler';
 import { normalizeToolResult, stripToolMarkers } from '@/lib/tool-result';
+import { extractTextualToolCalls } from '@/lib/textual-tool-call';
 import {
   recentSaveQuestionCount,
   hasSaveQuestion,
@@ -758,7 +759,29 @@ async function runTool(name: string, args: any): Promise<any> {
   if (name === 'read_local_file') {
     const filePath = String(args?.path ?? '').trim();
     if (!filePath) return { success: false, error: 'path required' };
-    return readMailbox(filePath);
+    const result = await readMailbox(filePath);
+    const text = String(result.data?.text ?? '');
+    const offset = Math.max(0, Number(args?.offset ?? 0) || 0);
+    const limit = Math.min(
+      Math.max(Number(args?.limit ?? 60000) || 60000, 1000),
+      60000
+    );
+    const content = text.slice(offset, offset + limit);
+    return {
+      success: true,
+      data: {
+        path: result.data?.path ?? filePath,
+        offset,
+        limit,
+        total_chars: text.length,
+        next_offset:
+          offset + content.length < text.length
+            ? offset + content.length
+            : null,
+        truncated: offset + content.length < text.length,
+        content,
+      },
+    };
   }
 
   if (name === 'write_local_file') {
@@ -1235,6 +1258,7 @@ ${bodyStatusReminder}`,
     ) => normalizeToolResult(name, await runToolSafely(name, args), verboseTools);
 
     let writeResult: any = null;
+    let writeFileResult: any = null;
     const tools = {
       get_notes: tool({
         description:
@@ -1457,14 +1481,27 @@ ${bodyStatusReminder}`,
       }),
       read_local_file: tool({
         description:
-          'Read a file: mailbox/ (AI-to-AI bridge), a local KB document under local_kb/docs/ (stays on the Mac), or a product doc under docs/pm/ (GitHub-backed).',
+          'Read a file with a RELATIVE path only (absolute paths are forbidden): mailbox/ (AI-to-AI bridge), local_kb/docs/ (stays on the Mac), or docs/pm/ (GitHub-backed).',
         parameters: z.object({
           path: z
             .string()
             .describe('mailbox/inbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
+          offset: z
+            .number()
+            .int()
+            .min(0)
+            .optional()
+            .describe('character offset; use next_offset to page through a long file'),
+          limit: z
+            .number()
+            .int()
+            .min(1000)
+            .max(60000)
+            .optional()
+            .describe('max characters this call (default 60000, max 60000)'),
         }),
-        execute: async ({ path }) =>
-          runToolForModel('read_local_file', { path }),
+        execute: async ({ path, offset, limit }) =>
+          runToolForModel('read_local_file', { path, offset, limit }),
       }),
       write_local_file: tool({
         description:
@@ -1475,8 +1512,14 @@ ${bodyStatusReminder}`,
             .describe('mailbox/outbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
           content: z.string().describe('Full file content'),
         }),
-        execute: async ({ path, content }) =>
-          runToolForModel('write_local_file', { path, content }),
+        execute: async ({ path, content }) => {
+          const result = await runToolForModel('write_local_file', {
+            path,
+            content,
+          });
+          writeFileResult = result;
+          return result;
+        },
       }),
       ingest_external_chat: tool({
         description:
@@ -1683,6 +1726,72 @@ ${bodyStatusReminder}`,
           console.warn('stripped tool markers from reply');
         }
         reply = cleaned.text;
+
+        // ES-079: execute textual <tool_call> markup as a real call (whitelist
+        // only), then summarise the result instead of showing raw JSON.
+        const textual = extractTextualToolCalls(reply);
+        const toolSet = activeTools as Record<string, unknown>;
+        if (textual.calls.length > 0) {
+          reply = textual.text;
+          for (const call of textual.calls.slice(0, 2)) {
+            if (!toolSet[call.name]) {
+              reply = `${reply}\n（未执行 ${call.name}：该工具不在当前分身的权限内）`.trim();
+              continue;
+            }
+            const toolResult = await runToolSafely(call.name, call.args);
+            console.log(
+              `[textual tool] ${call.name} -> ${toolResult?.success === false ? 'error' : 'ok'}`
+            );
+            try {
+              const follow = await generateText({
+                model,
+                system: `${systemPrompt}\n\n工具 ${call.name} 已执行，结果是：${JSON.stringify(
+                  toolResult
+                ).slice(0, 3000)}。用一两句话回复主人，不要重复原始 JSON。`,
+                messages: [{ role: 'user', content: message }],
+                maxTokens: 300,
+              });
+              const followText = follow.text?.trim();
+              if (followText) reply = followText;
+            } catch (e) {
+              console.error('textual tool follow-up failed', e);
+              reply = `${reply}\n（已执行 ${call.name}，但总结失败）`.trim();
+            }
+          }
+        }
+
+        // ES-079: the PM sometimes hallucinated that write_local_file was not
+        // available even though its schema was passed. If the owner asked for a
+        // document and nothing was written, force one real tool call.
+        const docWriteIntent =
+          /(写|生成|保存|落盘|write|save)/i.test(message) &&
+          /(PRD|文档|报告|\.md|docs\/|local_kb)/i.test(message);
+        if (
+          docWriteIntent &&
+          toolSet.write_local_file &&
+          !writeFileResult
+        ) {
+          try {
+            await generateText({
+              model,
+              system: `${systemPrompt}\n\n你确实拥有 write_local_file 工具。必须用它把文档写入指定路径；禁止声称没有权限或让 Owner 另找会话。`,
+              messages,
+              tools: activeTools,
+              toolChoice: { type: 'tool', toolName: 'write_local_file' },
+              maxSteps: 1,
+              maxTokens: 2500,
+            });
+            if (writeFileResult?.success) {
+              reply = `已写入：${writeFileResult.data?.path}（${
+                writeFileResult.data?.action ?? 'written'
+              }）`;
+            } else if (writeFileResult) {
+              reply = `写入失败：${writeFileResult.error ?? 'unknown'}`;
+            }
+          } catch (e) {
+            console.error('forced write_local_file retry failed', e);
+          }
+        }
 
         // ES-060: one automatic retry before surfacing a failure. The model
         // sometimes ends a tool turn with no final text; retrying with the same

@@ -12,7 +12,7 @@ test('mailbox reads a local file and rejects unsafe paths', async () => {
     'docs/specs/x.md',
     'mailbox/evil.exe',
   ]) {
-    await assert.rejects(() => readMailbox(bad), /Unsafe|must start|Only/);
-    await assert.rejects(() => writeMailbox(bad, 'x'), /Unsafe|must start|Only/);
+    await assert.rejects(() => readMailbox(bad), /Unsafe|must start|Only|绝对路径/);
+    await assert.rejects(() => writeMailbox(bad, 'x'), /Unsafe|must start|Only|绝对路径/);
   }
 });
