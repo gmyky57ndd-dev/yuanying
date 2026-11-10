@@ -602,6 +602,44 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, data: issue };
   }
 
+  if (name === 'read_project_doc') {
+    const pid = String(args?.project_id ?? '').trim();
+    const filename = String(args?.filename ?? '').trim();
+    if (!pid || !filename) {
+      return { success: false, error: 'project_id and filename required' };
+    }
+    const { data: row } = await supabase
+      .from('project_docs')
+      .select('name, content')
+      .eq('project_id', pid)
+      .eq('name', filename)
+      .maybeSingle();
+    if (!row) {
+      const { data: names } = await supabase
+        .from('project_docs')
+        .select('name')
+        .eq('project_id', pid);
+      return {
+        success: false,
+        error: `未找到 ${pid}/${filename}；可用：${
+          (names ?? []).map((n: any) => n.name).join(', ') || '(无)'
+        }`,
+      };
+    }
+    const content = String(row.content ?? '');
+    const cap = 60000;
+    return {
+      success: true,
+      data: {
+        project_id: pid,
+        name: row.name,
+        total_chars: content.length,
+        truncated: content.length > cap,
+        content: content.slice(0, cap),
+      },
+    };
+  }
+
   if (name === 'get_github_issue') {
     const issueNumber = Number(args?.issue_number);
     if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
@@ -815,6 +853,8 @@ export async function POST(req: NextRequest) {
     const message = body?.message;
     const requestedFenshenId =
       typeof body?.fenshen_id === 'string' ? body.fenshen_id.trim() : '';
+    const projectId =
+      typeof body?.project_id === 'string' ? body.project_id.trim() : '';
     // ES-078: a failed local-RAG call must never be answered from memory.
     let ragError: string | null = null;
 
@@ -841,6 +881,31 @@ export async function POST(req: NextRequest) {
     console.log(
       `[fenshen] request=${requestedFenshenId || '(default)'} active=${requestFenshen?.id ?? 'none'} whitelist=${JSON.stringify(requestFenshen?.tools_whitelist ?? null)}`
     );
+
+    // ES-080: project scoping (Project → Role → Workpad → Artifact).
+    let project: { id: string; name: string } | null = null;
+    let projectDocNames: string[] = [];
+    if (projectId) {
+      const { data: projectRow } = await supabase
+        .from('projects')
+        .select('id, name')
+        .eq('id', projectId)
+        .maybeSingle();
+      if (!projectRow) {
+        return NextResponse.json(
+          { error: `unknown project: ${projectId}` },
+          { status: 400 }
+        );
+      }
+      project = projectRow as any;
+      const { data: docs } = await supabase
+        .from('project_docs')
+        .select('name')
+        .eq('project_id', projectId)
+        .order('name');
+      projectDocNames = (docs ?? []).map((d: any) => String(d.name));
+      console.log(`[project] ${projectId} docs=${projectDocNames.join(',') || '(none)'}`);
+    }
 
     if (message.length > 4000) {
       return NextResponse.json(
@@ -905,8 +970,22 @@ export async function POST(req: NextRequest) {
 
       const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
       await supabase.from('messages').insert([
-        { role: 'user', content: message, session_id, device_id, metadata: { device } },
-        { role: 'assistant', content: safeReply, session_id, device_id, metadata: { device } },
+        {
+          role: 'user',
+          content: message,
+          session_id,
+          device_id,
+          project_id: projectId || null,
+          metadata: { device, project_id: projectId || null },
+        },
+        {
+          role: 'assistant',
+          content: safeReply,
+          session_id,
+          device_id,
+          project_id: projectId || null,
+          metadata: { device, project_id: projectId || null },
+        },
       ]);
       return NextResponse.json({ reply: safeReply, session_id });
     }
@@ -934,6 +1013,7 @@ export async function POST(req: NextRequest) {
       .order('id', { ascending: false })
       .limit(20);
     if (resetAt) historyQuery = historyQuery.gt('created_at', resetAt);
+    if (projectId) historyQuery = historyQuery.eq('project_id', projectId);
 
     const { data: history, error: histErr } = await historyQuery;
 
@@ -1117,6 +1197,7 @@ export async function POST(req: NextRequest) {
       'ask_external_agent', 'read_local_file', 'write_local_file', 'push_to_dev',
       'search_local_kb', 'save_local_kb', 'read_code_file',
       'get_issue_status', 'get_github_issue', 'trigger_reindex',
+      'read_project_doc',
     ];
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
@@ -1127,6 +1208,12 @@ export async function POST(req: NextRequest) {
     const ragQuestion = /(部署|架构|方案|计划|RAG|知识库|论文|MCP|agent|Agent)/.test(
       message
     );
+    // ES-080: a document-writing request needs room for a real draft, and the
+    // markdown-specific guard must not fire for fenshen without write_markdown.
+    const docWriteIntentEarly =
+      /(写|生成|保存|落盘|write|save)/i.test(message) &&
+      /(PRD|文档|报告|\.md|docs\/|local_kb|project)/i.test(message) &&
+      (!toolWhitelist || toolWhitelist.includes('write_local_file'));
     if (ragQuestion && toolWhitelist?.includes('search_local_kb')) {
       try {
         const health = await fetch(`${LOCAL_RAG_URL}/health`, {
@@ -1150,17 +1237,20 @@ export async function POST(req: NextRequest) {
           content: message,
           session_id,
           device_id,
-          metadata: { device, fenshen_id: requestFenshen?.id },
+          project_id: projectId || null,
+          metadata: { device, fenshen_id: requestFenshen?.id, project_id: projectId || null },
         },
         {
           role: 'assistant',
           content: reply,
           session_id,
           device_id,
+          project_id: projectId || null,
           metadata: {
             device,
             fenshen_id: requestFenshen?.id,
             rag_unavailable: true,
+            project_id: projectId || null,
           },
         },
       ]);
@@ -1204,6 +1294,11 @@ export async function POST(req: NextRequest) {
     const allowedToolNames = toolWhitelist
       ? ALL_TOOL_NAMES.filter(name => toolWhitelist.includes(name))
       : ALL_TOOL_NAMES;
+    const projectContext = project
+      ? `\n\n【当前项目】${project.name} (${project.id})。项目文档：${
+          projectDocNames.join(', ') || '(暂无)'
+        }。需要项目文档时用 read_project_doc(project_id="${project.id}", filename=…)。`
+      : '';
     const toolAvailability = `Authoritative tool availability for this request: ${
       allowedToolNames.join(', ') || '(none)'
     }.${
@@ -1214,7 +1309,7 @@ export async function POST(req: NextRequest) {
       toolWhitelist
         ? '\n\n【权限边界】当前分身只能使用上述工具。若主人要求列表之外的操作（发 Issue、写文件、推送代码、改配置等），必须直接说“我没有这个权限”，不要起草、不要承诺、也不要问“要发吗”。'
         : ''
-    }`;
+    }${projectContext}`;
 
     const bodyStatusReminder = `Authoritative current versions for this request: PWA v${APP_VERSION}; LLM ${
       modelInfo ? `${modelInfo.provider}/${modelInfo.model_name}` : 'unknown'
@@ -1379,6 +1474,16 @@ ${bodyStatusReminder}`,
           path: z.string().describe('relative path, e.g. lib/api.ts'),
         }),
         execute: async ({ path }) => runToolForModel('read_code_file', { path }),
+      }),
+      read_project_doc: tool({
+        description:
+          'Read a document stored in the cloud for a project (e.g. BWP_PRD_V3.md). Use this instead of local absolute paths.',
+        parameters: z.object({
+          project_id: z.string().describe('project id, e.g. bwp'),
+          filename: z.string().describe('document name, e.g. BWP_PRD_V3.md'),
+        }),
+        execute: async ({ project_id, filename }) =>
+          runToolForModel('read_project_doc', { project_id, filename }),
       }),
       get_github_issue: tool({
         description:
@@ -1623,6 +1728,7 @@ ${bodyStatusReminder}`,
     console.log(
       `[fenshen] ${requestFenshen?.id ?? 'default'} active_tools=${Object.keys(activeTools).join(',') || '(none)'}`
     );
+    const canWriteMarkdown = !!(activeTools as Record<string, unknown>).write_markdown;
 
     const result = streamText({
       model,
@@ -1635,7 +1741,9 @@ ${bodyStatusReminder}`,
           : undefined,
       maxSteps: 5,
       temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
-      maxTokens: parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
+      maxTokens: docWriteIntentEarly
+        ? Math.max(parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'), 3000)
+        : parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
       onError: ({ error }) => {
         console.error('model stream error:', error);
         streamError = error instanceof Error ? error.message : String(error);
@@ -1696,11 +1804,11 @@ ${bodyStatusReminder}`,
         if (writeResult?.success === true) {
           const written = writeResult?.data?.path ?? '文件';
           reply = `写好了：${written}（${writeResult?.data?.action === 'created' ? '新建' : '更新'}，commit ${String(writeResult?.data?.commit_sha ?? '').slice(0, 7) || '已提交'}）。`;
-        } else if (writeIntent && writeResult?.success === false) {
+        } else if (canWriteMarkdown && writeIntent && writeResult?.success === false) {
           // Deterministic failure text: never let model prose (or leaked DSML)
           // stand in for a write that did not happen.
           reply = `没写成：${writeResult.error ?? '写入失败'}`;
-        } else if (writeIntent && !writeResult) {
+        } else if (canWriteMarkdown && writeIntent && !writeResult) {
           reply = '没有执行写入：模型没有发起 write_markdown 调用。请再试一次；若重复出现，我会查系统日志。';
         }
 
@@ -1831,8 +1939,22 @@ ${bodyStatusReminder}`,
         // #84: never persist an empty assistant turn.
         const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
         const { error: insErr } = await supabase.from('messages').insert([
-          { role: 'user', content: message, session_id, device_id, metadata: { device } },
-          { role: 'assistant', content: safeReply, session_id, device_id, metadata: { device } },
+          {
+            role: 'user',
+            content: message,
+            session_id,
+            device_id,
+            project_id: projectId || null,
+            metadata: { device, project_id: projectId || null },
+          },
+          {
+            role: 'assistant',
+            content: safeReply,
+            session_id,
+            device_id,
+            project_id: projectId || null,
+            metadata: { device, project_id: projectId || null },
+          },
         ]);
 
         if (insErr) console.error('insert failed:', insErr);

@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-61] Project Workpad 架构 (ES-080) — In Progress
+
+- **Status**: In Progress (2026-11-10) · **Category**: Architecture / Product · **Refs**: ES-080, BWP_PRD_V3
+- **Data**: `projects` (yuanying/bwp/aso), `messages.project_id`, `signals.project_id`, `project_docs`; BWP_PRD_V3 seeded (37,942 chars); existing rows backfilled to yuanying.
+- **Backend**: project-scoped chat history + persistence, project context in the prompt, `read_project_doc` tool, `/api/projects` + `/api/projects/docs`.
+- **UI**: project selector (persisted), `postChat` carries `project_id`.
+- **Verified**: PM read the cloud V3 and wrote `BWP_PRD_V4_cloud.md` (3,775 B); messages stored with `project_id=bwp`.
+- **Pending**: on-device UI switch confirmation; explicit PM→DSH Issue handoff test.
+
 ### [P2-60] 工具调用解析 + 本地文件桥 (ES-079) — Done
 
 - **Status**: Done (2026-11-09) · **Refs**: ES-079, ES-078
@@ -217,7 +226,7 @@ never by the section they happened to be written under.
 
 ### [P2-59] P0 数据可信度 + 反馈闭环 (ES-080) — In Progress
 
-- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-080, #8, ES-082
+- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-084, #8, ES-082
 - **Steps**: collector now uses Health Connect `COUNT_TOTAL` aggregate (de-dupes overlapping intervals across origins); per-origin audit kept; fallback `max_per_origin`; **v1.0.45**.
 - **Water**: `/api/reminder/act` backfills the habit signal with `source=reminder` (2-min dedupe); verified with a temp reminder.
 - **Disclaimer**: chat + summary prompts require 「（当前步数数据可能存在偏差）」 when steps are merged/partial.
