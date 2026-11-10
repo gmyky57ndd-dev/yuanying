@@ -86,6 +86,8 @@ export async function postChat(
   // client strips again so a leaked marker can never be rendered as chat text.
   const before = reply;
   reply = reply
+    .replace(/<(tool_calls?|function_calls?)(?:\s[^>]*)?>[\s\S]*?<\/\1>/gi, '')
+    .replace(/<\|tool_calls?\|>[\s\S]*?<(?:\|\/|\/\|)tool_calls?\|>/gi, '')
     .replace(/<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^>]*>/gi, '')
     .replace(/<[｜|]{1,2}[^<>]{0,200}[｜|]{1,2}>/g, '')
     .replace(/^\s*[｜|]{2}\s*DSML.*$/gim, '')

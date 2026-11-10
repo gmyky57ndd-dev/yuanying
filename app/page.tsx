@@ -154,6 +154,9 @@ export default function Home() {
   const [projectId, setProjectId] = useState('yuanying');
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<{ name: string; text: string } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function showToast(message: string) {
     setToast(message);
@@ -706,10 +709,32 @@ export default function Home() {
     }
   }
 
+  async function attachFile(file: File) {
+    if (!/\.(md|txt|json)$/i.test(file.name)) {
+      showToast('只支持 .md / .txt / .json');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      showToast('文件过大（上限 2MB）');
+      return;
+    }
+    try {
+      const text = await file.text();
+      setPendingFile({ name: file.name, text: text.slice(0, 60000) });
+      showToast(`已附加 ${file.name}`);
+    } catch {
+      showToast('读取文件失败');
+    }
+  }
+
   async function send(text?: string) {
-    const content = (text ?? input).trim();
+    const attachment = pendingFile
+      ? `【附件 ${pendingFile.name}】\n${pendingFile.text}\n\n`
+      : '';
+    const content = (attachment + (text ?? input)).trim();
     if (!content || sending) return;
     setInput('');
+    setPendingFile(null);
     if (inputRef.current) inputRef.current.style.height = 'auto';
     setError(null);
     setToolStatus(toolStatusFor(content));
@@ -1104,6 +1129,21 @@ export default function Home() {
     <div
       className="fixed inset-x-0 top-0 flex flex-col overflow-hidden bg-stone-950 text-stone-100"
       style={{ height: 'var(--app-h, 100dvh)' }}
+      onDragOver={e => {
+        // ES-079: accept a file drop anywhere in the app; without this the
+        // browser navigates to the file instead.
+        e.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={e => {
+        if (e.currentTarget === e.target) setDragging(false);
+      }}
+      onDrop={e => {
+        e.preventDefault();
+        setDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file) void attachFile(file);
+      }}
     >
       <div className="md:hidden">
         <AvatarStage
@@ -1781,10 +1821,34 @@ export default function Home() {
         )}
       </div>
 
+      {/* ES-079: attach a local file by drop or picker; its text is prepended
+          to the message so the PM can read it without absolute paths. */}
+      {pendingFile && (
+        <div className="relative z-20 flex items-center gap-2 px-3 pt-2 text-[11px] text-stone-300">
+          <span className="rounded-full border border-stone-700 bg-stone-900 px-2 py-0.5">
+            📎 {pendingFile.name} · {pendingFile.text.length} 字
+          </span>
+          <button
+            onClick={() => setPendingFile(null)}
+            className="text-stone-500 underline"
+          >
+            移除
+          </button>
+        </div>
+      )}
+
       {/* Input. z-20 + opaque background: nothing can sit above the field and
           eat the tap (a covered input focuses nothing and the IME never opens). */}
       <div
         className="relative z-20 bg-stone-950 flex gap-2 p-3 border-t border-stone-800 shrink-0"
+        onDragOver={e => {
+          e.preventDefault();
+        }}
+        onDrop={e => {
+          e.preventDefault();
+          const file = e.dataTransfer.files?.[0];
+          if (file) void attachFile(file);
+        }}
         onPointerUp={e => {
           const el = inputRef.current;
           if (!el) return;
@@ -1796,6 +1860,24 @@ export default function Home() {
           if (document.activeElement !== el) el.focus();
         }}
       >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md,.txt,.json"
+          className="hidden"
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) void attachFile(file);
+            e.target.value = '';
+          }}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="attach file"
+          className="w-10 h-10 rounded-full flex items-center justify-center text-lg bg-stone-800 text-stone-300"
+        >
+          ＋
+        </button>
         <button
           onClick={startVoice}
           className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
@@ -1925,6 +2007,14 @@ export default function Home() {
               显示值取各来源最大值（max per origin），不是相加。不同来源是独立采样，
               差值通常是同步延迟，不是重复计数。
             </p>
+          </div>
+        </div>
+      )}
+
+      {dragging && (
+        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-stone-950/80">
+          <div className="rounded-2xl border border-stone-700 bg-stone-900 px-6 py-4 text-sm text-stone-200">
+            松开以附加 .md / .txt / .json 文件
           </div>
         </div>
       )}

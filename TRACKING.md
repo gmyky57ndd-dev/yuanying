@@ -204,6 +204,17 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-60] 工具调用解析 + 本地文件桥 (ES-079) — Done
+
+- **Status**: Done (2026-11-09) · **Refs**: ES-079, ES-078
+- **Textual calls**: sanitizer removes `<tool_call>` blocks; `lib/textual-tool-call.ts` parses tagged/piped/fenced calls and `/api/chat` executes them (whitelist only) before summarising the real result; client strips too.
+- **Paths**: relative only; absolute paths rejected in code; missing file returns the paste/drag fallback.
+- **Attachment**: composer ＋/drag-drop reads `.md/.txt/.json` (≤20k chars) and prepends the text.
+- **Fixed**: `read_local_file` returns the body with offset/limit paging (default 60k); full BWP_PRD_V3 read (37,942 chars). Global drag-drop overlay.
+- **Evidence**: 48 tests; real BWP_PRD_V3 read → version/goal/sections; no marker leak.
+- **Forced write fallback (2026-11-09)**: if a doc-write request produced no write, the route forces one `write_local_file` call (`toolChoice`, maxSteps 1) and replies from the real result. Verified: V4 draft written (1,885 B).
+- **Docs**: `docs/specs/ES-079-toolcall-filebridge.md`.
+
 ### [P2-59] P0 数据可信度 + 反馈闭环 (ES-080) — In Progress
 
 - **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-084, #8, ES-082
@@ -223,7 +234,7 @@ never by the section they happened to be written under.
 
 ### [P2-57] Local RAG 工程骨架 + 采集器 (ES-079) — Done
 
-- **Status**: Done (2026-11-08) · **Category**: Infrastructure / Local-first · **Refs**: ES-079, ES-075
+- **Status**: Done (2026-11-08) · **Category**: Infrastructure / Local-first · **Refs**: ES-083, ES-075
 - **Delivered**: `scripts/ingest.py`, `scripts/kb_proxy.py`, `schema/kb.sql`, `index/README.md`, parser tests; existing service/collector hardened with `KB_DIR`/`KB_HOST`/`KB_PORT` envs.
 - **Verified**: FTS5 tables (`kb_fts`, `kb_chunks_fts`) present; `bge-m3|1024` chunks; dedupe by SHA-256 (re-import → 2 duplicates); ChatGPT mapping-tree test; proxy capture e2e.
 - **Addendum (2026-11-08)**: `ai_architect` whitelist → `web_search, search_local_kb, read_local_file, write_local_file, read_code_file, get_issue_status, trigger_reindex` (migration 030); new tools implemented; `/reindex` + `/embed` endpoints. Verified in dev: reindex 5 files/5 chunks/embedded; read_code_file on `lib/api.ts`; issue #88 status.
