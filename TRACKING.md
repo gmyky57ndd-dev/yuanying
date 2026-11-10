@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-62] Desktop Hub MVP (blueprint v3) — In Progress
+
+- **Status**: In Progress (2026-11-10) · **Category**: Desktop UI / Config · **Refs**: MASTER-BLUEPRINT-v3
+- **Scope**: `/desktop` only; mobile `/` untouched; tracking data read-only.
+- **Delivered**: three-column shell (top bar/tabs, project+fenshen+wiki sidebar, hub main, health/activity/artifacts inspector); `/api/hub` aggregate; `goals` table + checkbox UI + `get_goals` tool; fenshen prompt/whitelist editor (`/api/fenshen/config`, validated); read-only `local_kb/wiki/` listing; project docs list.
+- **Verified**: `/desktop` 200; hub real numbers; goals create/check/delete; fenshen PUT; docs (BWP_PRD_V3 37,942 chars); wiki README.
+- **Pending**: on-device visual check; Obsidian open button; approval flow; global search.
+
 ### [P2-61] Project Workpad 架构 (ES-080) — In Progress
 
 - **Status**: In Progress (2026-11-10) · **Category**: Architecture / Product · **Refs**: ES-080, BWP_PRD_V3

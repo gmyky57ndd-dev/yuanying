@@ -5,6 +5,7 @@ import path from 'path';
 import { StreamData, generateText, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
+import { ALL_TOOL_NAMES } from '@/lib/tool-names';
 import { supabase } from '@/lib/db';
 import {
   getTodayRange,
@@ -602,6 +603,20 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, data: issue };
   }
 
+  if (name === 'get_goals') {
+    const pid = String(args?.project_id ?? '').trim();
+    let q = supabase
+      .from('goals')
+      .select('id, project_id, title, status, due_date')
+      .eq('status', 'open')
+      .order('due_date', { nullsFirst: false })
+      .order('created_at');
+    if (pid) q = q.eq('project_id', pid);
+    const { data, error } = await q;
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: data ?? [] };
+  }
+
   if (name === 'read_project_doc') {
     const pid = String(args?.project_id ?? '').trim();
     const filename = String(args?.filename ?? '').trim();
@@ -1189,16 +1204,7 @@ export async function POST(req: NextRequest) {
         ? bodyCfg.collector_last_report_at
         : 'unknown';
     // ES-078: the authoritative tool list follows the active fenshen whitelist.
-    const ALL_TOOL_NAMES = [
-      'get_notes', 'get_conversation_records', 'get_summary', 'get_steps',
-      'get_system_status', 'add_note', 'get_drive_doc', 'get_model_info',
-      'web_search', 'read_markdown', 'write_markdown', 'scheduler', 'get_issue',
-      'ingest_external_chat', 'query_external_chats', 'ask_claude',
-      'ask_external_agent', 'read_local_file', 'write_local_file', 'push_to_dev',
-      'search_local_kb', 'save_local_kb', 'read_code_file',
-      'get_issue_status', 'get_github_issue', 'trigger_reindex',
-      'read_project_doc',
-    ];
+    // Tool names are shared with the fenshen config UI (lib/tool-names.ts).
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
       : null;
@@ -1475,6 +1481,15 @@ ${bodyStatusReminder}`,
         }),
         execute: async ({ path }) => runToolForModel('read_code_file', { path }),
       }),
+      get_goals: tool({
+        description:
+          'List the owner\'s open goals (optionally for one project). These are manually maintained; read them, never infer goals.',
+        parameters: z.object({
+          project_id: z.string().optional().describe('project id, e.g. bwp'),
+        }),
+        execute: async ({ project_id }) =>
+          runToolForModel('get_goals', { project_id }),
+      }),
       read_project_doc: tool({
         description:
           'Read a document stored in the cloud for a project (e.g. BWP_PRD_V3.md). Use this instead of local absolute paths.',
@@ -1722,7 +1737,7 @@ ${bodyStatusReminder}`,
 
     const activeTools = toolWhitelist
       ? Object.fromEntries(
-          Object.entries(tools).filter(([name]) => allowedToolNames.includes(name))
+          Object.entries(tools).filter(([name]) => (allowedToolNames as readonly string[]).includes(name))
         )
       : tools;
     console.log(

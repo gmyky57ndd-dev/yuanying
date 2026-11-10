@@ -113,7 +113,28 @@ goals, insights, or global search.
    global router for now?
 6. **Desktop client**: PWA in a browser first, or Tauri wrapper now?
 
-## 6. Non-goals (explicit)
+## 6. MVP progress (2026-11-10)
+
+Owner decisions: `/desktop` route; simple manual goals; read-only `wiki/`;
+global model routing; PWA only.
+
+Implemented in `feat/desktop-hub-mvp`:
+
+- `/desktop` three-column shell (top bar with tabs, project/fenshen/wiki
+  sidebar, hub main, health/activity/artifacts inspector).
+- `GET /api/hub`: steps/water/sleep, projects (+open goals/last message),
+  goals, activity, project docs, wiki files.
+- `goals` table + `/api/goals` (list/create/check/delete) + hub checkboxes.
+- `GET/PUT /api/fenshen/config`: edit prompt + tool whitelist, validated against
+  `lib/tool-names.ts`; model routing stays global.
+- `get_goals` tool (AI reads goals, never infers) + whitelist entries.
+- `local_kb/wiki/` read-only: `GET /api/wiki`/hub listing; writes rejected.
+- Project docs list works (BWP_PRD_V3, 37,942 chars).
+
+**Still pending:** Obsidian launch button, PM→Architect approval flow, global
+search, insights; mobile untouched.
+
+## 7. Non-goals (explicit)
 
 - No mobile UI changes (per owner).
 - No infrastructure/hosting change (Vercel pause / Coolify is separate, ES-074).
