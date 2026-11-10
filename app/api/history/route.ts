@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     500
   );
   const todayOnly = url.searchParams.get('today') === '1';
+  const projectId = url.searchParams.get('project_id')?.trim();
 
   let query = supabase
     .from('messages')
@@ -30,6 +31,7 @@ export async function GET(req: NextRequest) {
     .order('id', { ascending: false })
     .limit(limit);
 
+  if (projectId) query = query.eq('project_id', projectId);
   if (todayOnly) {
     const tz = await getConfigTimezone();
     const { start, end } = getTodayRange(tz);

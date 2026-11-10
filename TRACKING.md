@@ -206,7 +206,7 @@ never by the section they happened to be written under.
 
 ### [P2-59] P0 数据可信度 + 反馈闭环 (ES-080) — In Progress
 
-- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-080, #8, ES-082
+- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-084, #8, ES-082
 - **Steps**: collector now uses Health Connect `COUNT_TOTAL` aggregate (de-dupes overlapping intervals across origins); per-origin audit kept; fallback `max_per_origin`; **v1.0.45**.
 - **Water**: `/api/reminder/act` backfills the habit signal with `source=reminder` (2-min dedupe); verified with a temp reminder.
 - **Disclaimer**: chat + summary prompts require 「（当前步数数据可能存在偏差）」 when steps are merged/partial.

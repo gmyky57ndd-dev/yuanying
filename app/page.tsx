@@ -151,6 +151,8 @@ export default function Home() {
   const [transcribing, setTranscribing] = useState(false);
   // ES-078: request-level fenshen selection (defaults to config.active_fenshen).
   const [fenshenId, setFenshenId] = useState('');
+  const [projectId, setProjectId] = useState('yuanying');
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>([]);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function showToast(message: string) {
@@ -190,6 +192,18 @@ export default function Home() {
     loadSteps();
     loadNotes();
     loadFenshen();
+    fetch(`${API_BASE}/api/projects`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        const rows = Array.isArray(d?.projects) ? d.projects : [];
+        setProjects(rows);
+        const saved =
+          typeof window !== 'undefined'
+            ? window.localStorage.getItem('yy_project')
+            : null;
+        if (saved && rows.some((p: any) => p.id === saved)) setProjectId(saved);
+      })
+      .catch(() => {});
   }, []);
 
   // ES-063: realtime append of messages written by other devices. Dedupe by id
@@ -389,7 +403,7 @@ export default function Home() {
 
   async function loadMessages() {
     try {
-      const r = await fetchWithTimeout(`${API_BASE}/api/history?today=1`, {});
+      const r = await fetchWithTimeout(`${API_BASE}/api/history?today=1&project_id=${encodeURIComponent(projectId)}`, {});
       // Never wipe the visible chat on a server error (issue #11).
       if (!r.ok) return;
       const d = await r.json();
@@ -713,7 +727,7 @@ export default function Home() {
             setToolStatus('已发送，正在整理…');
           }
         }
-      }, deviceIdRef.current, fenshenId || undefined);
+      }, deviceIdRef.current, fenshenId || undefined, projectId);
       if (d.reply) {
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
         // ES-071: a tool may have appended a note; refresh the timeline.
@@ -1739,6 +1753,25 @@ export default function Home() {
                 {f.display_name}
               </option>
             ))}
+        </select>
+        <select
+          value={projectId}
+          onChange={e => {
+            const next = e.target.value;
+            setProjectId(next);
+            try {
+              window.localStorage.setItem('yy_project', next);
+            } catch {}
+            setTimeout(() => loadMessages(), 0);
+          }}
+          aria-label="项目"
+          className="bg-stone-900 border border-stone-800 rounded-full px-3 py-1 text-xs text-stone-300 outline-none"
+        >
+          {projects.map(p => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
         </select>
         {fenshenId && (
           <span className="text-[11px] text-emerald-400">

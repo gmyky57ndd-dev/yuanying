@@ -22,7 +22,8 @@ export async function postChat(
   session_id?: string,
   onToolEvent?: (event: any) => void,
   device_id?: string,
-  fenshenId?: string
+  fenshenId?: string,
+  projectId?: string
 ) {
   // ES-062: a coarse device label; never a fingerprint.
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
@@ -42,6 +43,7 @@ export async function postChat(
       device,
       device_id,
       fenshen_id: fenshenId || undefined,
+      project_id: projectId || undefined,
     }),
   });
 
