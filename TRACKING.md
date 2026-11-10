@@ -210,6 +210,7 @@ never by the section they happened to be written under.
 - **Scope**: `/desktop` only; mobile `/` untouched; tracking data read-only.
 - **Delivered**: three-column shell (top bar/tabs, project+fenshen+wiki sidebar, hub main, health/activity/artifacts inspector); `/api/hub` aggregate; `goals` table + checkbox UI + `get_goals` tool; fenshen prompt/whitelist editor (`/api/fenshen/config`, validated); read-only `local_kb/wiki/` listing; project docs list.
 - **Verified**: `/desktop` 200; hub real numbers; goals create/check/delete; fenshen PUT; docs (BWP_PRD_V3 37,942 chars); wiki README.
+- **Router refactor (2026-11-10)**: `/desktop` no composer (today cards / Workpad cards / activity); `/desktop/workpad/[project_id]` tabs (chat read-only / artifacts / issues) + room inspector; migration 040 (`project_fenshen_map`, `fenshen.model_name`, `messages.responder_fenshen_id`, seeded); APIs for members/artifacts/issues. Chat interaction + per-fenshen model await owner confirmation.
 - **Pending**: on-device visual check; Obsidian open button; approval flow; global search.
 
 ### [P2-61] Project Workpad 架构 (ES-080) — In Progress
