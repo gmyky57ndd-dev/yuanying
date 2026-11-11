@@ -36,3 +36,22 @@ test('leaves plain prose and ordinary code fences alone', () => {
   assert.strictEqual(r.calls.length, 0);
   assert.ok(r.text.includes('console.log(1)'));
 });
+
+test('parses a tagged JSON function call (ES-082)', () => {
+  const r = extractTextualToolCalls(
+    'x<tool_call>write_local_file({"path":"local_kb/docs/a.md","content":"hi"})</tool_call>'
+  );
+  assert.equal(r.calls.length, 1);
+  assert.equal(r.calls[0].name, 'write_local_file');
+  assert.equal(r.calls[0].args.path, 'local_kb/docs/a.md');
+});
+
+test('parses keyword arguments inside a tagged call (ES-082)', () => {
+  const r = extractTextualToolCalls(
+    '<tool_call>write_markdown(path="core/x.md", content="hello")</tool_call>'
+  );
+  assert.equal(r.calls.length, 1);
+  assert.equal(r.calls[0].name, 'write_markdown');
+  assert.equal(r.calls[0].args.path, 'core/x.md');
+  assert.equal(r.calls[0].args.content, 'hello');
+});

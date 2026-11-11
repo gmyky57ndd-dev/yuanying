@@ -50,12 +50,50 @@ function collectFromJson(parsed: unknown, out: TextualToolCall[]): void {
   if (Array.isArray(obj.calls)) collectFromJson(obj.calls, out);
 }
 
+/** ES-082: `write_markdown({...})` / `write_local_file(path="…", content="…")`. */
+function parseFunctionSyntax(body: string, out: TextualToolCall[]): boolean {
+  const m = body.match(/^([a-zA-Z_][\w]*)\s*\(([\s\S]*)\)$/);
+  if (!m) return false;
+  const name = m[1];
+  const raw = m[2].trim();
+  if (!raw) {
+    out.push({ name, args: {} });
+    return true;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      out.push({ name, args: parsed as Record<string, unknown> });
+      return true;
+    }
+  } catch {
+    // fall through to kwargs
+  }
+  const args: Record<string, unknown> = {};
+  const re = /([a-zA-Z_][\w]*)\s*=\s*("(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^,]+)/g;
+  let km: RegExpExecArray | null;
+  while ((km = re.exec(raw))) {
+    const key = km[1];
+    let value: unknown = km[2].trim();
+    try {
+      value = JSON.parse(value as string);
+    } catch {
+      value = String(value).trim();
+    }
+    args[key] = value;
+  }
+  if (Object.keys(args).length === 0) return false;
+  out.push({ name, args });
+  return true;
+}
+
 function parseBody(body: string, out: TextualToolCall[]): void {
   const trimmed = body.trim();
   if (!trimmed) return;
   try {
     collectFromJson(JSON.parse(trimmed), out);
   } catch {
+    if (parseFunctionSyntax(trimmed, out)) return;
     // Some models wrap the JSON in prose; try the first {...} / [...] chunk.
     const match = trimmed.match(/[[{][\s\S]*[\]}]/);
     if (!match) return;

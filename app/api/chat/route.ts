@@ -6,6 +6,7 @@ import { StreamData, generateText, streamText, tool } from 'ai';
 import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { ALL_TOOL_NAMES } from '@/lib/tool-names';
+import { getOnboarding, getPendingActions, getProjectIssues } from '@/lib/workpad';
 import { supabase } from '@/lib/db';
 import {
   getTodayRange,
@@ -617,6 +618,78 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, data: data ?? [] };
   }
 
+  if (name === 'plan_actions') {
+    const pid = String(args?.project_id ?? '').trim();
+    const actions = Array.isArray(args?.actions)
+      ? (args.actions as unknown[]).filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+      : [];
+    if (!pid || actions.length === 0) {
+      return { success: false, error: 'project_id and actions[] required' };
+    }
+    const { data, error } = await supabase
+      .from('workpad_actions')
+      .insert(
+        actions.slice(0, 20).map(description => ({
+          project_id: pid,
+          description: description.trim().slice(0, 500),
+        }))
+      )
+      .select('id, description, status');
+    if (error) return { success: false, error: error.message };
+    return { success: true, data: { project_id: pid, actions: data ?? [] } };
+  }
+
+  if (name === 'complete_action') {
+    const id = Number(args?.id);
+    const status = String(args?.status ?? 'done');
+    if (!Number.isInteger(id) || id <= 0) return { success: false, error: 'id required' };
+    if (!['done', 'failed', 'cancelled', 'in_progress'].includes(status)) {
+      return { success: false, error: 'invalid status' };
+    }
+    const { data, error } = await supabase
+      .from('workpad_actions')
+      .update({
+        status,
+        result_ref: args?.result_ref ? String(args.result_ref).slice(0, 500) : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('id, project_id, description, status, result_ref')
+      .maybeSingle();
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: `action not found: ${id}` };
+    return { success: true, data };
+  }
+
+  if (name === 'get_project_status') {
+    const pid = String(args?.project_id ?? '').trim();
+    if (!pid) return { success: false, error: 'project_id required' };
+    const [{ data: docs }, { data: actions }, { data: goals }, issues] = await Promise.all([
+      supabase.from('project_docs').select('name, updated_at, content').eq('project_id', pid),
+      supabase
+        .from('workpad_actions')
+        .select('id, description, status, result_ref')
+        .eq('project_id', pid)
+        .order('id'),
+      supabase.from('goals').select('id, title, status').eq('project_id', pid).eq('status', 'open'),
+      getProjectIssues(pid, 10),
+    ]);
+    return {
+      success: true,
+      data: {
+        project_id: pid,
+        docs: (docs ?? []).map((d: any) => ({
+          name: d.name,
+          chars: String(d.content ?? '').length,
+          updated_at: d.updated_at,
+        })),
+        actions: actions ?? [],
+        goals: goals ?? [],
+        issues,
+      },
+    };
+  }
+
   if (name === 'read_project_doc') {
     const pid = String(args?.project_id ?? '').trim();
     const filename = String(args?.filename ?? '').trim();
@@ -882,7 +955,7 @@ export async function POST(req: NextRequest) {
     if (requestedFenshenId) {
       const { data: row } = await supabase
         .from('fenshen')
-        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name')
+        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, has_all_tools')
         .eq('id', requestedFenshenId)
         .maybeSingle();
       if (row) requestFenshen = row as any;
@@ -959,6 +1032,8 @@ export async function POST(req: NextRequest) {
         `[room] project=${projectId} members=${roomMemberIds.join(',') || '(none)'} responder=${responder?.id ?? 'none'}`
       );
     }
+
+    const isContinue = /^\[?continue\]?$/i.test(String(message).trim());
 
     if (message.length > 4000) {
       return NextResponse.json(
@@ -1246,6 +1321,10 @@ export async function POST(req: NextRequest) {
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
       : null;
+    // ES-082: full tool access by default; the whitelist only applies when
+    // has_all_tools is explicitly false.
+    const useAllTools = requestFenshen?.has_all_tools !== false;
+    const hasRagTool = useAllTools || !!toolWhitelist?.includes('search_local_kb');
     // ES-078: if this fenshen depends on local RAG and the question is a
     // knowledge question, check the service before generation so a dead RAG
     // can never be answered from memory.
@@ -1257,8 +1336,13 @@ export async function POST(req: NextRequest) {
     const docWriteIntentEarly =
       /(写|生成|保存|落盘|write|save)/i.test(message) &&
       /(PRD|文档|报告|\.md|docs\/|local_kb|project)/i.test(message) &&
-      (!toolWhitelist || toolWhitelist.includes('write_local_file'));
-    if (ragQuestion && toolWhitelist?.includes('search_local_kb')) {
+      (useAllTools || !toolWhitelist || toolWhitelist.includes('write_local_file'));
+    const localWriteIntent =
+      /(写|保存|生成|落盘|write|save)/i.test(message) &&
+      /(笔记|note)/i.test(message) &&
+      /(本地|文件|local_kb|docs\/|\.md)/i.test(message) &&
+      (useAllTools || !toolWhitelist || toolWhitelist.includes('write_local_file'));
+    if (ragQuestion && hasRagTool) {
       try {
         const health = await fetch(`${LOCAL_RAG_URL}/health`, {
           signal: AbortSignal.timeout(1500),
@@ -1310,7 +1394,7 @@ export async function POST(req: NextRequest) {
 
     // ES-078: pre-fetch grounding so the answer never relies on chat history.
     let kbContext = '';
-    if (ragQuestion && toolWhitelist?.includes('search_local_kb') && !ragError) {
+    if (ragQuestion && hasRagTool && !ragError) {
       try {
         const r = await fetch(`${LOCAL_RAG_URL}/search`, {
           method: 'POST',
@@ -1335,17 +1419,56 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const allowedToolNames = toolWhitelist
-      ? ALL_TOOL_NAMES.filter(name => toolWhitelist.includes(name))
-      : ALL_TOOL_NAMES;
+    const allowedToolNames = useAllTools
+      ? ALL_TOOL_NAMES
+      : toolWhitelist
+        ? ALL_TOOL_NAMES.filter(name => toolWhitelist.includes(name))
+        : ALL_TOOL_NAMES;
+    // ES-081: Workpad context — onboarding, open issues, pending actions.
+    let onboarding = '';
+    let pendingActions: Array<{ id: number; description: string; status: string }> = [];
+    let openIssues: Array<{ number: number; title: string; url: string }> = [];
+    if (project) {
+      const [ob, pa, oi] = await Promise.all([
+        getOnboarding(project.id),
+        getPendingActions(project.id),
+        getProjectIssues(project.id),
+      ]);
+      onboarding = ob;
+      pendingActions = pa;
+      openIssues = oi;
+      console.log(
+        `[workpad] ${project.id} onboarding=${onboarding.length} pending=${pendingActions.length} issues=${openIssues.length}`
+      );
+    }
+
     const projectContext = project
       ? `\n\n【当前项目】${project.name} (${project.id})。项目文档：${
           projectDocNames.join(', ') || '(暂无)'
         }。需要项目文档时用 read_project_doc(project_id="${project.id}", filename=…)。` +
+        (onboarding ? `\n\n【项目 Onboarding（强制上下文）】\n${onboarding}` : '') +
+        (openIssues.length
+          ? `\n\n【Open Issues】\n${openIssues
+              .map(i => `#${i.number} ${i.title}`)
+              .join('\n')}`
+          : '') +
+        (pendingActions.length
+          ? `\n\n【未完成动作】\n${pendingActions
+              .map(a => `${a.id}. ${a.description}（${a.status}）`)
+              .join(
+                '\n'
+              )}\n当前有未完成的任务：${pendingActions
+              .map(a => a.description)
+              .join('；')}。请继续执行下一项；完成一项后调用 complete_action 标记，不要重复已完成的。`
+          : '') +
+        `\n\n【动作规则】多步任务先用 plan_actions(project_id, actions[]) 记录；每完成一项用 complete_action 更新状态；需要一次看全项目状态时调用 get_project_status。` +
         (roomMemberIds.length
           ? `\n【Workpad 房间】参战分身：${roomMemberIds.join(', ')}；本轮回复者：${
               requestFenshen?.display_name ?? requestFenshen?.id ?? '未知'
             }。主人可用 @分身名 指定回复者。`
+          : '') +
+        (isContinue
+          ? '\n\n【续写】主人发送了 [continue]：从你上一条回复的断点继续写，不要重复开头，不要重新介绍。'
           : '')
       : '';
     const toolAvailability = `Authoritative tool availability for this request: ${
@@ -1537,6 +1660,36 @@ ${bodyStatusReminder}`,
         }),
         execute: async ({ project_id }) =>
           runToolForModel('get_goals', { project_id }),
+      }),
+      plan_actions: tool({
+        description:
+          'Record the steps of a multi-step task in the project action ledger. Call this when the owner gives several things to do, then execute them one by one and mark each with complete_action.',
+        parameters: z.object({
+          project_id: z.string().describe('current project id, e.g. bwp'),
+          actions: z.array(z.string()).min(1).max(20).describe('ordered action descriptions'),
+        }),
+        execute: async ({ project_id, actions }) =>
+          runToolForModel('plan_actions', { project_id, actions }),
+      }),
+      complete_action: tool({
+        description:
+          'Mark an action from plan_actions as done/failed/in_progress, optionally storing a result reference (file, issue, PR).',
+        parameters: z.object({
+          id: z.number().int().describe('action id'),
+          status: z.enum(['done', 'failed', 'cancelled', 'in_progress']),
+          result_ref: z.string().optional().describe('file path, issue/PR URL, etc.'),
+        }),
+        execute: async ({ id, status, result_ref }) =>
+          runToolForModel('complete_action', { id, status, result_ref }),
+      }),
+      get_project_status: tool({
+        description:
+          'One-shot project status: documents, open GitHub issues, pending actions and open goals. Use it at the start of a Workpad session.',
+        parameters: z.object({
+          project_id: z.string().describe('project id, e.g. bwp'),
+        }),
+        execute: async ({ project_id }) =>
+          runToolForModel('get_project_status', { project_id }),
       }),
       read_project_doc: tool({
         description:
@@ -1783,13 +1936,16 @@ ${bodyStatusReminder}`,
       ? `${guardedSystemPrompt}${kbContext}`
       : guardedSystemPrompt;
 
-    const activeTools = toolWhitelist
-      ? Object.fromEntries(
-          Object.entries(tools).filter(([name]) => (allowedToolNames as readonly string[]).includes(name))
-        )
-      : tools;
+    const activeTools =
+      !useAllTools && toolWhitelist
+        ? Object.fromEntries(
+            Object.entries(tools).filter(([name]) =>
+              (allowedToolNames as readonly string[]).includes(name)
+            )
+          )
+        : tools;
     console.log(
-      `[fenshen] ${requestFenshen?.id ?? 'default'} active_tools=${Object.keys(activeTools).join(',') || '(none)'}`
+      `[fenshen] ${requestFenshen?.id ?? 'default'} has_all_tools=${useAllTools} active_tools=${Object.keys(activeTools).length}`
     );
     const canWriteMarkdown = !!(activeTools as Record<string, unknown>).write_markdown;
 
@@ -1804,9 +1960,11 @@ ${bodyStatusReminder}`,
           : undefined,
       maxSteps: 5,
       temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
-      maxTokens: docWriteIntentEarly
-        ? Math.max(parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'), 3000)
-        : parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
+      maxTokens: isContinue
+        ? 3000
+        : docWriteIntentEarly
+          ? Math.max(parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'), 3000)
+          : parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
       onError: ({ error }) => {
         console.error('model stream error:', error);
         streamError = error instanceof Error ? error.message : String(error);
@@ -1819,7 +1977,7 @@ ${bodyStatusReminder}`,
         });
         streamData.close().catch(() => {});
       },
-      onFinish: async ({ text }) => {
+      onFinish: async ({ text, finishReason }) => {
         let reply = text.trim();
         if (!reply) {
           console.warn('empty model reply', {
@@ -1938,7 +2096,7 @@ ${bodyStatusReminder}`,
           /(写|生成|保存|落盘|write|save)/i.test(message) &&
           /(PRD|文档|报告|\.md|docs\/|local_kb)/i.test(message);
         if (
-          docWriteIntent &&
+          (docWriteIntent || localWriteIntent) &&
           toolSet.write_local_file &&
           !writeFileResult
         ) {
@@ -1962,6 +2120,24 @@ ${bodyStatusReminder}`,
           } catch (e) {
             console.error('forced write_local_file retry failed', e);
           }
+        }
+
+        // ES-082: a verified file write always gets a deterministic reply (the
+        // model may end on a tool call with empty text).
+        if (writeFileResult?.success === true) {
+          reply = `已写入：${writeFileResult.data?.path ?? '本地文件'}（${
+            writeFileResult.data?.action === 'created' ? '新建' : '更新'
+          }，${writeFileResult.data?.chars ?? '?'} 字）`;
+        }
+
+        // ES-082: never let "模型未发起调用 / 我没有权限" stand for a real failure.
+        if (
+          /(模型没有发起|没有执行写入|我没有这个权限|没有权限)/.test(reply) &&
+          !writeFileResult &&
+          !writeResult &&
+          !pushToDevResult
+        ) {
+          reply = '工具执行失败：模型没有发起调用。请重试；若重复出现，我会查系统日志。';
         }
 
         // ES-060: one automatic retry before surfacing a failure. The model
@@ -1993,9 +2169,9 @@ ${bodyStatusReminder}`,
           reply = `工具已执行，但生成回复失败（${streamError ?? '模型返回空内容'}）。请重试；如果再次失败，可以让我查系统日志。`;
         }
 
-        if (!text.trim()) {
-          // ES-052: guarantee the client receives a visible fallback text even
-          // when the model ends with only tool calls (empty final content).
+        if (!text.trim() || reply !== text.trim()) {
+          // ES-052/ES-082: the client must receive the final visible text even
+          // when the model ends on a tool call or the server rewrites the reply.
           streamData.append({ type: 'assistant_text', text: reply });
         }
 
@@ -2026,6 +2202,8 @@ ${bodyStatusReminder}`,
               project_id: projectId || null,
               responder_fenshen_id: requestFenshen?.id ?? null,
               active_fenshen_ids: roomMemberIds,
+              truncated: finishReason === 'length',
+              finish_reason: finishReason,
             },
           },
         ]);

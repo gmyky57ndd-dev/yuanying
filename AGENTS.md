@@ -55,6 +55,14 @@ Agents must update `core/system-manifest.md` whenever they add or change a user-
 
 ---
 
+### 2.6 Action-first (ES-083)
+
+- When a fenshen decides to write a file, create an Issue, or read data, it must
+  emit the `tool_call` in the **same** turn.
+- Never end a turn with “I'll write it now / one moment” and no tool call.
+- Stop only for genuine missing permission or destructive actions; report tool
+  failures as system errors, never as “the model did not call the tool”.
+
 ## 3. Work classification and tracking
 
 Classify work before creating a tracking item or choosing a commit/PR prefix. First search `TRACKING.md` for a related item so existing work is updated rather than duplicated. An existing entry does not, by itself, determine the classification.
@@ -211,6 +219,13 @@ and the INDEX, and record the old number in the INDEX note. Never silently reuse
 an ES number.
 
 ---
+
+### 4.10 Long output and continuation (ES-081)
+
+- **>500 字先落盘**：需要输出长文（PRD、报告、分析）时，先调用 `write_local_file` 写到 `local_kb/docs/…` 或 `docs/pm/…`，再在对话里只给摘要，不要靠聊天窗口承载全文。
+- **未完待续标记**：如果确实要在对话里分段，结尾必须写 `…续`，下一段从断点继续，不重复开头。
+- **UI**：超过阈值的内容折叠为「展开全文」；模型输出被截断（`finishReason=length`）时，消息带 `truncated`，显示「一键续写」，发送 `[continue]`。
+- **后端**：`[continue]` 视为「继续上一条回复」，注入续写指令并放宽 `maxTokens`。
 
 ## 5. Rules of engagement
 

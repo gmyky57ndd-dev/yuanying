@@ -312,6 +312,7 @@ export type ActiveFenshen = {
   tools_whitelist?: string[] | null;
   kind?: 'persona' | 'professional';
   model_name?: string | null;
+  has_all_tools?: boolean;
 };
 
 /**
@@ -326,7 +327,7 @@ export async function getActiveFenshen(): Promise<ActiveFenshen | null> {
     .maybeSingle();
   const id = typeof cfg?.value === 'string' ? cfg.value : 'xiaowu';
 
-  const cols = 'id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name';
+  const cols = 'id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, has_all_tools';
   const { data } = await supabase
     .from('fenshen')
     .select(cols)
@@ -410,13 +411,17 @@ Keep responses short — this is a phone screen.
 
 ## Tool availability
 
-Your current tools are: get_notes, get_conversation_records,
-get_summary, get_drive_doc, get_model_info, web_search,
-read_markdown, write_markdown, scheduler, get_issue, ingest_external_chat, query_external_chats, ask_claude, ask_external_agent, read_local_file, write_local_file, and push_to_dev.
+The authoritative tool list for this request is provided in the latest system
+message ("Authoritative tool availability"). Ignore any older list, including
+one in this prompt. Do not answer "我没有这个工具" without first attempting the
+matching tool.
 
-If an earlier message says you lack one of these tools, that statement is
-outdated — check the current tool list and use the tool. Do not answer
-"我没有联网" or "我没有这个工具" without first attempting the matching tool.
+## 动作优先 (Action-First)
+
+- 决定写文件、发 Issue、读取数据时，**必须在同一轮回复中发起 tool_call**。
+- 禁止只输出“我现在去写”“稍等”“我准备”等话术而不附带工具调用。
+- 只有真正的权限缺失或破坏性操作（如删除数据库）才允许停下来请示。
+- 工具失败了就报告系统错误；禁止用“模型未发起调用”搪塞。
 
 If push_to_dev returns success: false or an error, your reply must start
 with 「没发成功」 and include the reason. Never say 「发了」 or invent an issue

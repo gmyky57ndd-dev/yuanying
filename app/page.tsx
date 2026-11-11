@@ -19,6 +19,7 @@ type Message = {
   github_issue_url?: string | null;
   github_issue_number?: number | null;
   inbox_path?: string | null;
+  truncated?: boolean;
 };
 
 type FenshenInfo = {
@@ -671,6 +672,12 @@ export default function Home() {
   }
 
   function toolStatusFor(message: string): string {
+    if (
+      /(写|保存|生成|落盘|write|save)/i.test(message) &&
+      /(笔记|note|本地|文件|local_kb|docs\/|\.md)/i.test(message)
+    ) {
+      return '正在写入本地文件…';
+    }
     if (/笔记|note|昨天|写了什么|记了/.test(message)) {
       return '正在翻笔记…';
     }
@@ -754,6 +761,9 @@ export default function Home() {
         }
       }, deviceIdRef.current, fenshenId || undefined, projectId);
       if (d.reply) {
+        if (/工具执行失败|模型没有发起调用|没有执行写入|没有这个权限/.test(d.reply)) {
+          alert(d.reply);
+        }
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);
         // ES-071: a tool may have appended a note; refresh the timeline.
         loadNotes();
@@ -1681,6 +1691,14 @@ export default function Home() {
                   className="text-[10px] text-stone-500 mt-1"
                 >
                   {showFull ? '收起' : '展开全文'}
+                </button>
+              )}
+              {isAssistant && m.truncated && (
+                <button
+                  onClick={() => send('[continue]')}
+                  className="ml-2 text-[10px] text-amber-500 mt-1 underline"
+                >
+                  一键续写
                 </button>
               )}
               {isAssistant && (

@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
       github_issue_number: m.github_issue_number ?? null,
       inbox_path: m.metadata?.inbox_path ?? null,
       responder_fenshen_id: m.responder_fenshen_id ?? null,
+      truncated: m.metadata?.truncated === true,
     })),
   });
 }
