@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 type Artifact = { name: string; source: string; chars: number; updated_at: string };
 type Issue = { number: number; title: string; state: string; url: string; updated_at: string; labels: string[] };
-type Message = { id: number; role: string; content: string; created_at: string; responder_fenshen_id?: string | null };
+type Message = { id: number; role: string; content: string; created_at: string; responder_fenshen_id?: string | null; truncated?: boolean };
 type FenshenRow = { id: string; display_name: string; model_name: string | null; tools_whitelist: string[] | null };
 type ModelRow = { id: string; provider: string; model_name: string };
 
@@ -38,6 +38,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [memberMsg, setMemberMsg] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [expandedMsgs, setExpandedMsgs] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     const [h, m, a, i, cfg, mods] = await Promise.all([
@@ -82,6 +83,23 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
       await load();
     } catch (e) {
       setMemberMsg(`发送失败：${e instanceof Error ? e.message : 'unknown'}`);
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function sendContinue() {
+    if (sending) return;
+    setSending(true);
+    try {
+      const sid =
+        (typeof window !== 'undefined' && window.localStorage.getItem('yy_session_id')) ||
+        (crypto.randomUUID?.() ?? `s-${Date.now()}`);
+      if (typeof window !== 'undefined') window.localStorage.setItem('yy_session_id', sid);
+      await postChat('[continue]', sid, undefined, undefined, undefined, projectId, memberIds);
+      await load();
+    } catch (e) {
+      setMemberMsg(`续写失败：${e instanceof Error ? e.message : 'unknown'}`);
     } finally {
       setSending(false);
     }
@@ -162,25 +180,53 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                 {messages.length === 0 && (
                   <div className="text-[12px] text-stone-400">这个 Workpad 还没有对话。</div>
                 )}
-                {messages.map(m => (
-                  <div key={m.id} className={m.role === 'user' ? 'ml-auto max-w-[75%]' : 'max-w-[75%]'}>
-                    <div className="mb-0.5 text-[10px] text-stone-400">
-                      {m.role === 'user'
-                        ? '我'
-                        : allFenshen.find(f => f.id === m.responder_fenshen_id)?.display_name ??
-                          m.responder_fenshen_id ??
-                          '元婴'}{' '}
-                      · {fmt(m.created_at)}
-                    </div>
+                {messages.map(m => {
+                  const key = String(m.id);
+                  const isLong = m.role === 'assistant' && m.content.length > 600;
+                  const open = !!expandedMsgs[key];
+                  const body =
+                    isLong && !open ? `${m.content.slice(0, 600).trimEnd()}…` : m.content;
+                  return (
                     <div
-                      className={`whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${
-                        m.role === 'user' ? 'bg-stone-100' : 'bg-amber-50'
-                      }`}
+                      key={m.id}
+                      className={m.role === 'user' ? 'ml-auto max-w-[75%]' : 'max-w-[75%]'}
                     >
-                      {m.content}
+                      <div className="mb-0.5 text-[10px] text-stone-400">
+                        {m.role === 'user'
+                          ? '我'
+                          : allFenshen.find(f => f.id === m.responder_fenshen_id)?.display_name ??
+                            m.responder_fenshen_id ??
+                            '元婴'}{' '}
+                        · {fmt(m.created_at)}
+                      </div>
+                      <div
+                        className={`whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${
+                          m.role === 'user' ? 'bg-stone-100' : 'bg-amber-50'
+                        }`}
+                      >
+                        {body}
+                      </div>
+                      {isLong && (
+                        <button
+                          onClick={() =>
+                            setExpandedMsgs(prev => ({ ...prev, [key]: !prev[key] }))
+                          }
+                          className="mt-1 text-[10px] text-stone-400 underline"
+                        >
+                          {open ? '收起' : '展开全文'}
+                        </button>
+                      )}
+                      {m.truncated && (
+                        <button
+                          onClick={sendContinue}
+                          className="ml-2 mt-1 text-[10px] text-amber-600 underline"
+                        >
+                          一键续写
+                        </button>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <div className="border-t border-stone-100 p-3">
                 <div className="mb-2 flex flex-wrap gap-1">

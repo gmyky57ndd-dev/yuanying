@@ -204,6 +204,16 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-64] Workpad 真工作台：上下文 + 动作闭环 (ES-081) — In Progress
+
+- **Status**: In Progress (2026-11-11) · **Category**: Agentic engine · **Refs**: ES-081
+- **Onboarding**: `project_docs/ONBOARDING.md` (BWP 424 chars, Yuanying) injected into every Workpad prompt; open issues (`label:project:<id>`) summarised.
+- **Actions**: `workpad_actions` table + `plan_actions` / `complete_action` tools; pending rows injected as「未完成动作…请继续执行下一项」.
+- **Status tool**: `get_project_status` (docs + actions + goals + issues).
+- **Anti-cutoff**: AGENTS §4.10 (write long docs first, `…续`), fold + `truncated` + 一键续写; backend `[continue]` with 3k tokens.
+- **Verified**: onboarding reply without tools; 4 planned rows; “继续” completed all 4; 1,472-char reply `finishReason=length` + `[continue]` resumed at the breakpoint.
+- **Pending**: on-device fold/continue visual check; BWP Issue labels for the issues summary.
+
 ### [P2-62] Desktop Hub MVP (blueprint v3) — In Progress
 
 - **Status**: In Progress (2026-11-10) · **Category**: Desktop UI / Config · **Refs**: MASTER-BLUEPRINT-v3
@@ -383,11 +393,11 @@ never by the section they happened to be written under.
 - **Fix**: gate the realtime effect on `historyReady`; scroll only when the message count grows; skip state updates when ids+content are unchanged; event rows carry `source` and show `· 提醒回执`.
 - **Docs**: `docs/specs/ES-066-chat-replay-scroll.md`.
 
-### [P2-43] 早安问候应给今日计划而非空总结 (ES-081, #79)
+### [P2-43] 早安问候应给今日计划而非空总结 (ES-085, #79)
 
-- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-081
+- **Status**: In Review (2026-10-24) · **Category**: Prompt/Behaviour · **Refs**: ES-085
 - **Fix**: before 11:00 with no signals today, the prompt forbids a "今天…" summary and asks for a 2–3 sentence plan based on yesterday.
-- **Docs**: `docs/specs/ES-081-morning-plan.md`.
+- **Docs**: `docs/specs/ES-085-morning-plan.md`.
 
 ### [P2-44] 提醒回执跨日与起床前误记 (ES-072, #78)
 

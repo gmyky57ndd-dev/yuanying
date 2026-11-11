@@ -212,6 +212,13 @@ an ES number.
 
 ---
 
+### 4.10 Long output and continuation (ES-081)
+
+- **>500 字先落盘**：需要输出长文（PRD、报告、分析）时，先调用 `write_local_file` 写到 `local_kb/docs/…` 或 `docs/pm/…`，再在对话里只给摘要，不要靠聊天窗口承载全文。
+- **未完待续标记**：如果确实要在对话里分段，结尾必须写 `…续`，下一段从断点继续，不重复开头。
+- **UI**：超过阈值的内容折叠为「展开全文」；模型输出被截断（`finishReason=length`）时，消息带 `truncated`，显示「一键续写」，发送 `[continue]`。
+- **后端**：`[continue]` 视为「继续上一条回复」，注入续写指令并放宽 `maxTokens`。
+
 ## 5. Rules of engagement
 
 ### Always

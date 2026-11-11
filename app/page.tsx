@@ -19,6 +19,7 @@ type Message = {
   github_issue_url?: string | null;
   github_issue_number?: number | null;
   inbox_path?: string | null;
+  truncated?: boolean;
 };
 
 type FenshenInfo = {
@@ -1681,6 +1682,14 @@ export default function Home() {
                   className="text-[10px] text-stone-500 mt-1"
                 >
                   {showFull ? '收起' : '展开全文'}
+                </button>
+              )}
+              {isAssistant && m.truncated && (
+                <button
+                  onClick={() => send('[continue]')}
+                  className="ml-2 text-[10px] text-amber-500 mt-1 underline"
+                >
+                  一键续写
                 </button>
               )}
               {isAssistant && (
