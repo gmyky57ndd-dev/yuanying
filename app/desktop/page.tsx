@@ -202,7 +202,10 @@ export default function DesktopPage() {
           {tab === 'settings' && (
             <div className="space-y-4">
               <h1 className="text-2xl font-semibold">分身与工具白名单</h1>
-              <p className="text-[12px] text-stone-500">只改 prompt 与工具边界；模型仍走全局路由。</p>
+              <p className="text-[12px] text-stone-500">
+                只改 prompt 与工具边界；模型仍走全局路由。当前所有分身默认
+                <b> has_all_tools=true </b>（全部工具开放）；白名单仅在关闭时生效。
+              </p>
               <div className="rounded-xl border border-stone-200 bg-white p-4">
                 <select
                   value={editId}

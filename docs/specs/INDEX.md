@@ -109,9 +109,11 @@ ES, check the highest number here and increment. Never reuse a number.
 | ES-078 | AI Architect Fenshen & Local RAG | Implemented | 2026-11-08 | P2-55 |
 | ES-079 | Fix Tool Call Parsing & Local File Bridge for AI-PM | Urgent (P0) | 2026-11-09 | P2-60 |
 | ES-080 | Project Workpad Architecture (BWP Integration) | Approved | 2026-11-10 | P2-61 |
-| ES-083 | Local RAG Engineering Skeleton & Collectors | Urgent (P0) | 2026-11-08 | P2-57 |
+| ES-082 | Global Tool Access & Hard Tool Call Enforcement | Urgent Fix (P0) | 2026-11-11 | P2-65 |
+| ES-083 | Enforce Action-First Agent Loop | Urgent (P0) | 2026-11-11 | P2-66 |
+| ES-087 | Local RAG Engineering Skeleton & Collectors | Urgent (P0) | 2026-11-08 | P2-57 |
 | ES-084 | P0: Data Integrity & Feedback Loop UX | Urgent (P0) | 2026-11-08 | P2-59 |
-| ES-082 | Evening Summary Pipeline + Delivery Log | Urgent Bug (P0) | 2026-10-30 | P2-52 |
+| ES-086 | Evening Summary Pipeline + Delivery Log | Urgent Bug (P0) | 2026-10-30 | P2-52 |
 | ES-075 | Local-First AI Knowledge Base | Approved | 2026-11-08 | P2-56 |
 | ES-076 | Local Bridge During the Vercel Pause | Urgent (P0, temporary) | 2026-11-04 | P2-53 |
 | ES-072 | Reminder Receipt Day Boundary | Bug fix | 2026-10-24 | P2-44 |

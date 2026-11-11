@@ -55,6 +55,14 @@ Agents must update `core/system-manifest.md` whenever they add or change a user-
 
 ---
 
+### 2.6 Action-first (ES-083)
+
+- When a fenshen decides to write a file, create an Issue, or read data, it must
+  emit the `tool_call` in the **same** turn.
+- Never end a turn with “I'll write it now / one moment” and no tool call.
+- Stop only for genuine missing permission or destructive actions; report tool
+  failures as system errors, never as “the model did not call the tool”.
+
 ## 3. Work classification and tracking
 
 Classify work before creating a tracking item or choosing a commit/PR prefix. First search `TRACKING.md` for a related item so existing work is updated rather than duplicated. An existing entry does not, by itself, determine the classification.

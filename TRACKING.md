@@ -204,6 +204,21 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-65] 全局工具访问 + 硬工具调用 (ES-082) — In Progress
+
+- **Status**: In Progress (2026-11-11) · **Category**: Backend · **Refs**: ES-082
+- `fenshen.has_all_tools` (default **true**): router injects all 31 tools, ignoring the whitelist; whitelist remains for strict isolation (`false`).
+- Prompt: action-first + never claim "模型未发起调用"; textual `<tool_call>name({...})</tool_call>` and `name(path="…")` parsed and executed.
+- Local write intent without a call triggers one forced `write_local_file`; verified reply is the real path.
+- UI: "正在写入本地文件…" status; failure alerts.
+- **Verified**: ai_architect wrote `local_kb/docs/es082-acceptance-3.md` (103 chars) with `has_all_tools=true active_tools=31`.
+
+### [P2-66] Action-First 循环 (ES-083) — In Progress
+
+- **Status**: In Progress (2026-11-11) · **Category**: Prompt / Loop · **Refs**: ES-083
+- Rule added to `AGENTS.md` §2.6, `core/system-manifest.md`, and the runtime prompt: emit the tool call in the same turn; no “我现在去写/稍等”; only stop for missing permission/destructive ops.
+- Verified together with ES-082: the write happened without a second confirmation turn.
+
 ### [P2-64] Workpad 真工作台：上下文 + 动作闭环 (ES-081) — In Progress
 
 - **Status**: In Progress (2026-11-11) · **Category**: Agentic engine · **Refs**: ES-081

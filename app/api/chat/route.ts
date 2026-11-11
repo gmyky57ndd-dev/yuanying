@@ -955,7 +955,7 @@ export async function POST(req: NextRequest) {
     if (requestedFenshenId) {
       const { data: row } = await supabase
         .from('fenshen')
-        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name')
+        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, has_all_tools')
         .eq('id', requestedFenshenId)
         .maybeSingle();
       if (row) requestFenshen = row as any;
@@ -1321,6 +1321,10 @@ export async function POST(req: NextRequest) {
     const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
       ? requestFenshen!.tools_whitelist
       : null;
+    // ES-082: full tool access by default; the whitelist only applies when
+    // has_all_tools is explicitly false.
+    const useAllTools = requestFenshen?.has_all_tools !== false;
+    const hasRagTool = useAllTools || !!toolWhitelist?.includes('search_local_kb');
     // ES-078: if this fenshen depends on local RAG and the question is a
     // knowledge question, check the service before generation so a dead RAG
     // can never be answered from memory.
@@ -1332,8 +1336,13 @@ export async function POST(req: NextRequest) {
     const docWriteIntentEarly =
       /(写|生成|保存|落盘|write|save)/i.test(message) &&
       /(PRD|文档|报告|\.md|docs\/|local_kb|project)/i.test(message) &&
-      (!toolWhitelist || toolWhitelist.includes('write_local_file'));
-    if (ragQuestion && toolWhitelist?.includes('search_local_kb')) {
+      (useAllTools || !toolWhitelist || toolWhitelist.includes('write_local_file'));
+    const localWriteIntent =
+      /(写|保存|生成|落盘|write|save)/i.test(message) &&
+      /(笔记|note)/i.test(message) &&
+      /(本地|文件|local_kb|docs\/|\.md)/i.test(message) &&
+      (useAllTools || !toolWhitelist || toolWhitelist.includes('write_local_file'));
+    if (ragQuestion && hasRagTool) {
       try {
         const health = await fetch(`${LOCAL_RAG_URL}/health`, {
           signal: AbortSignal.timeout(1500),
@@ -1385,7 +1394,7 @@ export async function POST(req: NextRequest) {
 
     // ES-078: pre-fetch grounding so the answer never relies on chat history.
     let kbContext = '';
-    if (ragQuestion && toolWhitelist?.includes('search_local_kb') && !ragError) {
+    if (ragQuestion && hasRagTool && !ragError) {
       try {
         const r = await fetch(`${LOCAL_RAG_URL}/search`, {
           method: 'POST',
@@ -1410,9 +1419,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const allowedToolNames = toolWhitelist
-      ? ALL_TOOL_NAMES.filter(name => toolWhitelist.includes(name))
-      : ALL_TOOL_NAMES;
+    const allowedToolNames = useAllTools
+      ? ALL_TOOL_NAMES
+      : toolWhitelist
+        ? ALL_TOOL_NAMES.filter(name => toolWhitelist.includes(name))
+        : ALL_TOOL_NAMES;
     // ES-081: Workpad context — onboarding, open issues, pending actions.
     let onboarding = '';
     let pendingActions: Array<{ id: number; description: string; status: string }> = [];
@@ -1925,13 +1936,16 @@ ${bodyStatusReminder}`,
       ? `${guardedSystemPrompt}${kbContext}`
       : guardedSystemPrompt;
 
-    const activeTools = toolWhitelist
-      ? Object.fromEntries(
-          Object.entries(tools).filter(([name]) => (allowedToolNames as readonly string[]).includes(name))
-        )
-      : tools;
+    const activeTools =
+      !useAllTools && toolWhitelist
+        ? Object.fromEntries(
+            Object.entries(tools).filter(([name]) =>
+              (allowedToolNames as readonly string[]).includes(name)
+            )
+          )
+        : tools;
     console.log(
-      `[fenshen] ${requestFenshen?.id ?? 'default'} active_tools=${Object.keys(activeTools).join(',') || '(none)'}`
+      `[fenshen] ${requestFenshen?.id ?? 'default'} has_all_tools=${useAllTools} active_tools=${Object.keys(activeTools).length}`
     );
     const canWriteMarkdown = !!(activeTools as Record<string, unknown>).write_markdown;
 
@@ -2082,7 +2096,7 @@ ${bodyStatusReminder}`,
           /(写|生成|保存|落盘|write|save)/i.test(message) &&
           /(PRD|文档|报告|\.md|docs\/|local_kb)/i.test(message);
         if (
-          docWriteIntent &&
+          (docWriteIntent || localWriteIntent) &&
           toolSet.write_local_file &&
           !writeFileResult
         ) {
@@ -2106,6 +2120,24 @@ ${bodyStatusReminder}`,
           } catch (e) {
             console.error('forced write_local_file retry failed', e);
           }
+        }
+
+        // ES-082: a verified file write always gets a deterministic reply (the
+        // model may end on a tool call with empty text).
+        if (writeFileResult?.success === true) {
+          reply = `已写入：${writeFileResult.data?.path ?? '本地文件'}（${
+            writeFileResult.data?.action === 'created' ? '新建' : '更新'
+          }，${writeFileResult.data?.chars ?? '?'} 字）`;
+        }
+
+        // ES-082: never let "模型未发起调用 / 我没有权限" stand for a real failure.
+        if (
+          /(模型没有发起|没有执行写入|我没有这个权限|没有权限)/.test(reply) &&
+          !writeFileResult &&
+          !writeResult &&
+          !pushToDevResult
+        ) {
+          reply = '工具执行失败：模型没有发起调用。请重试；若重复出现，我会查系统日志。';
         }
 
         // ES-060: one automatic retry before surfacing a failure. The model
@@ -2137,9 +2169,9 @@ ${bodyStatusReminder}`,
           reply = `工具已执行，但生成回复失败（${streamError ?? '模型返回空内容'}）。请重试；如果再次失败，可以让我查系统日志。`;
         }
 
-        if (!text.trim()) {
-          // ES-052: guarantee the client receives a visible fallback text even
-          // when the model ends with only tool calls (empty final content).
+        if (!text.trim() || reply !== text.trim()) {
+          // ES-052/ES-082: the client must receive the final visible text even
+          // when the model ends on a tool call or the server rewrites the reply.
           streamData.append({ type: 'assistant_text', text: reply });
         }
 

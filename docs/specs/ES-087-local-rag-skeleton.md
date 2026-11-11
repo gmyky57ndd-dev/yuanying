@@ -1,4 +1,4 @@
-# ES-083 — Local RAG Engineering Skeleton & Collectors
+# ES-087 — Local RAG Engineering Skeleton & Collectors
 
 - **Status:** Done (2026-11-08). **Tracking:** P2-57. Refs: ES-075, ES-078.
 - **Context:** the architect review asked for the engineering skeleton (scripts,
