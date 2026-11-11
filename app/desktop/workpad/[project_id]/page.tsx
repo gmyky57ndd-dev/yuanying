@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { postChat } from '@/lib/api';
 import { useCallback, useEffect, useState } from 'react';
 
 type Artifact = { name: string; source: string; chars: number; updated_at: string };
@@ -35,6 +36,8 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [lead, setLead] = useState<string>('');
   const [savingMembers, setSavingMembers] = useState(false);
   const [memberMsg, setMemberMsg] = useState<string | null>(null);
+  const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
 
   const load = useCallback(async () => {
     const [h, m, a, i, cfg, mods] = await Promise.all([
@@ -64,6 +67,25 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function sendRoom() {
+    const text = draft.trim();
+    if (!text || sending) return;
+    setSending(true);
+    setDraft('');
+    try {
+      const sid =
+        (typeof window !== 'undefined' && window.localStorage.getItem('yy_session_id')) ||
+        (crypto.randomUUID?.() ?? `s-${Date.now()}`);
+      if (typeof window !== 'undefined') window.localStorage.setItem('yy_session_id', sid);
+      await postChat(text, sid, undefined, undefined, undefined, projectId, memberIds);
+      await load();
+    } catch (e) {
+      setMemberMsg(`发送失败：${e instanceof Error ? e.message : 'unknown'}`);
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function saveMembers() {
     if (!memberIds.length) {
@@ -133,7 +155,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
               <div className="border-b border-stone-100 px-4 py-3">
                 <h2 className="text-sm font-semibold text-stone-600">群聊 · {projectId}</h2>
                 <p className="mt-1 text-[12px] text-stone-400">
-                  输入框与 @分身接力在下一阶段接入（本页先只读展示历史；路由与房间已就绪）。
+                  服务端按 @分身 → lead → 第一个成员选择回复者；模型取该分身的配置。
                 </p>
               </div>
               <div className="max-h-[65vh] space-y-3 overflow-y-auto p-4">
@@ -143,7 +165,12 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                 {messages.map(m => (
                   <div key={m.id} className={m.role === 'user' ? 'ml-auto max-w-[75%]' : 'max-w-[75%]'}>
                     <div className="mb-0.5 text-[10px] text-stone-400">
-                      {m.role === 'user' ? '我' : m.responder_fenshen_id ?? '元婴'} · {fmt(m.created_at)}
+                      {m.role === 'user'
+                        ? '我'
+                        : allFenshen.find(f => f.id === m.responder_fenshen_id)?.display_name ??
+                          m.responder_fenshen_id ??
+                          '元婴'}{' '}
+                      · {fmt(m.created_at)}
                     </div>
                     <div
                       className={`whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${
@@ -154,6 +181,44 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="border-t border-stone-100 p-3">
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {memberIds.map(id => {
+                    const f = allFenshen.find(x => x.id === id);
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => setDraft(d => `${d}@${f?.display_name ?? id} `)}
+                        className="rounded-full border border-stone-200 px-2 py-0.5 text-[10px] text-stone-500 hover:bg-stone-50"
+                      >
+                        @{f?.display_name ?? id}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <textarea
+                    value={draft}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        void sendRoom();
+                      }
+                    }}
+                    rows={2}
+                    placeholder="在房间里说点什么；@分身 指定回复者，默认 lead 回复…"
+                    className="flex-1 resize-none rounded-lg border border-stone-200 px-3 py-2 text-sm outline-none focus:border-stone-400"
+                  />
+                  <button
+                    onClick={sendRoom}
+                    disabled={sending || !draft.trim()}
+                    className="rounded-lg bg-stone-800 px-4 text-sm text-white disabled:opacity-40"
+                  >
+                    {sending ? '…' : '发送'}
+                  </button>
+                </div>
               </div>
             </div>
           )}

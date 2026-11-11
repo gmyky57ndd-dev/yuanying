@@ -199,9 +199,20 @@ Request: `{ message, project_id, active_fenshen_ids?: string[] }`.
   (`getModel(fenshen.model_name ?? undefined)`), logging
   `[model] fenshen=… model=…`; null keeps the global router.
 
-### Pending confirmation
+### Implemented (2026-11-11, chat)
 
-- Chat interaction (composer, @routing, relay).
+- Workpad composer sends `{message, project_id, active_fenshen_ids}`; the server
+  resolves the room from `project_fenshen_map`, narrows by the client ids, and
+  picks the responder: `@mention` → `lead` → first member.
+- The responder's prompt/whitelist/model are used; the assistant row stores
+  `responder_fenshen_id` and `metadata.active_fenshen_ids`; history returns the
+  responder so the UI labels each reply.
+- Verified: lead reply `responder=ai_pm`; `@ai_architect` reply
+  `responder=ai_architect`; `[model]` log reflects the responder's model.
+
+### Pending
+
+- Relay (`@next` handoff) — contract sketch only, not implemented.
 
 ## 8. Non-goals (explicit)
 
