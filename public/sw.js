@@ -3,7 +3,7 @@
 // Hashed /_next/static assets are cache-first; API is never cached.
 // ES-043/ES-050: any /api/ request MUST bypass the service worker entirely.
 
-const CACHE_NAME = 'yuanying-v9';
+const CACHE_NAME = 'yuanying-v10';
 const STATIC_ASSETS = ['/', '/manifest.json', '/avatar.png'];
 
 self.addEventListener('install', event => {
