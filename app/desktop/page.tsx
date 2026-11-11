@@ -63,6 +63,16 @@ export default function DesktopPage() {
   }, [load]);
 
   useEffect(() => {
+    // Issue #94: deep-link a fenshen's settings from the sidebar / workpad.
+    if (typeof window === 'undefined') return;
+    const target = new URLSearchParams(window.location.search).get('fenshen');
+    if (target) {
+      setEditId(target);
+      setTab('settings');
+    }
+  }, []);
+
+  useEffect(() => {
     const row = fenshen.find(f => f.id === editId);
     if (row) {
       setEditPrompt(String((row as any).prompt_md ?? ''));
@@ -131,10 +141,17 @@ export default function DesktopPage() {
           ))}
           <h3 className="mb-2 mt-5 px-2 text-[11px] uppercase tracking-widest text-stone-400">分身</h3>
           {filteredFenshen.map(f => (
-            <div key={f.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-stone-600">
+            <button
+              key={f.id}
+              onClick={() => {
+                setEditId(f.id);
+                setTab('settings');
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-stone-600 hover:bg-stone-100"
+            >
               <span className="h-2 w-2 rounded-full bg-emerald-500" />
               {f.display_name}
-            </div>
+            </button>
           ))}
           <h3 className="mb-2 mt-5 px-2 text-[11px] uppercase tracking-widest text-stone-400">Library · Obsidian</h3>
           {filteredWiki.slice(0, 8).map(w => (

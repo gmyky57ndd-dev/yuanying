@@ -943,16 +943,26 @@ export async function POST(req: NextRequest) {
         m => requestedActiveIds.length === 0 || requestedActiveIds.includes(m.id)
       );
       roomMemberIds = allowed.map(m => m.id);
-      const mentions = Array.from(message.matchAll(/@([^\s@，。,.!?！？]+)/g)).map(m =>
-        String(m[1]).toLowerCase()
+      // Match @display_name (may contain spaces/parentheses) first, then @id,
+      // then a loose token match preferring the longest name.
+      const lower = message.toLowerCase();
+      const norm = (v: string) => v.toLowerCase().replace(/[\s()（）\-_.]/g, '');
+      const exact = allowed.find(
+        (m: any) =>
+          lower.includes(`@${String(m.display_name).toLowerCase()}`) ||
+          lower.includes(`@${String(m.id).toLowerCase()}`)
       );
-      const mentioned = allowed.find((m: any) => {
-        const name = String(m.display_name).toLowerCase();
-        const id = String(m.id).toLowerCase();
-        return mentions.some(
-          t => t === id || t === name || name.includes(t) || t.includes(id)
-        );
-      });
+      const mentions = Array.from(message.matchAll(/@([^\s@，。,.!?！？]+)/g)).map(m =>
+        norm(String(m[1]))
+      );
+      const loose = allowed
+        .filter((m: any) => {
+          const name = norm(String(m.display_name));
+          const id = norm(String(m.id));
+          return mentions.some(t => t && (t === id || t === name || name.includes(t)));
+        })
+        .sort((a: any, b: any) => String(b.display_name).length - String(a.display_name).length)[0];
+      const mentioned = exact ?? loose;
       const responder = mentioned ?? allowed.find((m: any) => m.is_lead) ?? allowed[0];
       if (responder) requestFenshen = responder as any;
       console.log(

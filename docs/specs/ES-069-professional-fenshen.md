@@ -14,15 +14,19 @@
 | 2 | **Manual switching only.** No LLM auto-routing; the error cost of auto-routing is higher than a manual switch. |
 | 3 | **Full memory sharing.** Same notes, summaries, conversations; the skill prompt only narrows attention. |
 | 4 | **Request-level tool enforcement.** Never trust the prompt: unlisted tools must not be sent to the model at all. |
-| 5 | **Global model routing stays (ES-029).** A professional fenshen carries no model preference. |
+| 5 | **Model preference is optional per fenshen.** `fenshen.model_name` wins when set; otherwise `config.active_model_id`. ES-029 is the *default* router, not a hard global. |
 
-## 2. Current state (verified 2026-10-26)
+## 2. Current state (verified 2026-11-11)
 
-`fenshen` columns: `id text`, `display_name text`, `prompt_md text`,
-`avatar_url text`, `created_at timestamptz`. `/api/chat` resolves the active
-fenshen from `config.active_fenshen` and injects `prompt_md` into the system
-prompt. The `tools` object in `app/api/chat/route.ts` is currently the same for
-every persona.
+`fenshen` columns: `id, display_name, prompt_md, avatar_url, kind,
+tools_whitelist, skill_prompt, model_name, created_at`.
+`core/fenshen/<id>/profile.md` is appended by `loadFenshenProfile`.
+`/api/chat` resolves the fenshen (request `fenshen_id`, project room, or
+`config.active_fenshen`), filters the `tools` object by `tools_whitelist`, and
+selects the model from `model_name` (fallback: `config.active_model_id`).
+Workpad rooms (`project_fenshen_map`) decide who may reply; tools stay
+per-fenshen (one-dimensional — no `(fenshen, project)` override, owner decision
+2026-11-11).
 
 ## 3. Design
 
@@ -36,6 +40,7 @@ alter table fenshen add column if not exists tools_whitelist jsonb;
 -- []    = no tools at all
 -- [...] = exactly these tool names
 alter table fenshen add column if not exists skill_prompt text;
+alter table fenshen add column if not exists model_name text; -- null = global default
 ```
 
 - `skill_prompt` is appended after `prompt_md` (never replaces identity).
@@ -81,21 +86,24 @@ const scopedTools =
 - Optional command: `/skill finance` maps to the same `PUT /api/fenshen`.
 - Show the active professional fenshen in Settings + the header badge.
 
-### 3.5 Model
+### 3.5 Model (decided: option B, one-dimensional)
 
-- `config.active_model_id` is global; switching fenshen does not change it.
-- A professional fenshen may still be used with any routed model.
+- `getModel(fenshen.model_name ?? undefined)`: a fenshen may pin a model from
+  `models`; null falls back to `config.active_model_id`.
+- No `(fenshen, project)` model override (only one project in active use).
+- ES-029 is the default router; per-fenshen pinning is an override.
 
-## 4. First candidates (owner-suggested)
+## 4. Candidate roles (current)
 
 | Skill | Prompt focus | Likely whitelist |
 | --- | --- | --- |
-| ASO | store listing, keywords, reviews | `get_notes`, `get_summary`, `web_search`, `read_markdown`, `get_issue` |
-| Live2D | model/rig/asset QA | `read_markdown`, `get_drive_doc`, `get_notes`, `web_search` |
-| Finance | spend, subscriptions, invoices | `get_notes`, `get_summary`, `query_external_chats` |
+| PM (拓维) | requirements, PRD, feedback triage | `get_notes`, `get_conversation_records`, `push_to_dev`, `get_github_issue`, `read_local_file`, `write_local_file`, `get_goals`, `read_project_doc` |
+| Architect (阿构) | architecture review, code reading | `web_search`, `read_code_file`, `get_github_issue`, `get_conversation_records`, `read_project_doc`, `get_goals` |
+| Tester | regression/acceptance | `get_notes`, `get_github_issue`, `read_code_file`, `get_conversation_records` |
+| DevOps/DSH | deploy/ops diagnostics | `get_system_status`, `get_github_issue`, `read_code_file`, `push_to_dev` |
+| Business | pricing/positioning | `web_search`, `get_notes`, `get_goals`, `read_project_doc` |
 
-`push_to_dev` and `write_markdown` should be excluded from most professional
-fenshen; those stay with 小悟 (operator) unless the owner decides otherwise.
+Old ASO/Live2D/Finance examples were placeholders; they are not active roles.
 
 ## 5. Acceptance
 
@@ -103,7 +111,10 @@ fenshen; those stay with 小悟 (operator) unless the owner decides otherwise.
       permission" — and the tool was **never sent** in the request.
 - [ ] Switching back to 小悟 restores every tool.
 - [ ] Memory reads are identical across fenshen.
-- [ ] The active model does not change when switching fenshen.
+- [x] `fenshen.model_name` is used when set; null falls back to the global default
+      (verified `[model] fenshen=ai_pm model=deepseek-chat`).
+- [x] Tool visibility is per fenshen; room membership only decides who replies.
+      No `(fenshen, project)` 2D override (owner decision).
 - [ ] A persona row with `tools_whitelist = null` behaves exactly as today.
 
 ## 6. Open questions for the owner

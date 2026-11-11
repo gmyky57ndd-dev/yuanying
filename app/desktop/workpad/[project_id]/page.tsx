@@ -292,6 +292,14 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                     )}
                   </label>
                   {checked && (
+                    <a
+                      href={`/desktop?fenshen=${encodeURIComponent(f.id)}`}
+                      className="mt-1 block text-[10px] text-stone-400 underline hover:text-stone-600"
+                    >
+                      设置 prompt / 工具
+                    </a>
+                  )}
+                  {checked && (
                     <select
                       value={f.model_name ?? ''}
                       onChange={e => void setModel(f.id, e.target.value)}

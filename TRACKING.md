@@ -213,6 +213,8 @@ never by the section they happened to be written under.
 - **Router refactor (2026-11-10)**: `/desktop` no composer (today cards / Workpad cards / activity); `/desktop/workpad/[project_id]` tabs (chat read-only / artifacts / issues) + room inspector; migration 040 (`project_fenshen_map`, `fenshen.model_name`, `messages.responder_fenshen_id`, seeded); APIs for members/artifacts/issues. Chat interaction + per-fenshen model await owner confirmation.
 - **Inspector config (2026-11-11)**: membership checkboxes + lead radio + per-fenshen model selector; `fenshen.model_name` wired into `/api/chat` (null = global), verified `[model] fenshen=ai_pm model=deepseek-chat`; membership PUT and invalid-model 400 verified. Config reverted to ai_pm+ai_architect / global after the test.
 - **Workpad chat (2026-11-11)**: composer + @routing implemented (`@mention` → lead → first), responder prompt/whitelist/model used, `responder_fenshen_id` persisted and shown in history. Verified lead=ai_pm and `@ai_architect` → ai_architect.
+- **Issue #94 fix (2026-11-11)**: the default Yuanying room now includes ai_pm + ai_architect (migration 041); @ matching handles display names with spaces (`@AI 架构师`→ai_architect, `@拓维`→ai_pm); sidebar/inspector deep-link to fenshen settings (`/desktop?fenshen=…`). Verified both mentions + `PUT /api/fenshen/config` for ai_architect.
+- **ES-069 review (#94)**: §2 refreshed; decision 5 = fenshen-level optional model (ES-029 default, no 2D override); §4 roles replaced with PM/Architect/Tester/DevOps/Business; acceptance updated.
 - **Pending**: on-device visual check; Obsidian open button; approval flow; global search; relay handoff.
 
 ### [P2-61] Project Workpad 架构 (ES-080) — In Progress
