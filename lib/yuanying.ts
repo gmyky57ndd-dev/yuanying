@@ -311,6 +311,7 @@ export type ActiveFenshen = {
   /** null = all tools (persona); [] = none; [...] = exactly these (ES-069). */
   tools_whitelist?: string[] | null;
   kind?: 'persona' | 'professional';
+  model_name?: string | null;
 };
 
 /**
@@ -325,7 +326,7 @@ export async function getActiveFenshen(): Promise<ActiveFenshen | null> {
     .maybeSingle();
   const id = typeof cfg?.value === 'string' ? cfg.value : 'xiaowu';
 
-  const cols = 'id, display_name, prompt_md, avatar_url, tools_whitelist, kind';
+  const cols = 'id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name';
   const { data } = await supabase
     .from('fenshen')
     .select(cols)

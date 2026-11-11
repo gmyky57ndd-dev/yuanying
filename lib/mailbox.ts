@@ -22,9 +22,12 @@ function normalize(input: string): string {
   if (
     !rel.startsWith('mailbox/') &&
     !rel.startsWith('local_kb/docs/') &&
+    !rel.startsWith('local_kb/wiki/') &&
     !rel.startsWith('docs/pm/')
   ) {
-    throw new Error('Path must start with mailbox/, local_kb/docs/ or docs/pm/.');
+    throw new Error(
+      'Path must start with mailbox/, local_kb/docs/, local_kb/wiki/ or docs/pm/.'
+    );
   }
   if (!ALLOWED_EXT.some(ext => rel.endsWith(ext))) {
     throw new Error('Only .md, .txt, and .json files are supported.');
@@ -132,6 +135,9 @@ export async function writeMailbox(input: string, content: string): Promise<{
     throw new Error(`content too large (max ${MAX_CHARS} characters)`);
   }
 
+  if (rel.startsWith('local_kb/wiki/')) {
+    throw new Error('local_kb/wiki/ 是只读的（Obsidian vault），请把新文档写到 local_kb/docs/。');
+  }
   if (isLocalKb(rel)) {
     const full = localKbPath(rel);
     fs.mkdirSync(path.dirname(full), { recursive: true });

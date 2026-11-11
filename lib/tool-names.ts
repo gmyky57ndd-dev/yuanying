@@ -1,0 +1,32 @@
+/** Single source of truth for tool names (chat route + fenshen config UI). */
+export const ALL_TOOL_NAMES = [
+  'get_notes',
+  'get_conversation_records',
+  'get_summary',
+  'get_steps',
+  'get_system_status',
+  'add_note',
+  'save_local_kb',
+  'get_drive_doc',
+  'get_model_info',
+  'web_search',
+  'read_markdown',
+  'write_markdown',
+  'scheduler',
+  'get_issue',
+  'get_issue_status',
+  'get_github_issue',
+  'trigger_reindex',
+  'read_project_doc',
+  'get_goals',
+  'read_code_file',
+  'read_local_file',
+  'write_local_file',
+  'ingest_external_chat',
+  'query_external_chats',
+  'ask_claude',
+  'ask_external_agent',
+  'push_to_dev',
+] as const;
+
+export type ToolName = (typeof ALL_TOOL_NAMES)[number];

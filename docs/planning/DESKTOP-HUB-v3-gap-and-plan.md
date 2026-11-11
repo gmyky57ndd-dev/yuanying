@@ -113,7 +113,97 @@ goals, insights, or global search.
    global router for now?
 6. **Desktop client**: PWA in a browser first, or Tauri wrapper now?
 
-## 6. Non-goals (explicit)
+## 6. MVP progress (2026-11-10)
+
+Owner decisions: `/desktop` route; simple manual goals; read-only `wiki/`;
+global model routing; PWA only.
+
+Implemented in `feat/desktop-hub-mvp`:
+
+- `/desktop` three-column shell (top bar with tabs, project/fenshen/wiki
+  sidebar, hub main, health/activity/artifacts inspector).
+- `GET /api/hub`: steps/water/sleep, projects (+open goals/last message),
+  goals, activity, project docs, wiki files.
+- `goals` table + `/api/goals` (list/create/check/delete) + hub checkboxes.
+- `GET/PUT /api/fenshen/config`: edit prompt + tool whitelist, validated against
+  `lib/tool-names.ts`; model routing stays global.
+- `get_goals` tool (AI reads goals, never infers) + whitelist entries.
+- `local_kb/wiki/` read-only: `GET /api/wiki`/hub listing; writes rejected.
+- Project docs list works (BWP_PRD_V3, 37,942 chars).
+
+**Still pending:** Obsidian launch button, PM→Architect approval flow, global
+search, insights; mobile untouched.
+
+## 7. Router & migration — proposed (2026-11-10)
+
+### UI router
+
+```
+/desktop                              Hub (no composer)
+  ├─ today cards / Workpad cards / recent activity
+  └─ settings tab (global fenshen prompt + tools)
+
+/desktop/workpad/[project_id]         Workpad detail (IDE-level room)
+  ?tab=chat|artifacts|issues          tabs (client state)
+  ├─ main: chat (read-only until approved) / artifacts / issues
+  └─ inspector: participating fenshen + model (global vs per-fenshen)
+```
+
+- Hub cards link to the detail route; the Hub middle column holds only today's
+  data, Workpad cards, and recent activity.
+- The old Hub composer and goals widget are removed from `/desktop`; the goals
+  will move into the Workpad inspector in the interaction phase.
+
+### Migration 040 (applied)
+
+```sql
+project_fenshen_map(project_id, fenshen_id, is_lead, created_at)
+fenshen.model_name text                     -- null = global router
+messages.responder_fenshen_id text          -- who answered (for UI)
+seed: yuanying→xiaowu(lead); bwp→ai_pm(lead), ai_architect; aso→ai_pm(lead)
+```
+
+**DEVIATION:** the blueprint says `fenshen_templates.model_name`; `fenshen` is
+the existing template table, so the column lives there (no duplicate table).
+
+### Chat contract (next phase, needs approval)
+
+Request: `{ message, project_id, active_fenshen_ids?: string[] }`.
+
+1. Server resolves the room from `project_fenshen_map` (client ids are an
+   override, never trusted blindly).
+2. Responder = `@mention` → matching member; else `is_lead`; else first member.
+3. Model = responder `fenshen.model_name` (looked up in `models` by id or
+   model_name) → else `config.active_model_id` (global).
+4. Reply is stored with `responder_fenshen_id` + `metadata.active_fenshen_ids`;
+   the assistant prompt is the responder's `prompt_md` + whitelist.
+5. Relay: a `@next_fenshen` prefix in the responder's output can enqueue one
+   follow-up turn (max 2 hops) — to be designed before implementation.
+
+### Implemented now
+
+- `/desktop` refactor (no composer): today cards, Workpad cards, recent activity.
+- `/desktop/workpad/[project_id]`: tabs (chat read-only / artifacts / issues),
+  inspector with real room members.
+- APIs: `GET/PUT /projects/[id]/fenshen`, `GET /projects/[id]/artifacts`,
+  `GET /projects/[id]/issues` (label `project:<id>`).
+- Migration 040 applied and seeded.
+
+### Implemented (2026-11-11)
+
+- Inspector membership editing: checkbox members, radio `lead`, save via
+  `PUT /api/projects/[id]/fenshen` (validated).
+- Per-fenshen model selector (members only): `fenshen.model_name` → models.id
+  or null (global). `PUT /api/fenshen/config` validates the model.
+- Backend routing: `/api/chat` now resolves the model from the active fenshen
+  (`getModel(fenshen.model_name ?? undefined)`), logging
+  `[model] fenshen=… model=…`; null keeps the global router.
+
+### Pending confirmation
+
+- Chat interaction (composer, @routing, relay).
+
+## 8. Non-goals (explicit)
 
 - No mobile UI changes (per owner).
 - No infrastructure/hosting change (Vercel pause / Coolify is separate, ES-074).
