@@ -6,6 +6,8 @@ const pkg = JSON.parse(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Allow an atomic deploy: build into a staging dir while the old server runs.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   env: {
     NEXT_PUBLIC_APP_VERSION: pkg.version,
   },

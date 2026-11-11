@@ -215,6 +215,7 @@ never by the section they happened to be written under.
 - **Workpad chat (2026-11-11)**: composer + @routing implemented (`@mention` → lead → first), responder prompt/whitelist/model used, `responder_fenshen_id` persisted and shown in history. Verified lead=ai_pm and `@ai_architect` → ai_architect.
 - **Issue #94 fix (2026-11-11)**: the default Yuanying room now includes ai_pm + ai_architect (migration 041); @ matching handles display names with spaces (`@AI 架构师`→ai_architect, `@拓维`→ai_pm); sidebar/inspector deep-link to fenshen settings (`/desktop?fenshen=…`). Verified both mentions + `PUT /api/fenshen/config` for ai_architect.
 - **ES-069 review (#94)**: §2 refreshed; decision 5 = fenshen-level optional model (ES-029 default, no 2D override); §4 roles replaced with PM/Architect/Tester/DevOps/Business; acceptance updated.
+- **Atomic deploy (2026-11-11)**: `scripts/bridge-up.sh` builds into `.next-staging` while the old server runs, stops → swaps → starts, then verifies `/api/health` + the `/desktop` chunk; rolls back on failure. Full deploy ~13s (downtime ~3s); `--no-build` restarts only. Fixes the stale-build blank page.
 - **Pending**: on-device visual check; Obsidian open button; approval flow; global search; relay handoff.
 
 ### [P2-61] Project Workpad 架构 (ES-080) — In Progress
