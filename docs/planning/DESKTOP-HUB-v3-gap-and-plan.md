@@ -189,10 +189,19 @@ Request: `{ message, project_id, active_fenshen_ids?: string[] }`.
   `GET /projects/[id]/issues` (label `project:<id>`).
 - Migration 040 applied and seeded.
 
+### Implemented (2026-11-11)
+
+- Inspector membership editing: checkbox members, radio `lead`, save via
+  `PUT /api/projects/[id]/fenshen` (validated).
+- Per-fenshen model selector (members only): `fenshen.model_name` → models.id
+  or null (global). `PUT /api/fenshen/config` validates the model.
+- Backend routing: `/api/chat` now resolves the model from the active fenshen
+  (`getModel(fenshen.model_name ?? undefined)`), logging
+  `[model] fenshen=… model=…`; null keeps the global router.
+
 ### Pending confirmation
 
-- Chat interaction (composer, @routing, relay) and per-fenshen model selector.
-- Membership editing in the inspector (PUT API exists).
+- Chat interaction (composer, @routing, relay).
 
 ## 8. Non-goals (explicit)
 

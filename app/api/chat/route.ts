@@ -882,7 +882,7 @@ export async function POST(req: NextRequest) {
     if (requestedFenshenId) {
       const { data: row } = await supabase
         .from('fenshen')
-        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind')
+        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name')
         .eq('id', requestedFenshenId)
         .maybeSingle();
       if (row) requestFenshen = row as any;
@@ -1340,7 +1340,12 @@ ${bodyStatusReminder}`,
     // 5. Route through the configured model and stream the reply.
     let model;
     try {
-      model = await getModel();
+      // ES-080: a fenshen may pin its own model; null falls back to the global
+      // router (owner decision: no UI for per-request model choice).
+      model = await getModel(requestFenshen?.model_name || undefined);
+      console.log(
+        `[model] fenshen=${requestFenshen?.id ?? 'none'} model=${requestFenshen?.model_name ?? '(global)'}`
+      );
     } catch (e) {
       const reason = e instanceof Error ? e.message : 'model unavailable';
       console.error('model router failed:', reason);

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const { data, error } = await supabase
     .from('fenshen')
-    .select('id, display_name, prompt_md, tools_whitelist, kind, avatar_url')
+    .select('id, display_name, prompt_md, tools_whitelist, model_name, kind, avatar_url')
     .order('id');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ fenshen: data ?? [], tools: ALL_TOOL_NAMES });
@@ -24,6 +24,27 @@ export async function PUT(req: NextRequest) {
 
     const patch: Record<string, unknown> = {};
     if (typeof body?.prompt_md === 'string') patch.prompt_md = body.prompt_md;
+    if ('model_name' in (body ?? {})) {
+      const value = body.model_name;
+      if (value === null || value === '') {
+        patch.model_name = null;
+      } else if (typeof value === 'string') {
+        const { data: model } = await supabase
+          .from('models')
+          .select('id')
+          .eq('id', value)
+          .maybeSingle();
+        if (!model) {
+          return NextResponse.json(
+            { error: `unknown model: ${value}` },
+            { status: 400 }
+          );
+        }
+        patch.model_name = value;
+      } else {
+        return NextResponse.json({ error: 'invalid model_name' }, { status: 400 });
+      }
+    }
     if (Array.isArray(body?.tools_whitelist)) {
       const invalid = body.tools_whitelist.filter(
         (t: unknown) => typeof t !== 'string' || !ALL_TOOL_NAMES.includes(t as never)
@@ -44,7 +65,7 @@ export async function PUT(req: NextRequest) {
       .from('fenshen')
       .update(patch)
       .eq('id', id)
-      .select('id, display_name, tools_whitelist')
+      .select('id, display_name, tools_whitelist, model_name')
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ fenshen: data });
