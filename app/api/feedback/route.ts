@@ -13,7 +13,7 @@ export async function GET() {
   const tz = await getConfigTimezone();
   const { data, error } = await supabase
     .from('signals')
-    .select('id, value, context, feedback_status, created_at')
+    .select('id, value, context, feedback_status, resolved_at, created_at')
     .eq('name', 'note')
     .order('created_at', { ascending: false })
     .limit(500);
@@ -30,6 +30,8 @@ export async function GET() {
       tags: Array.isArray(r.value?.tags) ? r.value.tags : [],
       promoted: r.value?.promoted === true,
       status: r.feedback_status ?? 'new',
+      resolved_at: r.resolved_at ?? null,
+      issue_number: r.context?.github_issue_number ?? null,
       issue_url: r.context?.github_issue_url ?? null,
       date: getDateInTimezone(tz, new Date(r.created_at)),
       at: r.created_at,

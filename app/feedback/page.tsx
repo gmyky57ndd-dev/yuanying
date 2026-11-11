@@ -12,6 +12,8 @@ type Item = {
   promoted: boolean;
   status: 'new' | 'inbox' | 'pushed' | 'resolved';
   issue_url: string | null;
+  issue_number: number | null;
+  resolved_at: string | null;
   date: string;
   at: string;
 };
@@ -53,7 +55,7 @@ export default function FeedbackPage() {
       await navigator.clipboard.writeText(
         formatForAI({ text: it.text, tags: it.tags, at: it.at })
       );
-      alert('已复制（Copy as Text）');
+      alert('已复制，未创建 Issue；可直接粘贴给 Dev。');
     } catch {
       alert('复制失败');
     }
@@ -145,6 +147,11 @@ export default function FeedbackPage() {
               <div className="flex items-center gap-2 text-[11px] text-stone-600 mb-1">
                 <span>{it.date}</span>
                 <FeedbackStatusBadge status={it.status} />
+                {it.status === 'resolved' && it.resolved_at && (
+                  <span className="text-[10px] text-emerald-500">
+                    {new Date(it.resolved_at).toLocaleDateString()}
+                  </span>
+                )}
                 {it.issue_url && (
                   <a
                     href={it.issue_url}
@@ -211,7 +218,7 @@ export default function FeedbackPage() {
                   className="text-[11px] border border-stone-800 text-stone-400 rounded-full px-3 py-1"
                   title="仅复制到剪贴板，不改变状态，也不通知 Dev"
                 >
-                  Copy as Text
+                  复制给 Dev（不推送）
                 </button>
                 <button
                   onClick={() => patch(it.id, { feedback: false })}
