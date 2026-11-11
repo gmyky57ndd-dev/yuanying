@@ -242,6 +242,7 @@ never by the section they happened to be written under.
 - **Water**: `/api/reminder/act` backfills the habit signal with `source=reminder` (2-min dedupe); verified with a temp reminder.
 - **Disclaimer**: chat + summary prompts require 「（当前步数数据可能存在偏差）」 when steps are merged/partial.
 - **Feedback UX**: removed note-row `Copy as Text`; Save to Inbox primary + toast; `New` badge suppressed.
+- **Feedback auto-resolve (#95, 2026-11-11)**: `/api/cron/feedback-sync` + launchd every 30 min flips `pushed → resolved` when the GitHub issue closes (idempotent, `resolved_at` set); first run resolved #7/#8/#11. Identical notes deduped within 10 min; Copy button renamed to「复制给 Dev（不推送）」; resolved date shown.
 - **Pending**: owner installs v1.0.45 and confirms one deduplicated step total.
 
 ### [P2-58] 文档边界 + get_github_issue 工具 (ES-077) — Done

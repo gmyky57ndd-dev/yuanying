@@ -78,9 +78,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Dedupe accidental double-submits: an identical note inserted within the
-    // last 5 seconds returns the existing row instead of creating a duplicate.
-    const recentCutoff = new Date(Date.now() - 5000).toISOString();
+    // Dedupe accidental double-submits: an identical note within 10 minutes
+    // returns the existing row (issue #95: the same feedback was filed twice).
+    const recentCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
     const { data: dup } = await supabase
       .from('signals')
       .select('id')
