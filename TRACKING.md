@@ -212,7 +212,8 @@ never by the section they happened to be written under.
 - **Verified**: `/desktop` 200; hub real numbers; goals create/check/delete; fenshen PUT; docs (BWP_PRD_V3 37,942 chars); wiki README.
 - **Router refactor (2026-11-10)**: `/desktop` no composer (today cards / Workpad cards / activity); `/desktop/workpad/[project_id]` tabs (chat read-only / artifacts / issues) + room inspector; migration 040 (`project_fenshen_map`, `fenshen.model_name`, `messages.responder_fenshen_id`, seeded); APIs for members/artifacts/issues. Chat interaction + per-fenshen model await owner confirmation.
 - **Inspector config (2026-11-11)**: membership checkboxes + lead radio + per-fenshen model selector; `fenshen.model_name` wired into `/api/chat` (null = global), verified `[model] fenshen=ai_pm model=deepseek-chat`; membership PUT and invalid-model 400 verified. Config reverted to ai_pm+ai_architect / global after the test.
-- **Pending**: on-device visual check; Obsidian open button; approval flow; global search; chat composer/@relay.
+- **Workpad chat (2026-11-11)**: composer + @routing implemented (`@mention` → lead → first), responder prompt/whitelist/model used, `responder_fenshen_id` persisted and shown in history. Verified lead=ai_pm and `@ai_architect` → ai_architect.
+- **Pending**: on-device visual check; Obsidian open button; approval flow; global search; relay handoff.
 
 ### [P2-61] Project Workpad 架构 (ES-080) — In Progress
 

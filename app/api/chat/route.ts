@@ -922,6 +922,44 @@ export async function POST(req: NextRequest) {
       console.log(`[project] ${projectId} docs=${projectDocNames.join(',') || '(none)'}`);
     }
 
+    // ES-080: Workpad room. The server owns the membership; client ids can only
+    // narrow it. Responder = @mention > lead > first member.
+    const requestedActiveIds: string[] = Array.isArray(body?.active_fenshen_ids)
+      ? body.active_fenshen_ids.filter((x: unknown) => typeof x === 'string')
+      : [];
+    let roomMemberIds: string[] = [];
+    if (projectId) {
+      const { data: map } = await supabase
+        .from('project_fenshen_map')
+        .select(
+          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name)'
+        )
+        .eq('project_id', projectId)
+        .order('is_lead', { ascending: false });
+      const room = (map ?? [])
+        .map((m: any) => (m.fenshen ? { ...m.fenshen, is_lead: m.is_lead } : null))
+        .filter(Boolean) as any[];
+      const allowed = room.filter(
+        m => requestedActiveIds.length === 0 || requestedActiveIds.includes(m.id)
+      );
+      roomMemberIds = allowed.map(m => m.id);
+      const mentions = Array.from(message.matchAll(/@([^\s@，。,.!?！？]+)/g)).map(m =>
+        String(m[1]).toLowerCase()
+      );
+      const mentioned = allowed.find((m: any) => {
+        const name = String(m.display_name).toLowerCase();
+        const id = String(m.id).toLowerCase();
+        return mentions.some(
+          t => t === id || t === name || name.includes(t) || t.includes(id)
+        );
+      });
+      const responder = mentioned ?? allowed.find((m: any) => m.is_lead) ?? allowed[0];
+      if (responder) requestFenshen = responder as any;
+      console.log(
+        `[room] project=${projectId} members=${roomMemberIds.join(',') || '(none)'} responder=${responder?.id ?? 'none'}`
+      );
+    }
+
     if (message.length > 4000) {
       return NextResponse.json(
         { error: 'message too long (max 4000)' },
@@ -1303,7 +1341,12 @@ export async function POST(req: NextRequest) {
     const projectContext = project
       ? `\n\n【当前项目】${project.name} (${project.id})。项目文档：${
           projectDocNames.join(', ') || '(暂无)'
-        }。需要项目文档时用 read_project_doc(project_id="${project.id}", filename=…)。`
+        }。需要项目文档时用 read_project_doc(project_id="${project.id}", filename=…)。` +
+        (roomMemberIds.length
+          ? `\n【Workpad 房间】参战分身：${roomMemberIds.join(', ')}；本轮回复者：${
+              requestFenshen?.display_name ?? requestFenshen?.id ?? '未知'
+            }。主人可用 @分身名 指定回复者。`
+          : '')
       : '';
     const toolAvailability = `Authoritative tool availability for this request: ${
       allowedToolNames.join(', ') || '(none)'
@@ -1965,15 +2008,25 @@ ${bodyStatusReminder}`,
             session_id,
             device_id,
             project_id: projectId || null,
-            metadata: { device, project_id: projectId || null },
+            metadata: {
+              device,
+              project_id: projectId || null,
+              active_fenshen_ids: roomMemberIds,
+            },
           },
           {
             role: 'assistant',
             content: safeReply,
+            responder_fenshen_id: requestFenshen?.id ?? null,
             session_id,
             device_id,
             project_id: projectId || null,
-            metadata: { device, project_id: projectId || null },
+            metadata: {
+              device,
+              project_id: projectId || null,
+              responder_fenshen_id: requestFenshen?.id ?? null,
+              active_fenshen_ids: roomMemberIds,
+            },
           },
         ]);
 
