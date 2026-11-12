@@ -79,8 +79,15 @@ public class CollectorWorker extends Worker {
             int stepsValue = -1;
             int stepsRecords = -1;
             if (Build.VERSION.SDK_INT >= 26) {
-                StepsCollector steps = new StepsCollector(ctx);
-                if (steps.sdkAvailable() && steps.hasPermission()) {
+                // #116: startup/worker self-check; notify once per loss.
+                String perm = StepsPermissionMonitor.INSTANCE.checkAndNotify(ctx, false);
+                if ("unsupported".equals(perm)) {
+                    stepsStatus = "unsupported";
+                } else if (!"ok".equals(perm)) {
+                    stepsStatus = "no_permission";
+                    Log.w(TAG, "steps: HealthConnect permission not granted");
+                } else {
+                    StepsCollector steps = new StepsCollector(ctx);
                     try {
                         JSONObject stepsPayload = steps.collectToday();
                         stepsValue = stepsPayload.optInt("steps", 0);
@@ -94,6 +101,7 @@ public class CollectorWorker extends Worker {
                             stepsStatus = okSteps ? "ok" : "post_failed";
                             Log.i(TAG, "steps posted: " + okSteps);
                         }
+                        StepsPermissionMonitor.INSTANCE.markRecovered(ctx);
                     } catch (Exception se) {
                         boolean denied = false;
                         for (Throwable t = se; t != null; t = t.getCause()) {
@@ -103,13 +111,9 @@ public class CollectorWorker extends Worker {
                         stepsError = se.getMessage();
                         Log.w(TAG, "steps collect failed", se);
                         if (denied) {
-                            ReminderScheduler.INSTANCE.notifyPermissionLost(ctx);
+                            StepsPermissionMonitor.INSTANCE.checkAndNotify(ctx);
                         }
                     }
-                } else {
-                    stepsStatus = "no_permission";
-                    Log.w(TAG, "steps unavailable or permission not granted");
-                    ReminderScheduler.INSTANCE.notifyPermissionLost(ctx);
                 }
             } else {
                 stepsStatus = "unsupported";
@@ -120,6 +124,12 @@ public class CollectorWorker extends Worker {
                     "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
                 sfmt.setTimeZone(TimeZone.getTimeZone("UTC"));
                 stepsBeat.put("collector_steps_status", stepsStatus);
+                // #118: per-permission detail, so Android 16 partial grants are
+                // visible instead of a bare "no_records".
+                stepsBeat.put(
+                    "collector_steps_permissions",
+                    StepsPermissionMonitor.INSTANCE.permissionSnapshot(ctx)
+                );
                 stepsBeat.put("collector_steps_at", sfmt.format(new Date()));
                 if (stepsValue >= 0) stepsBeat.put("collector_steps_value", stepsValue);
                 if (stepsRecords >= 0) stepsBeat.put("collector_steps_records", stepsRecords);

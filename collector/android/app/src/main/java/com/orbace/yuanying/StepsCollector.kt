@@ -45,6 +45,40 @@ class StepsCollector(private val ctx: Context) {
         }
     }
 
+    /**
+     * #118: per-permission snapshot for the report. Android 16 can grant a
+     * subset of Health Connect permissions, so "no_records" is not enough.
+     */
+    fun permissionSnapshot(): JSONObject {
+        val required = PERMISSIONS.toList()
+        val granted = try {
+            val c = client
+            if (c == null) emptySet<String>() else runBlocking {
+                c.permissionController.getGrantedPermissions()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "permission snapshot failed", e)
+            emptySet<String>()
+        }
+        val missing = required.filter { !granted.contains(it) }
+        val status = when {
+            client == null -> "unsupported"
+            missing.isEmpty() -> "granted"
+            granted.isEmpty() -> "missing"
+            else -> "partial"
+        }
+        return JSONObject().apply {
+            put("status", status)
+            put("required", JSONArray(required))
+            put("granted", JSONArray(granted.intersect(required.toSet()).toList()))
+            put("missing", JSONArray(missing))
+            put("required_count", required.size)
+            put("granted_count", required.count { granted.contains(it) })
+            put("sdk_int", android.os.Build.VERSION.SDK_INT)
+            put("health_connect_status", HealthConnectClient.getSdkStatus(ctx))
+        }
+    }
+
     fun collectToday(): JSONObject {
         val c = client ?: throw IllegalStateException("HealthConnect unavailable")
         // P1-23 fix: anchor the window to LOCAL midnight in the device timezone.

@@ -230,6 +230,18 @@ never by the section they happened to be written under.
 - **Verified**: long plan request streamed 1,519 chars with 1 keepalive (5s interval) and the new headers; `npm test` 54 pass.
 - **Pending**: weak-network/phone test of the retry path; gateway has no configurable idle timeout (Funnel), Vercel paused (INC-001).
 
+### [P2-68] 采集器 HealthConnect 权限自检 + 丢权限通知 (#116) — Done
+
+- **Status**: Done (2026-11-12, PR #117) · **Category**: Collector / Android · **Refs**: #116, ES-064
+- **Self-check**: new `StepsPermissionMonitor` used by `MainActivity.onResume` and `CollectorWorker` (returns ok/no_permission/unsupported).
+- **Notify once per loss**: boolean flag, cleared on recovery; notification has 「去授权」 action to `androidx.health.ACTION_HEALTH_CONNECT_SETTINGS` (falls back to the app screen).
+- **Auto recovery**: on grant/resume, clears the flag and enqueues a one-time CollectorWorker; no app restart.
+- **Status**: `collector_steps_status` covers ok / no_permission / no_records / post_failed / error / unsupported.
+- **Build**: v1.0.46 (versionCode 46) APK + AAB built and signed.
+- **Emulator evidence (API 35)**: no permission → notification once («去授权»); tapping opens the Health Connect controller (home → App permissions); granting steps → log «permission recovered; clearing notice flag», immediate CollectorWorker ran; status `no_permission → no_records`.
+- **#118 permission detail**: `collector_steps_permissions` reports required/granted/missing/counts/status + sdk_int; observed `{"status":"missing",missing:["…READ_STEPS"]}` → `{"status":"granted",granted:["…READ_STEPS"]}`. Version 1.0.47 (code 47).
+- **Note**: `MANAGE_HEALTH_PERMISSIONS` is protected by `GRANT_RUNTIME_PERMISSIONS`; the public entry is `HEALTH_HOME_SETTINGS` (home, one tap to App permissions).
+
 ### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done
 
 - **Status**: Done (2026-11-11) · **Category**: Observability · **Refs**: #108, #115

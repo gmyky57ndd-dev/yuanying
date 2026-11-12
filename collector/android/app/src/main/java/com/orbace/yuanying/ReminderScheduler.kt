@@ -242,28 +242,44 @@ object ReminderScheduler {
     }
 
     /** Issue #73: tell the owner once a day that HealthConnect needs re-granting. */
-    fun notifyPermissionLost(context: Context) {
+    /**
+     * #116: "去授权" jumps straight to HealthConnect settings; fall back to the
+     * app screen when the settings activity is missing. Dedupe lives in
+     * StepsPermissionMonitor (once per loss, reset on recovery).
+     */
+    @JvmOverloads
+    fun notifyPermissionLost(context: Context, missingDetail: String? = null) {
         try {
-            val prefs = context.getSharedPreferences("yuanying_nudge", Context.MODE_PRIVATE)
-            val key = "perm_" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            if (prefs.getBoolean(key, false)) return
-            prefs.edit().putBoolean(key, true).apply()
-
             ensureChannel(context)
-            val openIntent = Intent(context, MainActivity::class.java)
+
+            // #118: Health Connect home (Permissions & data → App permissions).
+            // MANAGE_HEALTH_PERMISSIONS is protected by GRANT_RUNTIME_PERMISSIONS
+            // and cannot be launched by a normal app, so home is the deepest
+            // public entry point. Keep an explicit "open app" action as fallback.
+            val permissionsIntent = Intent(
+                "android.health.connect.action.HEALTH_HOME_SETTINGS"
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val openPi = PendingIntent.getActivity(
-                context, 9101, openIntent,
+                context, 9102, permissionsIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
-            val message = "读不到完整步数：HealthConnect 权限被系统收回了。点这里重新授权。"
+            val appPi = PendingIntent.getActivity(
+                context, 9103, Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val message = "读不到完整步数：HealthConnect 权限被系统收回了。" +
+                (missingDetail?.let { " $it。" } ?: "") +
+                " 点「去授权」恢复上报。"
             val notif = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_error)
-                .setContentTitle("元婴")
+                .setContentTitle("元婴 · 步数权限丢失")
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true)
                 .setContentIntent(openPi)
+                .addAction(0, "去授权", openPi)
+                .addAction(0, "打开元婴", appPi)
                 .build()
             NotificationManagerCompat.from(context).notify(9101, notif)
         } catch (e: Exception) {

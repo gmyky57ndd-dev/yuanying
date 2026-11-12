@@ -118,6 +118,10 @@ public class MainActivity extends AppCompatActivity {
                         ok ? "步数权限已授予" : "步数权限被拒绝",
                         Toast.LENGTH_LONG
                     ).show();
+                    // #116: clear the loss flag and collect immediately on grant.
+                    new Thread(() ->
+                        StepsPermissionMonitor.INSTANCE.checkAndNotify(this)
+                    ).start();
                     refreshStepsStatus();
                 });
         }
@@ -237,6 +241,12 @@ public class MainActivity extends AppCompatActivity {
         sendHeartbeat();
         refreshStatus();
         refreshStepsStatus();
+        // #116: startup self-check (also resets the "notified" flag after a grant).
+        if (Build.VERSION.SDK_INT >= 26) {
+            new Thread(() ->
+                StepsPermissionMonitor.INSTANCE.checkAndNotify(this)
+            ).start();
+        }
     }
 
     /** Immediately publish version/presence when the collector is opened. */
@@ -290,11 +300,11 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         new Thread(() -> {
-            StepsCollector sc = new StepsCollector(this);
+            String status = StepsPermissionMonitor.INSTANCE.status(this);
             String text;
-            if (!sc.sdkAvailable()) {
+            if ("unsupported".equals(status)) {
                 text = "✗ Health Connect 不可用";
-            } else if (sc.hasPermission()) {
+            } else if ("ok".equals(status)) {
                 text = "✓ 步数采集已启用";
             } else {
                 text = "✗ HealthConnect 权限被收回，点下方按钮重新授权";
