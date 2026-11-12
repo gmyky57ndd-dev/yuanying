@@ -25,28 +25,29 @@ Application Support file is the fallback. To switch later:
 2. store the env with `scripts/tauri-keychain-setup.sh` (base64);
 3. re-enable the keychain reader in `src-tauri/src/main.rs`.
 
-## Signing
+## Signing (local self-use)
 
-- Identity: `Apple Development: zhangalex157@gmail.com (NMZ6KMVPT7)`,
-  SHA-1 `2AC23BE07738F2C240A3993C36975AB13D177424`.
-- `scripts/tauri-sign.sh` (defaults to the hash) signs the app and nested Node
-  binary after `npm run tauri:build`.
-- Verified:
+This app is for this Mac only. **Ad-hoc signing is sufficient**:
 
 ```
-Identifier=com.yuanying.desktop
-TeamIdentifier=Z2GMF897Z7
-codesign --verify --deep --strict  → OK
-nested node signed                  → OK
-app launch /api/health              → 200
+codesign --force --deep --sign - Yuanying.app
 ```
 
-- **Not notarized**: `spctl --assess` still rejects. Notarization requires a
-  `Developer ID Application` certificate and Apple ID / app-specific password /
-  team credentials, none of which are on this Mac.
+`scripts/tauri-sign.sh` defaults to `-` (ad-hoc); set
+`APPLE_SIGNING_IDENTITY` only if the app will be shared with another Mac.
+No Apple account, Developer ID, or notarization is required.
+
+Verified:
+
+```
+Signature=adhoc
+codesign --verify --deep --strict → OK
+app launch /api/health → 200
+quit → node=0
+```
 
 ## Current status
 
-- App: Apple Development signed, 275 MB, health 200.
+- App: ad-hoc signed, 275.9 MB, health 200.
 - Secrets: external 0600 file.
-- Notarization: blocked on Developer ID credentials (owner action).
+- Notarization/Developer ID: **not needed** for local use.
