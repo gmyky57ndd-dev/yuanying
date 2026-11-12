@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-71] Phase 1 桌面产品面 (ES-080/081 + Phase 1) — In Progress
+
+- **Status**: In Progress (2026-11-12) · **Category**: Desktop / Config / Workflow
+- **Playbook**: `fenshen.enabled` + existing prompt/tools/model/`has_all_tools`; settings UI toggles「启用」「全部工具」; disabled fenshen is excluded from Workpad rooms.
+- **Approvals**: `approvals` table + `/api/approvals` (proposed→adr_ready→approved→rejected→implementing→done); Workpad「审批」tab; tools `propose_work`/`submit_adr`; `push_to_dev` accepts `approval_id` and rejects unapproved ids.
+- **Verified**: approval 1 transitioned proposed→adr_ready→approved→implementing→done; disabled architect removed from room (responder=ai_pm); `has_all_tools=false + whitelist` → `active_tools=1`.
+- **Tauri**: Phase 0 app loads `/desktop`; Phase 1 UI ships in the same shell.
+- **Pending**: owner on-device review; full approval hard-gate (only enforced when `approval_id` is supplied).
+
 ### [P2-70] Tauri Phase 0 桌面壳 — Done (spike)
 
 - **Status**: Done (2026-11-12) · **Category**: Desktop / Tauri · **Refs**: blueprint v3, PR #121

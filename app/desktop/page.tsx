@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 
 type Project = { id: string; name: string; description: string | null; last_message: string | null; open_goals: number };
-type Fenshen = { id: string; display_name: string };
+type Fenshen = { id: string; display_name: string; enabled?: boolean; has_all_tools?: boolean };
 type Activity = { id: number; role: string; project_id: string | null; snippet: string; at: string };
 type Doc = { project_id: string; name: string; chars: number; updated_at: string };
 type Wiki = { name: string; size: number; updated_at: string };
@@ -42,6 +42,8 @@ export default function DesktopPage() {
   const [editId, setEditId] = useState('ai_pm');
   const [editPrompt, setEditPrompt] = useState('');
   const [editTools, setEditTools] = useState<string[]>([]);
+  const [editEnabled, setEditEnabled] = useState(true);
+  const [editAllTools, setEditAllTools] = useState(true);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -67,6 +69,8 @@ export default function DesktopPage() {
     if (row) {
       setEditPrompt(String((row as any).prompt_md ?? ''));
       setEditTools(Array.isArray((row as any).tools_whitelist) ? (row as any).tools_whitelist : []);
+      setEditEnabled((row as any).enabled !== false);
+      setEditAllTools((row as any).has_all_tools !== false);
     }
   }, [editId, fenshen]);
 
@@ -81,7 +85,13 @@ export default function DesktopPage() {
     const r = await fetch('/api/fenshen/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: editId, prompt_md: editPrompt, tools_whitelist: editTools }),
+      body: JSON.stringify({
+        id: editId,
+        prompt_md: editPrompt,
+        tools_whitelist: editTools,
+        enabled: editEnabled,
+        has_all_tools: editAllTools,
+      }),
     });
     const d = await r.json().catch(() => ({}));
     setSaveMsg(r.ok ? '已保存' : `保存失败：${d.error ?? r.status}`);
@@ -216,6 +226,24 @@ export default function DesktopPage() {
                     <option key={f.id} value={f.id}>{f.display_name}</option>
                   ))}
                 </select>
+                <div className="mb-3 flex flex-wrap gap-4 text-[12px] text-stone-600">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={editEnabled}
+                      onChange={e => setEditEnabled(e.target.checked)}
+                    />
+                    启用该分身
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={editAllTools}
+                      onChange={e => setEditAllTools(e.target.checked)}
+                    />
+                    全部工具（关闭后按白名单）
+                  </label>
+                </div>
                 <textarea
                   value={editPrompt}
                   onChange={e => setEditPrompt(e.target.value)}
