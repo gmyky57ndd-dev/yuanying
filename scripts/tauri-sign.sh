@@ -5,7 +5,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/src-tauri/target/release/bundle/macos/Yuanying.app"
-IDENTITY="${APPLE_SIGNING_IDENTITY:-Apple Development: zhangalex157@gmail.com (NMZ6KMVPT7)}"
+IDENTITY="${APPLE_SIGNING_IDENTITY:-2AC23BE07738F2C240A3993C36975AB13D177424}"
 
 if [ ! -d "$APP" ]; then
   echo "app not built: $APP" >&2

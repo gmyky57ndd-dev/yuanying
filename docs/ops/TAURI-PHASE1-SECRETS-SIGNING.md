@@ -27,15 +27,26 @@ Application Support file is the fallback. To switch later:
 
 ## Signing
 
-- Identity available: `Apple Development: zhangalex157@gmail.com (NMZ6KMVPT7)`.
-- `scripts/tauri-sign.sh` signs the app if the keychain is unlocked.
-- **Not notarized**: there is no `Developer ID Application` identity and no
-  Apple ID/team credentials in this environment. `spctl --assess` will reject
-  the app until it is signed with Developer ID and notarized.
+- Identity: `Apple Development: zhangalex157@gmail.com (NMZ6KMVPT7)`,
+  SHA-1 `2AC23BE07738F2C240A3993C36975AB13D177424`.
+- `scripts/tauri-sign.sh` (defaults to the hash) signs the app and nested Node
+  binary after `npm run tauri:build`.
+- Verified:
+
+```
+Identifier=com.yuanying.desktop
+TeamIdentifier=Z2GMF897Z7
+codesign --verify --deep --strict  → OK
+nested node signed                  → OK
+app launch /api/health              → 200
+```
+
+- **Not notarized**: `spctl --assess` still rejects. Notarization requires a
+  `Developer ID Application` certificate and Apple ID / app-specific password /
+  team credentials, none of which are on this Mac.
 
 ## Current status
 
-- App: ad-hoc signed, 275 MB, health 200.
+- App: Apple Development signed, 275 MB, health 200.
 - Secrets: external 0600 file.
-- Signing/notarization: **blocked** on unlocked keychain + Developer ID
-  credentials (owner action).
+- Notarization: blocked on Developer ID credentials (owner action).

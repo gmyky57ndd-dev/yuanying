@@ -210,7 +210,7 @@ never by the section they happened to be written under.
 - **Hard gate**: `projects.require_approval`; when true `push_to_dev` requires an approved `approval_id` (proposed/done rejected). Verified: proposed id → `approval #2 is proposed; owner approval required`, no issue created.
 - **UI**: Workpad 审批 tab toggle「本项目强制审批」.
 - **Secrets**: `.env.local` removed from `.app`; Tauri reads `~/Library/Application Support/com.yuanying.desktop/secrets.env` (0600); app health 200 with no env in bundle.
-- **Signing**: Apple Development identity exists, but login keychain is locked → `errSecInternalComponent`; no Developer ID/notarization credentials. Blocked on owner unlocking Keychain + providing Developer ID.
+- **Signing**: Apple Development `2AC23BE…` (Team Z2GMF897Z7) now signs the app + nested Node; `codesign --verify` OK, health 200. Not notarized (`spctl` rejects); Developer ID credentials needed.
 - **Docs**: `docs/ops/TAURI-PHASE1-SECRETS-SIGNING.md`.
 
 ### [P2-72] Phase 2 SQLite Local-First (step 1) — In Progress
