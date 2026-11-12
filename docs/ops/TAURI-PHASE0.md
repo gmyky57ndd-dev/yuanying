@@ -18,8 +18,8 @@ A thin macOS shell that owns a local Next.js server and points its webview at
   and cannot be copied alone)
 - Runtime pruned to server + `.next` + `node_modules` + `core` + `public`
   (~265 MB; app ~276 MB)
-- `.env.local` is copied into the bundle (local unsigned app only; never share
-  the `.app`)
+- `.env.local` is **not** in the bundle; secrets live in
+  `~/Library/Application Support/com.yuanying.desktop/secrets.env` (0600).
 
 ## Behavior
 

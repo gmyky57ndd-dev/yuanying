@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-73] Phase 3 审批硬门禁 + Tauri secrets/signing — In Progress
+
+- **Status**: In Progress (2026-11-12) · **Category**: Workflow / Desktop
+- **Hard gate**: `projects.require_approval`; when true `push_to_dev` requires an approved `approval_id` (proposed/done rejected). Verified: proposed id → `approval #2 is proposed; owner approval required`, no issue created.
+- **UI**: Workpad 审批 tab toggle「本项目强制审批」.
+- **Secrets**: `.env.local` removed from `.app`; Tauri reads `~/Library/Application Support/com.yuanying.desktop/secrets.env` (0600); app health 200 with no env in bundle.
+- **Signing**: Apple Development identity exists, but login keychain is locked → `errSecInternalComponent`; no Developer ID/notarization credentials. Blocked on owner unlocking Keychain + providing Developer ID.
+- **Docs**: `docs/ops/TAURI-PHASE1-SECRETS-SIGNING.md`.
+
 ### [P2-72] Phase 2 SQLite Local-First (step 1) — In Progress
 
 - **Status**: In Progress (2026-11-12) · **Category**: Data / Local-first

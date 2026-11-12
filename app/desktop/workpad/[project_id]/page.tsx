@@ -46,9 +46,10 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [newDesc, setNewDesc] = useState('');
   const [adrDraft, setAdrDraft] = useState<Record<number, string>>({});
   const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
+  const [requireApproval, setRequireApproval] = useState(false);
 
   const load = useCallback(async () => {
-    const [h, m, a, i, cfg, mods, appr] = await Promise.all([
+    const [h, m, a, i, cfg, mods, appr, prj] = await Promise.all([
       fetch('/api/hub', { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/fenshen`, { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/artifacts`, { cache: 'no-store' }).then(r => r.json()),
@@ -58,6 +59,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
       fetch(`/api/approvals?project_id=${encodeURIComponent(projectId)}`, {
         cache: 'no-store',
       }).then(r => r.json()),
+      fetch('/api/projects', { cache: 'no-store' }).then(r => r.json()),
     ]);
     const p = (h?.projects ?? []).find((x: any) => x.id === projectId);
     if (p) setProjectName(p.name);
@@ -67,6 +69,8 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     setAllFenshen(Array.isArray(cfg?.fenshen) ? cfg.fenshen : []);
     setModels(Array.isArray(mods?.models) ? mods.models : []);
     setApprovals(Array.isArray(appr?.approvals) ? appr.approvals : []);
+    const proj = (prj?.projects ?? []).find((x: any) => x.id === projectId);
+    setRequireApproval(proj?.require_approval === true);
     setArtifacts(Array.isArray(a?.artifacts) ? a.artifacts : []);
     setIssues(i.ok ? i.data?.issues ?? [] : []);
     setIssueError(i.ok ? null : i.data?.error ?? 'GitHub unavailable');
@@ -132,6 +136,18 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
       setNewDesc('');
       await load();
     }
+  }
+
+  async function toggleRequireApproval() {
+    const next = !requireApproval;
+    const r = await fetch('/api/projects', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: projectId, require_approval: next }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) setRequireApproval(next);
+    else setApprovalMsg(`门禁保存失败：${d.error ?? r.status}`);
   }
 
   async function actApproval(id: number, action: string, extra?: Record<string, unknown>) {
@@ -317,6 +333,14 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                 <p className="mb-3 text-[11px] text-stone-400">
                   proposed → ADR → approved → implementing → done；未批准的 id 不能用于 push_to_dev。
                 </p>
+                <label className="mb-3 flex items-center gap-2 text-[12px] text-stone-600">
+                  <input
+                    type="checkbox"
+                    checked={requireApproval}
+                    onChange={toggleRequireApproval}
+                  />
+                  本项目强制审批（未批准禁止 push_to_dev）
+                </label>
                 <div className="flex flex-col gap-2">
                   <input
                     value={newTitle}
