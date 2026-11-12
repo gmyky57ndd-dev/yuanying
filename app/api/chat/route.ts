@@ -171,11 +171,70 @@ async function runTool(name: string, args: any): Promise<any> {
     };
   }
 
+  if (name === 'propose_work') {
+    const pid = String(args?.project_id ?? '').trim();
+    const title = String(args?.title ?? '').trim();
+    const description = String(args?.description ?? '').trim();
+    if (!pid || !title) {
+      return { success: false, error: 'project_id and title required' };
+    }
+    const { data, error } = await supabase
+      .from('approvals')
+      .insert({
+        project_id: pid,
+        title: title.slice(0, 300),
+        description: description.slice(0, 4000),
+        created_by: 'ai_pm',
+      })
+      .select('id, status, title')
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  }
+
+  if (name === 'submit_adr') {
+    const id = Number(args?.approval_id);
+    const adr = String(args?.adr ?? '').trim();
+    if (!Number.isInteger(id) || id <= 0 || !adr) {
+      return { success: false, error: 'approval_id and adr required' };
+    }
+    const { data, error } = await supabase
+      .from('approvals')
+      .update({ adr: adr.slice(0, 12000), status: 'adr_ready', updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .in('status', ['proposed', 'adr_ready'])
+      .select('id, status, title')
+      .maybeSingle();
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: 'approval not found or not in proposed state' };
+    return { success: true, data };
+  }
+
   if (name === 'push_to_dev') {
     const title = String(args?.title ?? '').trim();
     const body = String(args?.body ?? '').trim();
     if (!title) return { success: false, error: 'title required' };
     if (!body) return { success: false, error: 'body required' };
+
+    // Phase 1: when an approval id is supplied, the issue may only be created
+    // after the owner approved it (approved/implementing).
+    const approvalId = Number(args?.approval_id);
+    if (Number.isInteger(approvalId) && approvalId > 0) {
+      const { data: approval } = await supabase
+        .from('approvals')
+        .select('id, status')
+        .eq('id', approvalId)
+        .maybeSingle();
+      if (!approval) {
+        return { success: false, error: `approval not found: ${approvalId}` };
+      }
+      if (!['approved', 'implementing'].includes(String(approval.status))) {
+        return {
+          success: false,
+          error: `approval #${approvalId} is ${approval.status}; owner approval required before push_to_dev`,
+        };
+      }
+    }
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 5000);
@@ -1024,13 +1083,13 @@ export async function POST(req: NextRequest) {
       const { data: map } = await supabase
         .from('project_fenshen_map')
         .select(
-          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name)'
+          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, enabled)'
         )
         .eq('project_id', projectId)
         .order('is_lead', { ascending: false });
       const room = (map ?? [])
         .map((m: any) => (m.fenshen ? { ...m.fenshen, is_lead: m.is_lead } : null))
-        .filter(Boolean) as any[];
+        .filter((m: any) => m && m.enabled !== false) as any[];
       const allowed = room.filter(
         m => requestedActiveIds.length === 0 || requestedActiveIds.includes(m.id)
       );
@@ -1966,9 +2025,30 @@ ${bodyStatusReminder}`,
         execute: async ({ issue_number }) =>
           runToolForModel('get_issue', { issue_number }),
       }),
+      propose_work: tool({
+        description:
+          'Propose a work item for owner approval (Phase 1). It starts as proposed; the owner or Architect adds an ADR and approves before DSH may push an issue.',
+        parameters: z.object({
+          project_id: z.string().describe('project id, e.g. bwp'),
+          title: z.string().describe('short work title'),
+          description: z.string().describe('what should be done and why'),
+        }),
+        execute: async ({ project_id, title, description }) =>
+          runToolForModel('propose_work', { project_id, title, description }),
+      }),
+      submit_adr: tool({
+        description:
+          'Attach an ADR / technical approach to a proposed work item and move it to adr_ready for owner approval.',
+        parameters: z.object({
+          approval_id: z.number().int(),
+          adr: z.string().describe('architecture decision / implementation approach'),
+        }),
+        execute: async ({ approval_id, adr }) =>
+          runToolForModel('submit_adr', { approval_id, adr }),
+      }),
       push_to_dev: tool({
         description:
-          'Create a GitHub issue for the dev team. Use only when the owner explicitly asks to send a bug report or feedback to dev, after they confirm the title and body.',
+          'Create a GitHub issue for the dev team. Pass approval_id when the work came through the Phase 1 approval flow; an unapproved id is rejected.',
         parameters: z.object({
           title: z.string().describe('Short, descriptive title'),
           body: z
@@ -1976,10 +2056,20 @@ ${bodyStatusReminder}`,
             .describe(
               'Detailed issue description including problem, findings, and suggestions.'
             ),
+          approval_id: z
+            .number()
+            .int()
+            .optional()
+            .describe('approval row id; required when the project uses the approval flow'),
         }),
-        execute: async ({ title, body }) => {
+        execute: async ({ title, body, approval_id }) => {
           streamData.append({ type: 'push_to_dev', status: 'sending' });
-          const result = await runToolSafely('push_to_dev', { title, body, session_id });
+          const result = await runToolSafely('push_to_dev', {
+            title,
+            body,
+            approval_id,
+            session_id,
+          });
           pushToDevResult = result;
           // Structured, body-free result log for future incident review.
           console.log('tool_result push_to_dev', {

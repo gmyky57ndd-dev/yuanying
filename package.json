@@ -14,7 +14,9 @@
     "import": "node scripts/import.mjs",
     "inbox": "node --env-file=.env.local scripts/inbox.mjs",
     "test": "node --test --experimental-strip-types lib/*.test.ts",
-    "avatar:validate": "node scripts/validate-avatar.mjs"
+    "avatar:validate": "node scripts/validate-avatar.mjs",
+    "tauri:runtime": "bash scripts/tauri-build-runtime.sh",
+    "tauri:build": "npm run tauri:runtime && npx tauri build --bundles app"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
@@ -30,6 +32,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.12.4",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
