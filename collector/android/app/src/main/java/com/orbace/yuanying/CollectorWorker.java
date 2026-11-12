@@ -124,6 +124,12 @@ public class CollectorWorker extends Worker {
                     "yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US);
                 sfmt.setTimeZone(TimeZone.getTimeZone("UTC"));
                 stepsBeat.put("collector_steps_status", stepsStatus);
+                // #118: per-permission detail, so Android 16 partial grants are
+                // visible instead of a bare "no_records".
+                stepsBeat.put(
+                    "collector_steps_permissions",
+                    StepsPermissionMonitor.INSTANCE.permissionSnapshot(ctx)
+                );
                 stepsBeat.put("collector_steps_at", sfmt.format(new Date()));
                 if (stepsValue >= 0) stepsBeat.put("collector_steps_value", stepsValue);
                 if (stepsRecords >= 0) stepsBeat.put("collector_steps_records", stepsRecords);

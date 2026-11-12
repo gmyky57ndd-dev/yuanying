@@ -212,7 +212,9 @@ never by the section they happened to be written under.
 - **Auto recovery**: on grant/resume, clears the flag and enqueues a one-time CollectorWorker; no app restart.
 - **Status**: `collector_steps_status` covers ok / no_permission / no_records / post_failed / error / unsupported.
 - **Build**: v1.0.46 (versionCode 46) APK + AAB built and signed.
-- **Emulator evidence (API 35, 2026-11-11)**: no permission → notification once («去授权» action); tapping opens `com.google.android.healthconnect.controller` settings; granting steps → log «permission recovered; clearing notice flag», immediate CollectorWorker ran; `collector_steps_status` went `no_permission → no_records` (0 origins on emulator), version 1.0.46.
+- **Emulator evidence (API 35)**: no permission → notification once («去授权»); tapping opens the Health Connect controller (home → App permissions); granting steps → log «permission recovered; clearing notice flag», immediate CollectorWorker ran; status `no_permission → no_records`.
+- **#118 permission detail**: `collector_steps_permissions` reports required/granted/missing/counts/status + sdk_int; observed `{"status":"missing",missing:["…READ_STEPS"]}` → `{"status":"granted",granted:["…READ_STEPS"]}`. Version 1.0.47 (code 47).
+- **Note**: `MANAGE_HEALTH_PERMISSIONS` is protected by `GRANT_RUNTIME_PERMISSIONS`; the public entry is `HEALTH_HOME_SETTINGS` (home, one tap to App permissions).
 
 ### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done
 

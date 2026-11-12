@@ -247,32 +247,29 @@ object ReminderScheduler {
      * app screen when the settings activity is missing. Dedupe lives in
      * StepsPermissionMonitor (once per loss, reset on recovery).
      */
-    fun notifyPermissionLost(context: Context) {
+    @JvmOverloads
+    fun notifyPermissionLost(context: Context, missingDetail: String? = null) {
         try {
             ensureChannel(context)
 
-            // API 34+ uses android.health.connect.action.HEALTH_HOME_SETTINGS;
-            // older Health Connect builds use the androidx action. Try both,
-            // then the permissions screen, then fall back to the app.
-            val candidates = listOf(
-                "android.health.connect.action.HEALTH_HOME_SETTINGS",
-                "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS",
-                "android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"
-            )
-            var settingsIntent: Intent? = null
-            for (action in candidates) {
-                val candidate = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                if (candidate.resolveActivity(context.packageManager) != null) {
-                    settingsIntent = candidate
-                    break
-                }
-            }
-            val target = settingsIntent ?: Intent(context, MainActivity::class.java)
+            // #118: Health Connect home (Permissions & data → App permissions).
+            // MANAGE_HEALTH_PERMISSIONS is protected by GRANT_RUNTIME_PERMISSIONS
+            // and cannot be launched by a normal app, so home is the deepest
+            // public entry point. Keep an explicit "open app" action as fallback.
+            val permissionsIntent = Intent(
+                "android.health.connect.action.HEALTH_HOME_SETTINGS"
+            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             val openPi = PendingIntent.getActivity(
-                context, 9102, target,
+                context, 9102, permissionsIntent,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
-            val message = "读不到完整步数：HealthConnect 权限被系统收回了。点「去授权」恢复上报。"
+            val appPi = PendingIntent.getActivity(
+                context, 9103, Intent(context, MainActivity::class.java),
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            val message = "读不到完整步数：HealthConnect 权限被系统收回了。" +
+                (missingDetail?.let { " $it。" } ?: "") +
+                " 点「去授权」恢复上报。"
             val notif = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_error)
                 .setContentTitle("元婴 · 步数权限丢失")
@@ -282,6 +279,7 @@ object ReminderScheduler {
                 .setAutoCancel(true)
                 .setContentIntent(openPi)
                 .addAction(0, "去授权", openPi)
+                .addAction(0, "打开元婴", appPi)
                 .build()
             NotificationManagerCompat.from(context).notify(9101, notif)
         } catch (e: Exception) {

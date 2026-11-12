@@ -26,6 +26,18 @@ object StepsPermissionMonitor {
     const val STATUS_NO_PERMISSION = "no_permission"
     const val STATUS_UNSUPPORTED = "unsupported"
 
+    fun permissionSnapshot(ctx: Context): org.json.JSONObject {
+        if (Build.VERSION.SDK_INT < 26) {
+            return org.json.JSONObject().put("status", STATUS_UNSUPPORTED)
+        }
+        return try {
+            StepsCollector(ctx).permissionSnapshot()
+        } catch (e: Exception) {
+            Log.w(TAG, "permissionSnapshot failed", e)
+            org.json.JSONObject().put("status", STATUS_NO_PERMISSION)
+        }
+    }
+
     fun status(ctx: Context): String {
         if (Build.VERSION.SDK_INT < 26) return STATUS_UNSUPPORTED
         return try {
@@ -52,7 +64,15 @@ object StepsPermissionMonitor {
                 if (enqueueOnRecovery) enqueueImmediateCollect(ctx)
             }
             STATUS_NO_PERMISSION -> if (!alreadyNotified) {
-                ReminderScheduler.notifyPermissionLost(ctx)
+                val missing = permissionSnapshot(ctx).optJSONArray("missing")
+                val detail = if (missing != null && missing.length() > 0) {
+                    "缺少：" + (0 until missing.length()).joinToString(", ") {
+                        missing.optString(it).substringAfterLast('.')
+                    }
+                } else {
+                    null
+                }
+                ReminderScheduler.notifyPermissionLost(ctx, detail)
                 prefs.edit().putBoolean(KEY_LOST_NOTIFIED, true).apply()
                 Log.i(TAG, "permission lost; notified once")
             } else {
