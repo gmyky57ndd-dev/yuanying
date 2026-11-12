@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { mirrorConfig } from '@/lib/local-write';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,9 @@ export async function PUT(req: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  for (const [key, value] of Object.entries(body)) {
+    mirrorConfig(key, value);
   }
 
   return NextResponse.json({ ok: true });

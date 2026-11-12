@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
 import { extractTags } from '@/lib/tags';
+import { mirrorSignal } from '@/lib/local-write';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -112,6 +113,13 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    mirrorSignal({
+      id: data?.id ?? null,
+      name: 'note',
+      value: { text: trimmed, tags, feedbackSuggested },
+      context: { input: input === 'voice' ? 'voice' : 'text' },
+      source: 'manual',
+    });
     return NextResponse.json({ ok: true, id: data?.id ?? null, tags });
   } catch {
     // Do not log note content.

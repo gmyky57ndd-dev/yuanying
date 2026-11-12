@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { ALL_TOOL_NAMES } from '@/lib/tool-names';
 import { getOnboarding, getPendingActions, getProjectIssues } from '@/lib/workpad';
+import { mirrorMessages } from '@/lib/local-write';
 import { supabase } from '@/lib/db';
 import {
   getTodayRange,
@@ -2372,38 +2373,44 @@ ${bodyStatusReminder}`,
 
         // #84: never persist an empty assistant turn.
         const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
-        const { error: insErr } = await supabase.from('messages').insert([
-          {
-            role: 'user',
-            content: message,
-            session_id,
-            device_id,
-            project_id: projectId || null,
-            metadata: {
-              device,
+        const { data: inserted, error: insErr } = await supabase
+          .from('messages')
+          .insert([
+            {
+              role: 'user',
+              content: message,
+              session_id,
+              device_id,
               project_id: projectId || null,
-              active_fenshen_ids: roomMemberIds,
+              metadata: {
+                device,
+                project_id: projectId || null,
+                active_fenshen_ids: roomMemberIds,
+              },
             },
-          },
-          {
-            role: 'assistant',
-            content: safeReply,
-            responder_fenshen_id: requestFenshen?.id ?? null,
-            session_id,
-            device_id,
-            project_id: projectId || null,
-            metadata: {
-              device,
-              project_id: projectId || null,
+            {
+              role: 'assistant',
+              content: safeReply,
               responder_fenshen_id: requestFenshen?.id ?? null,
-              active_fenshen_ids: roomMemberIds,
-              truncated: finishReason === 'length',
-              finish_reason: finishReason,
+              session_id,
+              device_id,
+              project_id: projectId || null,
+              metadata: {
+                device,
+                project_id: projectId || null,
+                responder_fenshen_id: requestFenshen?.id ?? null,
+                active_fenshen_ids: roomMemberIds,
+                truncated: finishReason === 'length',
+                finish_reason: finishReason,
+              },
             },
-          },
-        ]);
+          ])
+          .select(
+            'id, role, content, session_id, device_id, project_id, responder_fenshen_id, metadata, created_at'
+          );
 
         if (insErr) console.error('insert failed:', insErr);
+        if (inserted) mirrorMessages(inserted as any[]);
 
         const streamErrorType = classifyStreamError(streamError);
         const silentWrite =
