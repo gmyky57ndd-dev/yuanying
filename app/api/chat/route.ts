@@ -196,7 +196,7 @@ async function runTool(name: string, args: any): Promise<any> {
 
   if (name === 'submit_adr') {
     const id = Number(args?.approval_id);
-    const adr = String(args?.adr ?? '').trim();
+    const adr = String(args?.adr ?? args?.content ?? '').trim();
     if (!Number.isInteger(id) || id <= 0 || !adr) {
       return { success: false, error: 'approval_id and adr required' };
     }
@@ -1113,16 +1113,40 @@ export async function POST(req: NextRequest) {
         m => requestedActiveIds.length === 0 || requestedActiveIds.includes(m.id)
       );
       roomMemberIds = allowed.map(m => m.id);
-      const mentions = Array.from(message.matchAll(/@([^\s@，。,.!?！？]+)/g)).map(m =>
-        String(m[1]).toLowerCase()
-      );
-      const mentioned = allowed.find((m: any) => {
+      // Mention routing: match full display names (spaces/parentheses), ids and
+      // the short alias before "("; first mention in the message wins.
+      const norm = (v: string) => v.toLowerCase().replace(/\s+/g, '');
+      const lowerMsg = message.toLowerCase();
+      const normMsg = norm(message);
+      const candidates: Array<{ m: any; idx: number; score: number; alias: string }> = [];
+      for (const m of allowed) {
         const name = String(m.display_name).toLowerCase();
         const id = String(m.id).toLowerCase();
-        return mentions.some(
-          t => t === id || t === name || name.includes(t) || t.includes(id)
-        );
-      });
+        const aliases = new Set<string>([name, id]);
+        const beforeParen = name.split('(')[0].trim();
+        if (beforeParen && beforeParen.length >= 2) aliases.add(beforeParen);
+        for (const alias of Array.from(aliases)) {
+          const rawIdx = lowerMsg.indexOf(`@${alias}`);
+          if (rawIdx >= 0) {
+            candidates.push({ m, idx: rawIdx, score: alias.length, alias });
+            continue;
+          }
+          const nIdx = normMsg.indexOf(`@${norm(alias)}`);
+          if (nIdx >= 0) {
+            candidates.push({ m, idx: nIdx, score: alias.length, alias });
+          }
+        }
+      }
+      candidates.sort((a, b) => a.idx - b.idx || b.score - a.score);
+      const mentioned = candidates[0]?.m;
+      const mentionTokens = Array.from(
+        message.matchAll(/@[^\s@，。,.!?！？]+/g)
+      ).map(x => x[0]);
+      console.log(
+        `[mention] tokens=${JSON.stringify(mentionTokens)} candidates=${JSON.stringify(
+          candidates.map(c => `${c.m.id}@${c.idx}`)
+        )} picked=${mentioned?.id ?? 'none'}`
+      );
       // An explicit fenshen selection wins over the room lead (the mobile
       // selector sends fenshen_id; without this it was silently overridden).
       const explicit = requestedFenshenId
@@ -2063,10 +2087,11 @@ ${bodyStatusReminder}`,
           'Attach an ADR / technical approach to a proposed work item and move it to adr_ready for owner approval.',
         parameters: z.object({
           approval_id: z.number().int(),
-          adr: z.string().describe('architecture decision / implementation approach'),
+          adr: z.string().optional().describe('architecture decision / implementation approach'),
+          content: z.string().optional().describe('alias for adr (older callers)'),
         }),
-        execute: async ({ approval_id, adr }) =>
-          runToolForModel('submit_adr', { approval_id, adr }),
+        execute: async ({ approval_id, adr, content }) =>
+          runToolForModel('submit_adr', { approval_id, adr: adr ?? content }),
       }),
       push_to_dev: tool({
         description:
@@ -2359,7 +2384,7 @@ ${bodyStatusReminder}`,
           !writeResult &&
           !pushToDevResult
         ) {
-          reply = '工具执行失败：模型没有发起调用。请重试；若重复出现，我会查系统日志。';
+          reply = `工具执行失败：模型没有发起调用。request_id=${requestId}（no_tool_call）。请重试；若重复出现，我会查系统日志。`;
         }
 
         // ES-060: one automatic retry before surfacing a failure. The model
@@ -2505,6 +2530,7 @@ ${bodyStatusReminder}`,
       headers: {
         'Cache-Control': 'no-cache, no-transform',
         'X-Accel-Buffering': 'no',
+        'X-Request-Id': requestId,
         Connection: 'keep-alive',
       },
       getErrorMessage: e =>
