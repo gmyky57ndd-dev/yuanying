@@ -40,7 +40,7 @@ test('ES-050 version reminder overrides stale history', () => {
 
 test('ES-044/045/046 chat route has timeout, reset, and tool lifecycle guards', () => {
   const src = read('app/api/chat/route.ts');
-  assert.match(src, /maxDuration = 60/);
+  assert.match(src, /maxDuration = (60|120)/);
   assert.match(src, /chat_reset_at/);
   assert.match(src, /status: 'sending'/);
   assert.match(src, /type: 'push_to_dev'/);

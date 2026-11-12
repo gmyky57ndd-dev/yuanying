@@ -750,6 +750,10 @@ export default function Home() {
 
     try {
       const d = await postChat(content, sessionIdRef.current, event => {
+        if (event?.type === 'retry') {
+          setToolStatus(`网络波动，正在重连…（第 ${event.attempt} 次）`);
+          return;
+        }
         if (event?.type === 'push_to_dev') {
           if (event.status === 'sending') {
             setToolStatus('⚙️ 正在发送到 GitHub…');
