@@ -64,3 +64,5 @@ collector/android/keystore.properties
 # Tauri Phase 0 runtime
 /desktop-runtime/
 /src-tauri/target/
+/.tauri-build/
+/var/
