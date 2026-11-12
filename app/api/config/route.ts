@@ -8,8 +8,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  if (new URL(req.url).searchParams.get('local') === '1') {
-    return NextResponse.json({ ...localConfig(), local: true });
+  const url = new URL(req.url);
+  if (url.searchParams.get('source') !== 'cloud') {
+    const local = localConfig();
+    if (Object.keys(local).length > 0 || url.searchParams.get('local') === '1') {
+      return NextResponse.json({ ...local, local: true });
+    }
   }
   const { data, error } = await supabase.from('config').select('*');
 
