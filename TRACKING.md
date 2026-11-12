@@ -211,7 +211,8 @@ never by the section they happened to be written under.
 - **Notify once per loss**: boolean flag, cleared on recovery; notification has 「去授权」 action to `androidx.health.ACTION_HEALTH_CONNECT_SETTINGS` (falls back to the app screen).
 - **Auto recovery**: on grant/resume, clears the flag and enqueues a one-time CollectorWorker; no app restart.
 - **Status**: `collector_steps_status` covers ok / no_permission / no_records / post_failed / error / unsupported.
-- **Build**: v1.0.46 (versionCode 46) APK + AAB built and signed; device/emulator flow verification pending.
+- **Build**: v1.0.46 (versionCode 46) APK + AAB built and signed.
+- **Emulator evidence (API 35, 2026-11-11)**: no permission → notification once («去授权» action); tapping opens `com.google.android.healthconnect.controller` settings; granting steps → log «permission recovered; clearing notice flag», immediate CollectorWorker ran; `collector_steps_status` went `no_permission → no_records` (0 origins on emulator), version 1.0.46.
 
 ### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done
 

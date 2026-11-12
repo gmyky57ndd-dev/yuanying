@@ -251,13 +251,23 @@ object ReminderScheduler {
         try {
             ensureChannel(context)
 
-            val settingsIntent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            val target = if (settingsIntent.resolveActivity(context.packageManager) != null) {
-                settingsIntent
-            } else {
-                Intent(context, MainActivity::class.java)
+            // API 34+ uses android.health.connect.action.HEALTH_HOME_SETTINGS;
+            // older Health Connect builds use the androidx action. Try both,
+            // then the permissions screen, then fall back to the app.
+            val candidates = listOf(
+                "android.health.connect.action.HEALTH_HOME_SETTINGS",
+                "androidx.health.ACTION_HEALTH_CONNECT_SETTINGS",
+                "android.health.connect.action.MANAGE_HEALTH_PERMISSIONS"
+            )
+            var settingsIntent: Intent? = null
+            for (action in candidates) {
+                val candidate = Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                if (candidate.resolveActivity(context.packageManager) != null) {
+                    settingsIntent = candidate
+                    break
+                }
             }
+            val target = settingsIntent ?: Intent(context, MainActivity::class.java)
             val openPi = PendingIntent.getActivity(
                 context, 9102, target,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
