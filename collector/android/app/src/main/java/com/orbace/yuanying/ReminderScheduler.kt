@@ -242,28 +242,36 @@ object ReminderScheduler {
     }
 
     /** Issue #73: tell the owner once a day that HealthConnect needs re-granting. */
+    /**
+     * #116: "去授权" jumps straight to HealthConnect settings; fall back to the
+     * app screen when the settings activity is missing. Dedupe lives in
+     * StepsPermissionMonitor (once per loss, reset on recovery).
+     */
     fun notifyPermissionLost(context: Context) {
         try {
-            val prefs = context.getSharedPreferences("yuanying_nudge", Context.MODE_PRIVATE)
-            val key = "perm_" + SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            if (prefs.getBoolean(key, false)) return
-            prefs.edit().putBoolean(key, true).apply()
-
             ensureChannel(context)
-            val openIntent = Intent(context, MainActivity::class.java)
+
+            val settingsIntent = Intent("androidx.health.ACTION_HEALTH_CONNECT_SETTINGS")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val target = if (settingsIntent.resolveActivity(context.packageManager) != null) {
+                settingsIntent
+            } else {
+                Intent(context, MainActivity::class.java)
+            }
             val openPi = PendingIntent.getActivity(
-                context, 9101, openIntent,
+                context, 9102, target,
                 PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
             )
-            val message = "读不到完整步数：HealthConnect 权限被系统收回了。点这里重新授权。"
+            val message = "读不到完整步数：HealthConnect 权限被系统收回了。点「去授权」恢复上报。"
             val notif = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_notify_error)
-                .setContentTitle("元婴")
+                .setContentTitle("元婴 · 步数权限丢失")
                 .setContentText(message)
                 .setStyle(NotificationCompat.BigTextStyle().bigText(message))
                 .setPriority(NotificationCompat.PRIORITY_DEFAULT)
                 .setAutoCancel(true)
                 .setContentIntent(openPi)
+                .addAction(0, "去授权", openPi)
                 .build()
             NotificationManagerCompat.from(context).notify(9101, notif)
         } catch (e: Exception) {

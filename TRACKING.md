@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-68] 采集器 HealthConnect 权限自检 + 丢权限通知 (#116) — In Progress
+
+- **Status**: In Progress (2026-11-11) · **Category**: Collector / Android · **Refs**: #116, ES-064
+- **Self-check**: new `StepsPermissionMonitor` used by `MainActivity.onResume` and `CollectorWorker` (returns ok/no_permission/unsupported).
+- **Notify once per loss**: boolean flag, cleared on recovery; notification has 「去授权」 action to `androidx.health.ACTION_HEALTH_CONNECT_SETTINGS` (falls back to the app screen).
+- **Auto recovery**: on grant/resume, clears the flag and enqueues a one-time CollectorWorker; no app restart.
+- **Status**: `collector_steps_status` covers ok / no_permission / no_records / post_failed / error / unsupported.
+- **Build**: v1.0.46 (versionCode 46) APK + AAB built and signed; device/emulator flow verification pending.
+
 ### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done
 
 - **Status**: Done (2026-11-11) · **Category**: Observability · **Refs**: #108, #115
