@@ -25,8 +25,9 @@ rm -rf desktop-runtime
 mkdir -p desktop-runtime/.next
 cp -R "$TMP_DIR/.next/standalone/." desktop-runtime/
 cp -R "$TMP_DIR/.next/static" desktop-runtime/.next/static
+rm -f desktop-runtime/.env.local
 cp -R public desktop-runtime/public
-cp .env.local desktop-runtime/.env.local 2>/dev/null || true
+# No secrets in the bundle: Tauri reads them from the macOS Keychain.
 
 # Homebrew Node links libnode dynamically; use the official self-contained binary.
 NODE_VERSION="v22.14.0"

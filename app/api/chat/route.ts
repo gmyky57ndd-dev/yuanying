@@ -222,6 +222,20 @@ async function runTool(name: string, args: any): Promise<any> {
     // Phase 1: when an approval id is supplied, the issue may only be created
     // after the owner approved it (approved/implementing).
     const approvalId = Number(args?.approval_id);
+    const gateProjectId = String(args?.project_id ?? '').trim();
+    if (gateProjectId) {
+      const { data: gate } = await supabase
+        .from('projects')
+        .select('require_approval')
+        .eq('id', gateProjectId)
+        .maybeSingle();
+      if (gate?.require_approval === true && !(Number.isInteger(approvalId) && approvalId > 0)) {
+        return {
+          success: false,
+          error: `project ${gateProjectId} requires owner approval; pass an approved approval_id`,
+        };
+      }
+    }
     if (Number.isInteger(approvalId) && approvalId > 0) {
       const { data: approval } = await supabase
         .from('approvals')
@@ -1054,12 +1068,12 @@ export async function POST(req: NextRequest) {
     );
 
     // ES-080: project scoping (Project → Role → Workpad → Artifact).
-    let project: { id: string; name: string } | null = null;
+    let project: { id: string; name: string; require_approval?: boolean } | null = null;
     let projectDocNames: string[] = [];
     if (projectId) {
       const { data: projectRow } = await supabase
         .from('projects')
-        .select('id, name')
+        .select('id, name, require_approval')
         .eq('id', projectId)
         .maybeSingle();
       if (!projectRow) {
@@ -1559,6 +1573,9 @@ export async function POST(req: NextRequest) {
               .join('；')}。请继续执行下一项；完成一项后调用 complete_action 标记，不要重复已完成的。`
           : '') +
         `\n\n【动作规则】多步任务先用 plan_actions(project_id, actions[]) 记录；每完成一项用 complete_action 更新状态；需要一次看全项目状态时调用 get_project_status。` +
+        (project.require_approval
+          ? '\n\n【审批门禁】本项目要求审批：push_to_dev 必须带 approval_id，且该 approval 必须已批准（approved/implementing）；否则拒绝。'
+          : '') +
         (roomMemberIds.length
           ? `\n【Workpad 房间】参战分身：${roomMemberIds.join(', ')}；本轮回复者：${
               requestFenshen?.display_name ?? requestFenshen?.id ?? '未知'
@@ -2073,6 +2090,7 @@ ${bodyStatusReminder}`,
             title,
             body,
             approval_id,
+            project_id: projectId,
             session_id,
           });
           pushToDevResult = result;
@@ -2266,7 +2284,11 @@ ${bodyStatusReminder}`,
               reply = `${reply}\n（未执行 ${call.name}：该工具不在当前分身的权限内）`.trim();
               continue;
             }
-            const toolResult = await runToolForModel(call.name, call.args);
+            const callArgs =
+              call.name === 'push_to_dev' && projectId
+                ? { ...call.args, project_id: projectId }
+                : call.args;
+            const toolResult = await runToolForModel(call.name, callArgs);
             console.log(
               `[textual tool] ${call.name} -> ${toolResult?.success === false ? 'error' : 'ok'}`
             );
