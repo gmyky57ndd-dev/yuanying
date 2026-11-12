@@ -204,9 +204,27 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
-### [P2-68] 采集器 HealthConnect 权限自检 + 丢权限通知 (#116) — In Progress
+### [P2-71] Phase 1 桌面产品面 (ES-080/081 + Phase 1) — In Progress
 
-- **Status**: In Progress (2026-11-11) · **Category**: Collector / Android · **Refs**: #116, ES-064
+- **Status**: In Progress (2026-11-12) · **Category**: Desktop / Config / Workflow
+- **Playbook**: `fenshen.enabled` + existing prompt/tools/model/`has_all_tools`; settings UI toggles「启用」「全部工具」; disabled fenshen is excluded from Workpad rooms.
+- **Approvals**: `approvals` table + `/api/approvals` (proposed→adr_ready→approved→rejected→implementing→done); Workpad「审批」tab; tools `propose_work`/`submit_adr`; `push_to_dev` accepts `approval_id` and rejects unapproved ids.
+- **Verified**: approval 1 transitioned proposed→adr_ready→approved→implementing→done; disabled architect removed from room (responder=ai_pm); `has_all_tools=false + whitelist` → `active_tools=1`.
+- **Tauri**: Phase 0 app loads `/desktop`; Phase 1 UI ships in the same shell.
+- **Pending**: owner on-device review; full approval hard-gate (only enforced when `approval_id` is supplied).
+
+### [P2-70] Tauri Phase 0 桌面壳 — Done (spike)
+
+- **Status**: Done (2026-11-12) · **Category**: Desktop / Tauri · **Refs**: blueprint v3, PR #121
+- **Shell**: Tauri v2 window → `127.0.0.1:3100/desktop`; Rust owns the Next standalone Node sidecar.
+- **Runtime**: official Node 22.14.0; `.env.local` copied for the local unsigned app; pruned to ~265 MB.
+- **Verified**: cold start 1.1–2.1s warm (3.7s first); webview established; port conflict exits 1; quit kills sidecar.
+- **Limits**: ad-hoc signed, 276 MB, fixed port, no updater; SQLite local-first is Phase 2.
+- **Docs**: `docs/ops/TAURI-PHASE0.md`.
+
+### [P2-68] 采集器 HealthConnect 权限自检 + 丢权限通知 (#116) — Done
+
+- **Status**: Done (2026-11-12, PR #117) · **Category**: Collector / Android · **Refs**: #116, ES-064
 - **Self-check**: new `StepsPermissionMonitor` used by `MainActivity.onResume` and `CollectorWorker` (returns ok/no_permission/unsupported).
 - **Notify once per loss**: boolean flag, cleared on recovery; notification has 「去授权」 action to `androidx.health.ACTION_HEALTH_CONNECT_SETTINGS` (falls back to the app screen).
 - **Auto recovery**: on grant/resume, clears the flag and enqueues a one-time CollectorWorker; no app restart.
