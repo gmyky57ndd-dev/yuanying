@@ -761,7 +761,7 @@ export default function Home() {
         }
       }, deviceIdRef.current, fenshenId || undefined, projectId);
       if (d.reply) {
-        if (/工具执行失败|模型没有发起调用|没有执行写入|没有这个权限/.test(d.reply)) {
+        if (/^(工具执行失败：|没有执行写入：|没写成：)/.test(d.reply)) {
           alert(d.reply);
         }
         setMessages(m => [...m, { role: 'assistant', content: d.reply }]);

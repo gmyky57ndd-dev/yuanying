@@ -212,6 +212,7 @@ never by the section they happened to be written under.
 - Local write intent without a call triggers one forced `write_local_file`; verified reply is the real path.
 - UI: "正在写入本地文件…" status; failure alerts.
 - **Verified**: ai_architect wrote `local_kb/docs/es082-acceptance-3.md` (103 chars) with `has_all_tools=true active_tools=31`.
+- **Issue #100 fix**: write intent now requires an explicit destination (`写到/保存到/落盘`, `write … to <path>`) — “compare x.md and write a plan” no longer forces a file write. Repo `docs/` is readable (`read_markdown`, read-only), so blueprint/ES comparisons work. Verified: 8-item plan reply (1,639 chars), no failure text; note write still succeeds.
 
 ### [P2-66] Action-First 循环 (ES-083) — Done
 

@@ -23,10 +23,10 @@ function normalize(input: string): string {
     !rel.startsWith('mailbox/') &&
     !rel.startsWith('local_kb/docs/') &&
     !rel.startsWith('local_kb/wiki/') &&
-    !rel.startsWith('docs/pm/')
+    !rel.startsWith('docs/')
   ) {
     throw new Error(
-      'Path must start with mailbox/, local_kb/docs/, local_kb/wiki/ or docs/pm/.'
+      'Path must start with mailbox/, local_kb/docs/, local_kb/wiki/ or docs/ (repo docs are read-only except docs/pm/).'
     );
   }
   if (!ALLOWED_EXT.some(ext => rel.endsWith(ext))) {
@@ -137,6 +137,9 @@ export async function writeMailbox(input: string, content: string): Promise<{
 
   if (rel.startsWith('local_kb/wiki/')) {
     throw new Error('local_kb/wiki/ 是只读的（Obsidian vault），请把新文档写到 local_kb/docs/。');
+  }
+  if (rel.startsWith('docs/') && !rel.startsWith('docs/pm/')) {
+    throw new Error('仓库 docs/ 是只读的；要写文档请用 docs/pm/（GitHub-backed）。');
   }
   if (isLocalKb(rel)) {
     const full = localKbPath(rel);

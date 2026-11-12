@@ -3,6 +3,7 @@ import path from 'path';
 
 const MAX_CHARS = 20_000;
 const ALLOWED_ROOTS = [
+  'docs',
   'docs/specs',
   'docs/help',
   'docs/runbooks',
@@ -38,7 +39,7 @@ export async function readMarkdown(input: string): Promise<MarkdownFile> {
     ALLOWED_ROOTS.some(root => rel === root || rel.startsWith(`${root}/`));
   if (!allowed) {
     throw new Error(
-      'Path not allowed. Allowed: docs/specs, docs/help, docs/runbooks, core, AGENTS.md, TRACKING.md, README.md.'
+      'Path not allowed. Allowed: docs/, core, AGENTS.md, TRACKING.md, README.md.'
     );
   }
 

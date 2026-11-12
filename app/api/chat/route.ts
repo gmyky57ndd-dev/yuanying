@@ -1204,8 +1204,14 @@ export async function POST(req: NextRequest) {
       /^(写吧|现在写|确认|执行|保存|落盘|好[，,]?\s*写|改吧|可以写|写入|写进去)[。！!.\s]*$/i.test(
         message.trim()
       );
+    const writeDestination =
+      (/(写到|写入|写进|保存到|保存为|落盘)/.test(message) &&
+        /(\.md\b|docs\/|local_kb|mailbox|core\/|本地|文件)/i.test(message)) ||
+      /(write|save)[^.\n]{0,40}\bto\s+\S*(\.md|docs\/|local_kb|mailbox)/i.test(message);
     const writeIntent =
-      (/\.md\b/i.test(message) && /(写|改|保存|落盘|写入|write|edit)/i.test(message)) ||
+      (writeDestination &&
+        /(core\/|docs\/|AGENTS|TRACKING)/i.test(message) &&
+        !/local_kb/i.test(message)) ||
       (confirmOnly &&
         !!lastAssistant &&
         (/\.md\b/.test(lastAssistant) || /write_markdown/.test(lastAssistant)));
@@ -1331,17 +1337,20 @@ export async function POST(req: NextRequest) {
     const ragQuestion = /(部署|架构|方案|计划|RAG|知识库|论文|MCP|agent|Agent)/.test(
       message
     );
+    // Issue #100: only an explicit write DESTINATION counts. "compare x.md and
+    // write a plan" reads the file; it must not force a file write.
+    const canWriteLocalFile =
+      useAllTools || !toolWhitelist || toolWhitelist.includes('write_local_file');
     // ES-080: a document-writing request needs room for a real draft, and the
     // markdown-specific guard must not fire for fenshen without write_markdown.
     const docWriteIntentEarly =
-      /(写|生成|保存|落盘|write|save)/i.test(message) &&
+      writeDestination &&
       /(PRD|文档|报告|\.md|docs\/|local_kb|project)/i.test(message) &&
-      (useAllTools || !toolWhitelist || toolWhitelist.includes('write_local_file'));
+      canWriteLocalFile;
     const localWriteIntent =
-      /(写|保存|生成|落盘|write|save)/i.test(message) &&
+      writeDestination &&
       /(笔记|note)/i.test(message) &&
-      /(本地|文件|local_kb|docs\/|\.md)/i.test(message) &&
-      (useAllTools || !toolWhitelist || toolWhitelist.includes('write_local_file'));
+      canWriteLocalFile;
     if (ragQuestion && hasRagTool) {
       try {
         const health = await fetch(`${LOCAL_RAG_URL}/health`, {
@@ -1806,7 +1815,7 @@ ${bodyStatusReminder}`,
         parameters: z.object({
           path: z
             .string()
-            .describe('mailbox/inbox/x.md, local_kb/docs/prd.md or docs/pm/prd.md'),
+            .describe('mailbox/inbox/x.md, local_kb/docs/prd.md, docs/pm/prd.md; repo docs/ is read-only'),
           offset: z
             .number()
             .int()
@@ -2132,6 +2141,7 @@ ${bodyStatusReminder}`,
 
         // ES-082: never let "模型未发起调用 / 我没有权限" stand for a real failure.
         if (
+          (writeIntent || localWriteIntent || docWriteIntentEarly) &&
           /(模型没有发起|没有执行写入|我没有这个权限|没有权限)/.test(reply) &&
           !writeFileResult &&
           !writeResult &&
