@@ -4,6 +4,7 @@ import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { getConfigTimezone, getTodayRange } from '@/lib/timezone';
+import { localHub } from '@/lib/local-read';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,13 @@ function listWiki(limit = 8) {
 /** ES-080: one aggregate for the desktop hub (read-only). */
 export async function GET(req: NextRequest) {
   const projectId = new URL(req.url).searchParams.get('project_id')?.trim() || null;
+  const source = new URL(req.url).searchParams.get('source');
+  if (source !== 'cloud') {
+    const local = localHub(projectId);
+    if ((local.projects?.length ?? 0) > 0) {
+      return NextResponse.json(local);
+    }
+  }
   const tz = await getConfigTimezone();
   const { start, end } = getTodayRange(tz);
 
@@ -90,6 +98,11 @@ export async function GET(req: NextRequest) {
   const docsRes = await docsQuery;
   // PostgREST does not allow length(content) in select; compute here and drop
   // the body from the hub payload.
+  if (projectsRes.error || goalsRes.error || activityRes.error) {
+    console.warn('hub: falling back to local SQLite');
+    return NextResponse.json(localHub(projectId));
+  }
+
   const docs = ((docsRes.data ?? []) as any[]).map(d => ({
     project_id: d.project_id,
     name: d.name,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { mirrorApproval } from '@/lib/local-write';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    mirrorApproval(data as any);
     return NextResponse.json({ approval: data });
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
@@ -96,6 +98,7 @@ export async function PATCH(req: NextRequest) {
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    mirrorApproval(data as any);
     return NextResponse.json({ approval: data });
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });

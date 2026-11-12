@@ -8,10 +8,36 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, name, description, status, created_at')
+    .select('id, name, description, status, require_approval, created_at')
     .order('created_at');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ projects: data ?? [] });
+}
+
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const id = String(body?.id ?? '').trim();
+    if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
+    const patch: Record<string, unknown> = {};
+    if (typeof body?.require_approval === 'boolean') {
+      patch.require_approval = body.require_approval;
+    }
+    if (typeof body?.description === 'string') patch.description = body.description;
+    if (!Object.keys(patch).length) {
+      return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
+    }
+    const { data, error } = await supabase
+      .from('projects')
+      .update(patch)
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ project: data });
+  } catch {
+    return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
+  }
 }
 
 export async function POST(req: NextRequest) {

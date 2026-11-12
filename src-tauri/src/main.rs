@@ -39,6 +39,36 @@ fn healthy(port: u16) -> bool {
     }
 }
 
+fn secrets_env(app: &tauri::AppHandle) -> Option<String> {
+    // Secrets live outside the bundle, in Application Support (0600).
+    let dir = app.path().app_config_dir().ok()?;
+    let path = dir.join("secrets.env");
+    std::fs::read_to_string(path).ok()
+}
+
+fn parse_env(raw: &str) -> Vec<(String, String)> {
+    raw.lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.is_empty() || line.starts_with('#') {
+                return None;
+            }
+            let (key, value) = line.split_once('=')?;
+            let key = key.trim();
+            if key.is_empty() {
+                return None;
+            }
+            let mut value = value.trim().to_string();
+            if (value.starts_with('"') && value.ends_with('"'))
+                || (value.starts_with('\'') && value.ends_with('\''))
+            {
+                value = value[1..value.len() - 1].to_string();
+            }
+            Some((key.to_string(), value))
+        })
+        .collect()
+}
+
 fn main() {
     let app = tauri::Builder::default()
         .setup(|app| {
@@ -55,12 +85,21 @@ fn main() {
             let log = OpenOptions::new().create(true).append(true).open(&log_path)?;
             let log_err = log.try_clone()?;
 
-            let child = Command::new(runtime.join("node"))
-                .arg("server.js")
+            // Secrets come from the macOS Keychain, never from the bundle.
+            let mut cmd = Command::new(runtime.join("node"));
+            cmd.arg("server.js")
                 .current_dir(&runtime)
                 .env("PORT", PORT.to_string())
                 .env("HOSTNAME", "127.0.0.1")
-                .env("NODE_ENV", "production")
+                .env("NODE_ENV", "production");
+            if let Some(raw) = secrets_env(app.handle()) {
+                for (k, v) in parse_env(&raw) {
+                    cmd.env(k, v);
+                }
+            } else {
+                eprintln!("[yuanying] secrets.env not found; server may fail");
+            }
+            let child = cmd
                 .stdout(Stdio::from(log))
                 .stderr(Stdio::from(log_err))
                 .spawn()

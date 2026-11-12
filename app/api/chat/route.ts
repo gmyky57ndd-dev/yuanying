@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { ALL_TOOL_NAMES } from '@/lib/tool-names';
 import { getOnboarding, getPendingActions, getProjectIssues } from '@/lib/workpad';
+import { mirrorMessages, mirrorAction, mirrorApproval } from '@/lib/local-write';
 import { supabase } from '@/lib/db';
 import {
   getTodayRange,
@@ -186,9 +187,10 @@ async function runTool(name: string, args: any): Promise<any> {
         description: description.slice(0, 4000),
         created_by: 'ai_pm',
       })
-      .select('id, status, title')
+      .select('*')
       .single();
     if (error) return { success: false, error: error.message };
+    mirrorApproval(data as any);
     return { success: true, data };
   }
 
@@ -203,10 +205,11 @@ async function runTool(name: string, args: any): Promise<any> {
       .update({ adr: adr.slice(0, 12000), status: 'adr_ready', updated_at: new Date().toISOString() })
       .eq('id', id)
       .in('status', ['proposed', 'adr_ready'])
-      .select('id, status, title')
+      .select('*')
       .maybeSingle();
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: 'approval not found or not in proposed state' };
+    mirrorApproval(data as any);
     return { success: true, data };
   }
 
@@ -219,6 +222,20 @@ async function runTool(name: string, args: any): Promise<any> {
     // Phase 1: when an approval id is supplied, the issue may only be created
     // after the owner approved it (approved/implementing).
     const approvalId = Number(args?.approval_id);
+    const gateProjectId = String(args?.project_id ?? '').trim();
+    if (gateProjectId) {
+      const { data: gate } = await supabase
+        .from('projects')
+        .select('require_approval')
+        .eq('id', gateProjectId)
+        .maybeSingle();
+      if (gate?.require_approval === true && !(Number.isInteger(approvalId) && approvalId > 0)) {
+        return {
+          success: false,
+          error: `project ${gateProjectId} requires owner approval; pass an approved approval_id`,
+        };
+      }
+    }
     if (Number.isInteger(approvalId) && approvalId > 0) {
       const { data: approval } = await supabase
         .from('approvals')
@@ -711,8 +728,9 @@ async function runTool(name: string, args: any): Promise<any> {
           description: description.trim().slice(0, 500),
         }))
       )
-      .select('id, description, status');
+      .select('*');
     if (error) return { success: false, error: error.message };
+    for (const row of data ?? []) mirrorAction(row as any);
     return { success: true, data: { project_id: pid, actions: data ?? [] } };
   }
 
@@ -731,10 +749,11 @@ async function runTool(name: string, args: any): Promise<any> {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select('id, project_id, description, status, result_ref')
+      .select('*')
       .maybeSingle();
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: `action not found: ${id}` };
+    mirrorAction(data as any);
     return { success: true, data };
   }
 
@@ -1049,12 +1068,12 @@ export async function POST(req: NextRequest) {
     );
 
     // ES-080: project scoping (Project → Role → Workpad → Artifact).
-    let project: { id: string; name: string } | null = null;
+    let project: { id: string; name: string; require_approval?: boolean } | null = null;
     let projectDocNames: string[] = [];
     if (projectId) {
       const { data: projectRow } = await supabase
         .from('projects')
-        .select('id, name')
+        .select('id, name, require_approval')
         .eq('id', projectId)
         .maybeSingle();
       if (!projectRow) {
@@ -1554,6 +1573,9 @@ export async function POST(req: NextRequest) {
               .join('；')}。请继续执行下一项；完成一项后调用 complete_action 标记，不要重复已完成的。`
           : '') +
         `\n\n【动作规则】多步任务先用 plan_actions(project_id, actions[]) 记录；每完成一项用 complete_action 更新状态；需要一次看全项目状态时调用 get_project_status。` +
+        (project.require_approval
+          ? '\n\n【审批门禁】本项目要求审批：push_to_dev 必须带 approval_id，且该 approval 必须已批准（approved/implementing）；否则拒绝。'
+          : '') +
         (roomMemberIds.length
           ? `\n【Workpad 房间】参战分身：${roomMemberIds.join(', ')}；本轮回复者：${
               requestFenshen?.display_name ?? requestFenshen?.id ?? '未知'
@@ -2068,6 +2090,7 @@ ${bodyStatusReminder}`,
             title,
             body,
             approval_id,
+            project_id: projectId,
             session_id,
           });
           pushToDevResult = result;
@@ -2261,7 +2284,11 @@ ${bodyStatusReminder}`,
               reply = `${reply}\n（未执行 ${call.name}：该工具不在当前分身的权限内）`.trim();
               continue;
             }
-            const toolResult = await runToolForModel(call.name, call.args);
+            const callArgs =
+              call.name === 'push_to_dev' && projectId
+                ? { ...call.args, project_id: projectId }
+                : call.args;
+            const toolResult = await runToolForModel(call.name, callArgs);
             console.log(
               `[textual tool] ${call.name} -> ${toolResult?.success === false ? 'error' : 'ok'}`
             );
@@ -2372,38 +2399,44 @@ ${bodyStatusReminder}`,
 
         // #84: never persist an empty assistant turn.
         const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
-        const { error: insErr } = await supabase.from('messages').insert([
-          {
-            role: 'user',
-            content: message,
-            session_id,
-            device_id,
-            project_id: projectId || null,
-            metadata: {
-              device,
+        const { data: inserted, error: insErr } = await supabase
+          .from('messages')
+          .insert([
+            {
+              role: 'user',
+              content: message,
+              session_id,
+              device_id,
               project_id: projectId || null,
-              active_fenshen_ids: roomMemberIds,
+              metadata: {
+                device,
+                project_id: projectId || null,
+                active_fenshen_ids: roomMemberIds,
+              },
             },
-          },
-          {
-            role: 'assistant',
-            content: safeReply,
-            responder_fenshen_id: requestFenshen?.id ?? null,
-            session_id,
-            device_id,
-            project_id: projectId || null,
-            metadata: {
-              device,
-              project_id: projectId || null,
+            {
+              role: 'assistant',
+              content: safeReply,
               responder_fenshen_id: requestFenshen?.id ?? null,
-              active_fenshen_ids: roomMemberIds,
-              truncated: finishReason === 'length',
-              finish_reason: finishReason,
+              session_id,
+              device_id,
+              project_id: projectId || null,
+              metadata: {
+                device,
+                project_id: projectId || null,
+                responder_fenshen_id: requestFenshen?.id ?? null,
+                active_fenshen_ids: roomMemberIds,
+                truncated: finishReason === 'length',
+                finish_reason: finishReason,
+              },
             },
-          },
-        ]);
+          ])
+          .select(
+            'id, role, content, session_id, device_id, project_id, responder_fenshen_id, metadata, created_at'
+          );
 
         if (insErr) console.error('insert failed:', insErr);
+        if (inserted) mirrorMessages(inserted as any[]);
 
         const streamErrorType = classifyStreamError(streamError);
         const silentWrite =

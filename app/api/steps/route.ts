@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mirrorSignal } from '@/lib/local-write';
+import { enqueueOutbox } from '@/lib/outbox';
 import { supabase } from '@/lib/db';
 import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
 
@@ -39,32 +41,55 @@ export async function POST(req: NextRequest) {
 
     // P1-23 diagnostic: persist the window, per-source counts and the
     // aggregation mode alongside the total. `value` is unchanged.
-    const { error } = await supabase.from('signals').insert({
-      name: 'steps',
-      type: 'count',
-      value: steps,
-      source: 'passive',
-      context: {
+    const stepsContext = {
         window_start,
         window_end,
         platform: platform ?? 'android',
         timezone: timezone ?? null,
-        // ES-011 §3 provenance
         source: source ?? null,
         aggregation: aggregation ?? null,
         raw_value: typeof raw_value === 'number' ? raw_value : null,
         sources: Array.isArray(sources) ? sources : null,
         sources_count: Array.isArray(sources) ? sources.length : null,
-        // ES-073: a read that hit a HealthConnect permission error is partial
-        // data, never a trustworthy "today" total.
         partial: partial === true,
         error: typeof readError === 'string' ? readError.slice(0, 300) : null,
-      },
-    });
+      };
+    const { data, error } = await supabase
+      .from('signals')
+      .insert({
+        name: 'steps',
+      type: 'count',
+      value: steps,
+      source: 'passive',
+        context: stepsContext,
+      })
+      .select('id')
+      .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      mirrorSignal({
+        id: null,
+        name: 'steps',
+        value: steps,
+        context: stepsContext,
+        source: 'passive',
+      });
+      enqueueOutbox('signal', 'insert', {
+        name: 'steps',
+        type: 'count',
+        value: steps,
+        context: stepsContext,
+        source: 'passive',
+      });
+      return NextResponse.json({ ok: true, queued: true });
     }
+    mirrorSignal({
+      id: data?.id ?? null,
+      name: 'steps',
+      value: steps,
+      context: stepsContext,
+      source: 'passive',
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

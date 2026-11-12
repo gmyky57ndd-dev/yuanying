@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
 import { extractTags } from '@/lib/tags';
+import { mirrorSignal } from '@/lib/local-write';
+import { enqueueOutbox } from '@/lib/outbox';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -110,8 +112,25 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      const value = { text: trimmed, tags, feedbackSuggested };
+      const context = { input: input === 'voice' ? 'voice' : 'text' };
+      mirrorSignal({ id: null, name: 'note', value, context, source: 'manual' });
+      enqueueOutbox('signal', 'insert', {
+        name: 'note',
+        type: 'note',
+        value,
+        context,
+        source: 'manual',
+      });
+      return NextResponse.json({ ok: true, id: null, tags, queued: true });
     }
+    mirrorSignal({
+      id: data?.id ?? null,
+      name: 'note',
+      value: { text: trimmed, tags, feedbackSuggested },
+      context: { input: input === 'voice' ? 'voice' : 'text' },
+      source: 'manual',
+    });
     return NextResponse.json({ ok: true, id: data?.id ?? null, tags });
   } catch {
     // Do not log note content.
