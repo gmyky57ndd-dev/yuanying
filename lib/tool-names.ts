@@ -20,6 +20,8 @@ export const ALL_TOOL_NAMES = [
   'read_project_doc',
   'get_goals',
   'plan_actions',
+  'propose_work',
+  'submit_adr',
   'complete_action',
   'get_project_status',
   'read_code_file',

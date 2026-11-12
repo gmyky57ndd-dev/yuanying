@@ -8,11 +8,13 @@ type Issue = { number: number; title: string; state: string; url: string; update
 type Message = { id: number; role: string; content: string; created_at: string; responder_fenshen_id?: string | null; truncated?: boolean };
 type FenshenRow = { id: string; display_name: string; model_name: string | null; tools_whitelist: string[] | null };
 type ModelRow = { id: string; provider: string; model_name: string };
+type Approval = { id: number; title: string; description: string | null; adr: string | null; status: string; approved_by: string | null; updated_at: string };
 
 const tabs = [
   { id: 'chat', label: '群聊' },
   { id: 'artifacts', label: 'Artifacts' },
   { id: 'issues', label: 'Issues' },
+  { id: 'approvals', label: '审批' },
 ] as const;
 type Tab = (typeof tabs)[number]['id'];
 
@@ -39,15 +41,23 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const [expandedMsgs, setExpandedMsgs] = useState<Record<string, boolean>>({});
+  const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [newTitle, setNewTitle] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [adrDraft, setAdrDraft] = useState<Record<number, string>>({});
+  const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [h, m, a, i, cfg, mods] = await Promise.all([
+    const [h, m, a, i, cfg, mods, appr] = await Promise.all([
       fetch('/api/hub', { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/fenshen`, { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/artifacts`, { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/issues`, { cache: 'no-store' }).then(async r => ({ ok: r.ok, data: await r.json() })),
       fetch('/api/fenshen/config', { cache: 'no-store' }).then(r => r.json()),
       fetch('/api/models', { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/approvals?project_id=${encodeURIComponent(projectId)}`, {
+        cache: 'no-store',
+      }).then(r => r.json()),
     ]);
     const p = (h?.projects ?? []).find((x: any) => x.id === projectId);
     if (p) setProjectName(p.name);
@@ -56,6 +66,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     setLead(memberRows.find((x: any) => x.is_lead)?.fenshen_id ?? memberRows[0]?.fenshen_id ?? '');
     setAllFenshen(Array.isArray(cfg?.fenshen) ? cfg.fenshen : []);
     setModels(Array.isArray(mods?.models) ? mods.models : []);
+    setApprovals(Array.isArray(appr?.approvals) ? appr.approvals : []);
     setArtifacts(Array.isArray(a?.artifacts) ? a.artifacts : []);
     setIssues(i.ok ? i.data?.issues ?? [] : []);
     setIssueError(i.ok ? null : i.data?.error ?? 'GitHub unavailable');
@@ -103,6 +114,36 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     } finally {
       setSending(false);
     }
+  }
+
+  async function createApproval() {
+    const title = newTitle.trim();
+    if (!title) return;
+    setApprovalMsg(null);
+    const r = await fetch('/api/approvals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ project_id: projectId, title, description: newDesc }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setApprovalMsg(r.ok ? '已提交，等待 ADR/批准' : `失败：${d.error ?? r.status}`);
+    if (r.ok) {
+      setNewTitle('');
+      setNewDesc('');
+      await load();
+    }
+  }
+
+  async function actApproval(id: number, action: string, extra?: Record<string, unknown>) {
+    setApprovalMsg(null);
+    const r = await fetch('/api/approvals', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, action, ...extra }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setApprovalMsg(r.ok ? '已更新' : `失败：${d.error ?? r.status}`);
+    if (r.ok) await load();
   }
 
   async function saveMembers() {
@@ -266,6 +307,98 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                   </button>
                 </div>
               </div>
+            </div>
+          )}
+
+          {tab === 'approvals' && (
+            <div className="space-y-4">
+              <div className="rounded-xl border border-stone-200 bg-white p-4">
+                <h2 className="mb-1 text-sm font-semibold text-stone-600">审批流</h2>
+                <p className="mb-3 text-[11px] text-stone-400">
+                  proposed → ADR → approved → implementing → done；未批准的 id 不能用于 push_to_dev。
+                </p>
+                <div className="flex flex-col gap-2">
+                  <input
+                    value={newTitle}
+                    onChange={e => setNewTitle(e.target.value)}
+                    placeholder="工作项标题"
+                    className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm"
+                  />
+                  <textarea
+                    value={newDesc}
+                    onChange={e => setNewDesc(e.target.value)}
+                    placeholder="要做什么、为什么"
+                    rows={2}
+                    className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm"
+                  />
+                  <button
+                    onClick={createApproval}
+                    disabled={!newTitle.trim()}
+                    className="self-start rounded-lg bg-stone-800 px-4 py-1.5 text-sm text-white disabled:opacity-40"
+                  >
+                    提交提议
+                  </button>
+                  {approvalMsg && <span className="text-[11px] text-stone-500">{approvalMsg}</span>}
+                </div>
+              </div>
+              {approvals.length === 0 && (
+                <div className="text-[12px] text-stone-400">还没有审批项。</div>
+              )}
+              {approvals.map(a => (
+                <div key={a.id} className="rounded-xl border border-stone-200 bg-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="font-medium">#{a.id} {a.title}</div>
+                    <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] text-stone-600">
+                      {a.status}
+                    </span>
+                  </div>
+                  {a.description && <p className="mt-1 text-[12px] text-stone-500">{a.description}</p>}
+                  {a.adr && (
+                    <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-stone-50 p-2 text-[11px] text-stone-600">
+                      {a.adr}
+                    </pre>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {a.status === 'proposed' && (
+                      <>
+                        <textarea
+                          value={adrDraft[a.id] ?? ''}
+                          onChange={e => setAdrDraft(p => ({ ...p, [a.id]: e.target.value }))}
+                          placeholder="ADR / 技术方案"
+                          rows={2}
+                          className="w-full rounded-lg border border-stone-200 px-2 py-1 text-[12px]"
+                        />
+                        <button
+                          onClick={() => actApproval(a.id, 'adr', { adr: adrDraft[a.id] ?? '' })}
+                          disabled={!(adrDraft[a.id] ?? '').trim()}
+                          className="rounded bg-stone-800 px-3 py-1 text-[12px] text-white disabled:opacity-40"
+                        >
+                          提交 ADR
+                        </button>
+                        <button onClick={() => actApproval(a.id, 'reject')} className="rounded border border-stone-300 px-3 py-1 text-[12px]">驳回</button>
+                      </>
+                    )}
+                    {a.status === 'adr_ready' && (
+                      <>
+                        <button onClick={() => actApproval(a.id, 'approve')} className="rounded bg-emerald-700 px-3 py-1 text-[12px] text-white">批准</button>
+                        <button onClick={() => actApproval(a.id, 'reject')} className="rounded border border-stone-300 px-3 py-1 text-[12px]">驳回</button>
+                      </>
+                    )}
+                    {a.status === 'approved' && (
+                      <button onClick={() => actApproval(a.id, 'implement')} className="rounded bg-stone-800 px-3 py-1 text-[12px] text-white">开始实现</button>
+                    )}
+                    {a.status === 'implementing' && (
+                      <button onClick={() => actApproval(a.id, 'done')} className="rounded bg-stone-800 px-3 py-1 text-[12px] text-white">标记完成</button>
+                    )}
+                    {a.status === 'rejected' && (
+                      <button onClick={() => actApproval(a.id, 'reopen')} className="rounded border border-stone-300 px-3 py-1 text-[12px]">重新打开</button>
+                    )}
+                  </div>
+                  {a.approved_by && (
+                    <div className="mt-2 text-[10px] text-stone-400">approved by {a.approved_by}</div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
