@@ -60,3 +60,7 @@ collector/android/keystore.properties
 .next-staging/
 .next.prev/
 .next.failed/
+
+# Tauri Phase 0 runtime
+/desktop-runtime/
+/src-tauri/target/

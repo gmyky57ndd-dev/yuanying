@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-70] Tauri Phase 0 桌面壳 — Done (spike)
+
+- **Status**: Done (2026-11-12) · **Category**: Desktop / Tauri · **Refs**: blueprint v3, PR #121
+- **Shell**: Tauri v2 window → `127.0.0.1:3100/desktop`; Rust owns the Next standalone Node sidecar.
+- **Runtime**: official Node 22.14.0; `.env.local` copied for the local unsigned app; pruned to ~268 MB.
+- **Verified**: cold start 2.91s; webview established; port conflict exits 1; quit kills sidecar.
+- **Limits**: ad-hoc signed, 279 MB, fixed port, no updater; SQLite local-first is Phase 2.
+- **Docs**: `docs/ops/TAURI-PHASE0.md`.
+
 ### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done
 
 - **Status**: Done (2026-11-11) · **Category**: Observability · **Refs**: #108, #115
