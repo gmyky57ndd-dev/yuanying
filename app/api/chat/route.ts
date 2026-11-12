@@ -37,6 +37,8 @@ import { askExternalAgent } from '@/lib/mcp-client';
 import { readMailbox, writeMailbox } from '@/lib/mailbox';
 import {
   recordSystemEvent,
+  recordToolEvent,
+  classifyStreamError,
   getRecentSystemEvents,
   describeEvent,
 } from '@/lib/system-events';
@@ -354,7 +356,7 @@ async function runTool(name: string, args: any): Promise<any> {
   }
 
   if (name === 'get_system_status') {
-    const events = await getRecentSystemEvents(5);
+    const events = await getRecentSystemEvents(10);
     const { data: cfgRows } = await supabase
       .from('config')
       .select('key, value')
@@ -372,9 +374,20 @@ async function runTool(name: string, args: any): Promise<any> {
       ])
     );
     const last = events[0] ?? null;
+    const lastFailure = events.find(e => e.status >= 400) ?? null;
     return {
       success: true,
       data: {
+        last_failure: lastFailure
+          ? {
+              at: lastFailure.ts,
+              route: lastFailure.route,
+              status: lastFailure.status,
+              duration_ms: lastFailure.duration_ms,
+              error: lastFailure.error,
+              diagnosis: describeEvent(lastFailure),
+            }
+          : null,
         last_event: last
           ? {
               at: last.ts,
@@ -391,6 +404,11 @@ async function runTool(name: string, args: any): Promise<any> {
           status: e.status,
           duration_ms: e.duration_ms,
           error: e.error,
+          diagnosis: describeEvent(e),
+          kind: (e.meta as any)?.kind ?? null,
+          tool: (e.meta as any)?.tool ?? null,
+          request_id: (e.meta as any)?.request_id ?? null,
+          error_type: (e.meta as any)?.error_type ?? null,
         })),
         collector: {
           version: collector.collector_version ?? null,
@@ -935,6 +953,7 @@ async function runToolSafely(name: string, args: Record<string, unknown>) {
 
 export async function POST(req: NextRequest) {
   const startTime = Date.now();
+  const requestId = randomUUID();
 
   try {
     const body = await req.json();
@@ -1026,7 +1045,12 @@ export async function POST(req: NextRequest) {
           t => t === id || t === name || name.includes(t) || t.includes(id)
         );
       });
-      const responder = mentioned ?? allowed.find((m: any) => m.is_lead) ?? allowed[0];
+      // An explicit fenshen selection wins over the room lead (the mobile
+      // selector sends fenshen_id; without this it was silently overridden).
+      const explicit = requestedFenshenId
+        ? allowed.find((m: any) => m.id === requestedFenshenId)
+        : undefined;
+      const responder = explicit ?? mentioned ?? allowed.find((m: any) => m.is_lead) ?? allowed[0];
       if (responder) requestFenshen = responder as any;
       console.log(
         `[room] project=${projectId} members=${roomMemberIds.join(',') || '(none)'} responder=${responder?.id ?? 'none'}`
@@ -1532,11 +1556,46 @@ ${bodyStatusReminder}`,
 
     let pushToDevResult: any = null;
     const streamData = new StreamData();
+    const toolTrace: string[] = [];
+    const modelLabel =
+      requestFenshen?.model_name ?? modelInfo?.id ?? 'global';
 
     const runToolForModel = async (
       name: string,
       args: Record<string, unknown>
-    ) => normalizeToolResult(name, await runToolSafely(name, args), verboseTools);
+    ) => {
+      const started = Date.now();
+      toolTrace.push(name);
+      try {
+        const raw = await runToolSafely(name, args);
+        const result = normalizeToolResult(name, raw, verboseTools);
+        await recordToolEvent({
+          request_id: requestId,
+          tool: name,
+          args,
+          duration_ms: Date.now() - started,
+          ok: result?.success !== false,
+          error: result?.success === false ? result?.error ?? 'tool failed' : null,
+          error_type: result?.success === false ? 'tool_error' : null,
+          fenshen_id: requestFenshen?.id ?? null,
+          model: modelLabel,
+        });
+        return result;
+      } catch (e) {
+        await recordToolEvent({
+          request_id: requestId,
+          tool: name,
+          args,
+          duration_ms: Date.now() - started,
+          ok: false,
+          error: e instanceof Error ? e.message : 'tool failed',
+          error_type: 'tool_error',
+          fenshen_id: requestFenshen?.id ?? null,
+          model: modelLabel,
+        });
+        throw e;
+      }
+    };
 
     let writeResult: any = null;
     let writeFileResult: any = null;
@@ -1957,6 +2016,11 @@ ${bodyStatusReminder}`,
       `[fenshen] ${requestFenshen?.id ?? 'default'} has_all_tools=${useAllTools} active_tools=${Object.keys(activeTools).length}`
     );
     const canWriteMarkdown = !!(activeTools as Record<string, unknown>).write_markdown;
+    // #108: an explicit "call <tool>" request that produces no tool call is a
+    // silent failure worth recording (not a normal mention of the tool).
+    const expectedTool = /(调用|使用|call\s+|use\s+)/i.test(message)
+      ? Object.keys(activeTools).find((t) => message.includes(t))
+      : undefined;
 
     const result = streamText({
       model,
@@ -1982,11 +2046,19 @@ ${bodyStatusReminder}`,
           status: 500,
           duration_ms: Date.now() - startTime,
           error: streamError,
-          meta: { stage: 'stream' },
+          meta: {
+            stage: 'stream',
+            kind: 'request',
+            request_id: requestId,
+            fenshen_id: requestFenshen?.id ?? null,
+            model: modelLabel,
+            tools_count: Object.keys(activeTools).length,
+            error_type: classifyStreamError(streamError),
+          },
         });
         streamData.close().catch(() => {});
       },
-      onFinish: async ({ text, finishReason }) => {
+      onFinish: async ({ text, finishReason, usage }) => {
         let reply = text.trim();
         if (!reply) {
           console.warn('empty model reply', {
@@ -2073,10 +2145,23 @@ ${bodyStatusReminder}`,
           reply = textual.text;
           for (const call of textual.calls.slice(0, 2)) {
             if (!toolSet[call.name]) {
+              await recordSystemEvent({
+                route: '/api/chat/tool',
+                status: 403,
+                error: `tool not permitted: ${call.name}`,
+                meta: {
+                  kind: 'tool',
+                  request_id: requestId,
+                  tool: call.name,
+                  ok: false,
+                  error_type: 'whitelist_denied',
+                  fenshen_id: requestFenshen?.id ?? null,
+                },
+              });
               reply = `${reply}\n（未执行 ${call.name}：该工具不在当前分身的权限内）`.trim();
               continue;
             }
-            const toolResult = await runToolSafely(call.name, call.args);
+            const toolResult = await runToolForModel(call.name, call.args);
             console.log(
               `[textual tool] ${call.name} -> ${toolResult?.success === false ? 'error' : 'ok'}`
             );
@@ -2220,15 +2305,59 @@ ${bodyStatusReminder}`,
 
         if (insErr) console.error('insert failed:', insErr);
 
+        const streamErrorType = classifyStreamError(streamError);
+        const silentWrite =
+          (writeIntent || localWriteIntent || docWriteIntentEarly) &&
+          !writeResult &&
+          !writeFileResult &&
+          !pushToDevResult;
+        const missedTool =
+          !!expectedTool && !toolTrace.includes(expectedTool);
+        const emptyStream = !text.trim() && toolTrace.length === 0;
+        const errorType =
+          streamErrorType ??
+          (silentWrite || missedTool
+            ? 'no_tool_call'
+            : emptyStream
+              ? 'empty_stream'
+              : finishReason === 'length'
+                ? 'truncated'
+                : undefined);
+        const eventStatus =
+          streamErrorType === 'timeout'
+            ? 504
+            : streamError || silentWrite || missedTool
+              ? 500
+              : 200;
+
         await recordSystemEvent({
           route: '/api/chat',
-          status: streamError ? 500 : 200,
+          status: eventStatus,
           duration_ms: Date.now() - startTime,
-          error: streamError,
+          error:
+            streamError ??
+            (silentWrite
+              ? 'write intent without tool call'
+              : missedTool
+                ? `expected tool ${expectedTool} but no tool call`
+                : null),
           meta: {
-            empty_reply: !text.trim(),
+            kind: 'request',
+            request_id: requestId,
+            fenshen_id: requestFenshen?.id ?? null,
+            model: modelLabel,
+            tools_count: Object.keys(activeTools).length,
+            expected_tool: expectedTool ?? null,
+            tool_calls: toolTrace,
+            tokens: usage ?? null,
+            finish_reason: finishReason,
+            truncated: finishReason === 'length',
+            empty_reply: !reply.trim(),
+            empty_stream: emptyStream,
+            silent_write: silentWrite,
             retried,
             tool_turn: !!pushToDevResult,
+            error_type: errorType ?? null,
           },
         });
 

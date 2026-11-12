@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done
+
+- **Status**: Done (2026-11-11) · **Category**: Observability · **Refs**: #108, #115
+- **Request events**: `request_id, fenshen_id, model, tools_count, tool_calls[], tokens, finish_reason, empty_stream, silent_write, error_type`.
+- **Tool events**: `/api/chat/tool` with tool, args summary, duration, ok/error, error_type; private text redacted to `<redacted:N>`.
+- **Error classes**: `timeout` (504), `empty_stream`, `no_tool_call`, `truncated`, `tool_error`, `whitelist_denied`.
+- **Status tool**: `get_system_status` returns recent 10 with per-event diagnosis, plus `last_failure`.
+- **Verified**: tool request logged (`read_markdown`, 3ms); zero-tool probe logged `tools_count=0, tool_calls=[]`; status tool returned recent events; 54 tests pass.
+
 ### [P2-65] 全局工具访问 + 硬工具调用 (ES-082) — Done
 
 - **Status**: Done (2026-11-11, merged #98) · **Category**: Backend · **Refs**: ES-082
