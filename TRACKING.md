@@ -222,6 +222,14 @@ never by the section they happened to be written under.
 - **Limits**: ad-hoc signed, 276 MB, fixed port, no updater; SQLite local-first is Phase 2.
 - **Docs**: `docs/ops/TAURI-PHASE0.md`.
 
+### [P2-69] “Failed to fetch” 网络/超时修复 (ES-084) — In Progress
+
+- **Status**: In Progress (2026-11-12) · **Category**: Network / Streaming · **Refs**: ES-084
+- **SSE keep-alive**: `/api/chat` appends `{type:'keepalive'}` every 5s; headers `no-cache/no-transform`, `X-Accel-Buffering: no`, `Connection: keep-alive`; `maxDuration=120`.
+- **Client retry**: `postChat` retries network/504 **before any text** 3× (1s/2s), 180s per attempt; UI shows 「网络波动，正在重连…」. Partial replies are not replayed.
+- **Verified**: long plan request streamed 1,519 chars with 1 keepalive (5s interval) and the new headers; `npm test` 54 pass.
+- **Pending**: weak-network/phone test of the retry path; gateway has no configurable idle timeout (Funnel), Vercel paused (INC-001).
+
 ### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done
 
 - **Status**: Done (2026-11-11) · **Category**: Observability · **Refs**: #108, #115
@@ -290,7 +298,7 @@ never by the section they happened to be written under.
 
 ### [P2-59] P0 数据可信度 + 反馈闭环 (ES-080) — In Progress
 
-- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-084, #8, ES-082
+- **Status**: In Progress (2026-11-08) · **Category**: Data integrity / UX · **Refs**: ES-088, #8, ES-082
 - **Steps**: collector now uses Health Connect `COUNT_TOTAL` aggregate (de-dupes overlapping intervals across origins); per-origin audit kept; fallback `max_per_origin`; **v1.0.45**.
 - **Water**: `/api/reminder/act` backfills the habit signal with `source=reminder` (2-min dedupe); verified with a temp reminder.
 - **Disclaimer**: chat + summary prompts require 「（当前步数数据可能存在偏差）」 when steps are merged/partial.

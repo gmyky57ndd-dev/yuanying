@@ -46,7 +46,7 @@ import {
 const LOCAL_RAG_URL = (process.env.LOCAL_RAG_URL ?? 'http://localhost:8080').replace(/\/+$/, '');
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -1615,6 +1615,15 @@ ${bodyStatusReminder}`,
 
     let pushToDevResult: any = null;
     const streamData = new StreamData();
+    // ES-084: keep-alive so a proxy/SSE hop cannot drop a silent long think.
+    const heartbeat = setInterval(() => {
+      try {
+        streamData.append({ type: 'keepalive', at: Date.now() });
+      } catch {
+        // stream already closed
+      }
+    }, 5000);
+    const stopHeartbeat = () => clearInterval(heartbeat);
     const toolTrace: string[] = [];
     const modelLabel =
       requestFenshen?.model_name ?? modelInfo?.id ?? 'global';
@@ -2129,6 +2138,7 @@ ${bodyStatusReminder}`,
           ? Math.max(parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'), 3000)
           : parseInt(process.env.DEEPSEEK_MAX_TOKENS ?? '800'),
       onError: ({ error }) => {
+        stopHeartbeat();
         console.error('model stream error:', error);
         streamError = error instanceof Error ? error.message : String(error);
         void recordSystemEvent({
@@ -2451,6 +2461,7 @@ ${bodyStatusReminder}`,
           },
         });
 
+        stopHeartbeat();
         await streamData.close();
         console.log(`chat ok in ${Date.now() - startTime}ms`);
       },
@@ -2458,6 +2469,11 @@ ${bodyStatusReminder}`,
 
     return result.toDataStreamResponse({
       data: streamData,
+      headers: {
+        'Cache-Control': 'no-cache, no-transform',
+        'X-Accel-Buffering': 'no',
+        Connection: 'keep-alive',
+      },
       getErrorMessage: e =>
         e instanceof Error ? e.message : 'model request failed',
     });

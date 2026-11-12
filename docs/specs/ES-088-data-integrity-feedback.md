@@ -1,4 +1,4 @@
-# ES-084 — P0: Data Integrity & Feedback Loop UX
+# ES-088 — P0: Data Integrity & Feedback Loop UX
 
 - **Status:** In Progress (owner device verification pending). **Tracking:** P2-59.
 - **Refs:** #8, ES-079 (previous data work), ES-082.
