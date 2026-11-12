@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const { data, error } = await supabase
     .from('fenshen')
-    .select('id, display_name, prompt_md, tools_whitelist, model_name, kind, avatar_url')
+    .select('id, display_name, prompt_md, tools_whitelist, model_name, kind, avatar_url, enabled, has_all_tools')
     .order('id');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ fenshen: data ?? [], tools: ALL_TOOL_NAMES });
@@ -24,6 +24,10 @@ export async function PUT(req: NextRequest) {
 
     const patch: Record<string, unknown> = {};
     if (typeof body?.prompt_md === 'string') patch.prompt_md = body.prompt_md;
+    if (typeof body?.enabled === 'boolean') patch.enabled = body.enabled;
+    if (typeof body?.has_all_tools === 'boolean') {
+      patch.has_all_tools = body.has_all_tools;
+    }
     if ('model_name' in (body ?? {})) {
       const value = body.model_name;
       if (value === null || value === '') {
@@ -65,7 +69,7 @@ export async function PUT(req: NextRequest) {
       .from('fenshen')
       .update(patch)
       .eq('id', id)
-      .select('id, display_name, tools_whitelist, model_name')
+      .select('id, display_name, tools_whitelist, model_name, enabled, has_all_tools')
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ fenshen: data });
