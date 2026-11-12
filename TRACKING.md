@@ -208,9 +208,9 @@ never by the section they happened to be written under.
 
 - **Status**: Done (2026-11-12) · **Category**: Desktop / Tauri · **Refs**: blueprint v3, PR #121
 - **Shell**: Tauri v2 window → `127.0.0.1:3100/desktop`; Rust owns the Next standalone Node sidecar.
-- **Runtime**: official Node 22.14.0; `.env.local` copied for the local unsigned app; pruned to ~268 MB.
-- **Verified**: cold start 2.91s; webview established; port conflict exits 1; quit kills sidecar.
-- **Limits**: ad-hoc signed, 279 MB, fixed port, no updater; SQLite local-first is Phase 2.
+- **Runtime**: official Node 22.14.0; `.env.local` copied for the local unsigned app; pruned to ~265 MB.
+- **Verified**: cold start 1.1–2.1s warm (3.7s first); webview established; port conflict exits 1; quit kills sidecar.
+- **Limits**: ad-hoc signed, 276 MB, fixed port, no updater; SQLite local-first is Phase 2.
 - **Docs**: `docs/ops/TAURI-PHASE0.md`.
 
 ### [P2-67] Events Logger 全链路埋点 (#108/#115) — Done

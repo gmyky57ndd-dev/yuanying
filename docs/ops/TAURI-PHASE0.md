@@ -8,7 +8,8 @@ A thin macOS shell that owns a local Next.js server and points its webview at
 - Rust shell: `src-tauri/src/main.rs`
 - Config: `src-tauri/tauri.conf.json`
 - Runtime builder: `scripts/tauri-build-runtime.sh`
-- Build: `npm run tauri:build` (or `npx tauri build --bundles app`)
+- Build: `npm run tauri:build`; it builds in a temp project copy so the live
+  bridge on :3000 is never disrupted.
 
 ## Build details
 
@@ -16,7 +17,7 @@ A thin macOS shell that owns a local Next.js server and points its webview at
 - Official Node **v22.14.0** binary (Homebrew Node links `libnode` dynamically
   and cannot be copied alone)
 - Runtime pruned to server + `.next` + `node_modules` + `core` + `public`
-  (~268 MB; app ~279 MB)
+  (~265 MB; app ~276 MB)
 - `.env.local` is copied into the bundle (local unsigned app only; never share
   the `.app`)
 
@@ -31,11 +32,11 @@ A thin macOS shell that owns a local Next.js server and points its webview at
 ## Verified (Phase 0, 2026-11-12)
 
 ```
-cold start (open → /api/health 200): 2.91s
+cold start (open → /api/health 200): 1.1–2.1s warm; 3.7s first after rebuild
 webview connected: 127.0.0.1:50782 -> 127.0.0.1:3100 (ESTABLISHED)
 port conflict: exit 1, clear message
 quit: app=0 node=0, port 3100 free
-.app: src-tauri/target/release/bundle/macos/Yuanying.app (279 MB, ad-hoc signed)
+.app: src-tauri/target/release/bundle/macos/Yuanying.app (276 MB, ad-hoc signed)
 ```
 
 ## Not in Phase 0
