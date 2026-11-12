@@ -52,9 +52,18 @@ Verified: note/steps/config/chat writes appeared in SQLite; counts moved
   `propose_work`/`submit_adr`.
 - Verified new goal/approval rows appear in SQLite.
 
+## Outbox / sync worker
+
+- `outbox` table in SQLite for offline writes; `/api/note`, `/api/config`,
+  `/api/steps` queue on Supabase failure and still return `queued: true`.
+- `/api/sync/flush` (CRON_SECRET) + `scripts/sync-outbox.sh`; launchd
+  `com.yuanying.sync` every 60s.
+- Verified: inserted a config outbox row → `processed 1`, cloud value `synced`,
+  pending 0; launchd run exit 0.
+
 ## Not yet
 
-- Conflict resolution / sync worker; Supabase remains authoritative.
+- Conflict resolution / pull sync; Supabase remains authoritative for cloud-originated rows.
 - Full repository abstraction (routes still call Supabase first).
 - Tauri app uses the same DB path and starts with `node:sqlite` (274 MB app).
 

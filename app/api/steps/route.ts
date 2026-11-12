@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { mirrorSignal } from '@/lib/local-write';
+import { enqueueOutbox } from '@/lib/outbox';
 import { supabase } from '@/lib/db';
 import { getTodayRange, getConfigTimezone } from '@/lib/timezone';
 
@@ -66,7 +67,21 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      mirrorSignal({
+        id: null,
+        name: 'steps',
+        value: steps,
+        context: stepsContext,
+        source: 'passive',
+      });
+      enqueueOutbox('signal', 'insert', {
+        name: 'steps',
+        type: 'count',
+        value: steps,
+        context: stepsContext,
+        source: 'passive',
+      });
+      return NextResponse.json({ ok: true, queued: true });
     }
     mirrorSignal({
       id: data?.id ?? null,

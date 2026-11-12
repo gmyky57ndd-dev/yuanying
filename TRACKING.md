@@ -212,7 +212,8 @@ never by the section they happened to be written under.
 - **Dual-write**: note, steps, config PUT, chat final insert; verified counts and a probe key.
 - **Reads/fallback**: `/api/history`, `/api/config`, `/api/hub` fall back to SQLite on Supabase error; `?local=1` forces local. Verified local history/config/hub.
 - **Writes**: goals, approvals, project docs, member maps, chat actions/approvals mirrored. Verified new goal/approval rows.
-- **Not yet**: sync worker/conflict rules; full repository abstraction.
+- **Outbox/sync**: `outbox` table; note/config/steps queue on Supabase failure; `/api/sync/flush` + launchd 60s. Verified config probe processed 1, cloud value synced.
+- **Not yet**: pull sync/conflict rules; full repository abstraction.
 - **Docs**: `docs/planning/PHASE2-SQLITE.md`.
 
 ### [P2-71] Phase 1 桌面产品面 (ES-080/081 + Phase 1) — In Progress

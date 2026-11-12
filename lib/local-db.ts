@@ -99,6 +99,15 @@ create table if not exists fenshen (
   has_all_tools integer,
   enabled integer
 );
+create table if not exists outbox (
+  id integer primary key autoincrement,
+  entity text not null,
+  op text not null,
+  payload text not null,
+  attempts integer not null default 0,
+  last_error text,
+  created_at text not null
+);
 create table if not exists project_fenshen_map (
   project_id text not null,
   fenshen_id text not null,
