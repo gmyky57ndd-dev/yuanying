@@ -36,12 +36,27 @@ db 2.2 MB
 Verified: note/steps/config/chat writes appeared in SQLite; counts moved
 1156→1158 messages, 3059→3060 signals, 20→21 config.
 
+## Local reads / fallback (step 2)
+
+- `/api/history`, `/api/config`, `/api/hub` fall back to SQLite when Supabase
+  returns an error; each also supports `?local=1` for an explicit local read.
+- `local-read.ts` serves messages/config/hub (projects, goals, activity, docs,
+  wiki, steps/water/sleep) from SQLite.
+- Verified: `history?local=1` → 2 rows; `config?local=1` → 22 keys;
+  `hub?local=1&project_id=bwp` → 3 projects / 8 activity / 2 docs.
+
+## Remaining writes mirrored
+
+- `goals` POST/PATCH/DELETE, `approvals` POST/PATCH, project docs POST,
+  project member PUT (replace), chat `plan_actions`/`complete_action`/
+  `propose_work`/`submit_adr`.
+- Verified new goal/approval rows appear in SQLite.
+
 ## Not yet
 
-- Reads still use Supabase; no offline fallback.
-- `goals` / `workpad_actions` / `approvals` writes are not mirrored yet.
-- No sync worker / conflict resolution; Supabase remains authoritative.
-- Tauri app uses the same DB path and starts with `node:sqlite` (273 MB app).
+- Conflict resolution / sync worker; Supabase remains authoritative.
+- Full repository abstraction (routes still call Supabase first).
+- Tauri app uses the same DB path and starts with `node:sqlite` (274 MB app).
 
 ## Next
 

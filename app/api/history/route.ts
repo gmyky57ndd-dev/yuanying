@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { getConfigTimezone, getTodayRange } from '@/lib/timezone';
+import { localHistory, localConfig } from '@/lib/local-read';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,6 +22,20 @@ export async function GET(req: NextRequest) {
   );
   const todayOnly = url.searchParams.get('today') === '1';
   const projectId = url.searchParams.get('project_id')?.trim();
+  const forceLocal = url.searchParams.get('local') === '1';
+
+  if (forceLocal) {
+    let tz = (localConfig().timezone as string) || 'America/Detroit';
+    try {
+      tz = await getConfigTimezone();
+    } catch {
+      // local only
+    }
+    return NextResponse.json({
+      messages: localHistory({ limit, projectId, todayOnly, timezone: tz }),
+      local: true,
+    });
+  }
 
   let query = supabase
     .from('messages')
@@ -43,7 +58,21 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    // Phase 2: Supabase unreachable → serve the local mirror.
+    console.warn('history: falling back to local SQLite', error.message);
+    let tz = 'America/Detroit';
+    try {
+      tz = await getConfigTimezone();
+    } catch {
+      tz = (localConfig().timezone as string) || tz;
+    }
+    const local = localHistory({
+      limit,
+      projectId,
+      todayOnly,
+      timezone: tz,
+    });
+    return NextResponse.json({ messages: local, local: true });
   }
 
   // Newest-first from the query; reverse to chronological for the UI.

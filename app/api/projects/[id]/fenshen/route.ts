@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { mirrorProjectMembers } from '@/lib/local-write';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -48,6 +49,7 @@ export async function PUT(
       ids.map(id => ({ project_id: projectId, fenshen_id: id, is_lead: id === lead }))
     );
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    mirrorProjectMembers(projectId, ids, lead);
     return NextResponse.json({ ok: true, project_id: projectId, members: ids, lead });
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });

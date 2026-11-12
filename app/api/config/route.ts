@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
 import { mirrorConfig } from '@/lib/local-write';
+import { localConfig } from '@/lib/local-read';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (new URL(req.url).searchParams.get('local') === '1') {
+    return NextResponse.json({ ...localConfig(), local: true });
+  }
   const { data, error } = await supabase.from('config').select('*');
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    console.warn('config: falling back to local SQLite', error.message);
+    return NextResponse.json({ ...localConfig(), local: true });
   }
 
   const config = Object.fromEntries(

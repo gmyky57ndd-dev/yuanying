@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { mirrorGoal, mirrorDelete } from '@/lib/local-write';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +33,7 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (data) mirrorGoal(data as any);
     return NextResponse.json({ goal: data });
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
@@ -63,6 +65,7 @@ export async function PATCH(req: NextRequest) {
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (data) mirrorGoal(data as any);
     return NextResponse.json({ goal: data });
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });
@@ -76,5 +79,6 @@ export async function DELETE(req: NextRequest) {
   }
   const { error } = await supabase.from('goals').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  mirrorDelete('goals', id);
   return NextResponse.json({ ok: true });
 }

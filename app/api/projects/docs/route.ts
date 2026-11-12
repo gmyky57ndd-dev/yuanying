@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
+import { mirrorProjectDoc } from '@/lib/local-write';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
       .select('name, updated_at, length(content) as chars')
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    mirrorProjectDoc({ project_id: projectId, name, content });
     return NextResponse.json({ doc: data });
   } catch {
     return NextResponse.json({ error: 'invalid JSON' }, { status: 400 });

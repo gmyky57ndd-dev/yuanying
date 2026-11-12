@@ -210,7 +210,9 @@ never by the section they happened to be written under.
 - **DB**: `~/yuanying/yuanying.db` (WAL, `node:sqlite`); tables for messages/signals/config/projects/docs/goals/actions/approvals/fenshen/maps.
 - **Backfill**: `scripts/sqlite-backfill.mjs`; 1,156 messages / 3,059 signals / 20 config / 5 fenshen.
 - **Dual-write**: note, steps, config PUT, chat final insert; verified counts and a probe key.
-- **Not yet**: local reads/offline fallback, remaining writes, sync/conflict rules.
+- **Reads/fallback**: `/api/history`, `/api/config`, `/api/hub` fall back to SQLite on Supabase error; `?local=1` forces local. Verified local history/config/hub.
+- **Writes**: goals, approvals, project docs, member maps, chat actions/approvals mirrored. Verified new goal/approval rows.
+- **Not yet**: sync worker/conflict rules; full repository abstraction.
 - **Docs**: `docs/planning/PHASE2-SQLITE.md`.
 
 ### [P2-71] Phase 1 桌面产品面 (ES-080/081 + Phase 1) — In Progress

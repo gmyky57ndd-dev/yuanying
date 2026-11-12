@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { buildSystemPrompt, getActiveFenshen } from '@/lib/yuanying';
 import { ALL_TOOL_NAMES } from '@/lib/tool-names';
 import { getOnboarding, getPendingActions, getProjectIssues } from '@/lib/workpad';
-import { mirrorMessages } from '@/lib/local-write';
+import { mirrorMessages, mirrorAction, mirrorApproval } from '@/lib/local-write';
 import { supabase } from '@/lib/db';
 import {
   getTodayRange,
@@ -187,9 +187,10 @@ async function runTool(name: string, args: any): Promise<any> {
         description: description.slice(0, 4000),
         created_by: 'ai_pm',
       })
-      .select('id, status, title')
+      .select('*')
       .single();
     if (error) return { success: false, error: error.message };
+    mirrorApproval(data as any);
     return { success: true, data };
   }
 
@@ -204,10 +205,11 @@ async function runTool(name: string, args: any): Promise<any> {
       .update({ adr: adr.slice(0, 12000), status: 'adr_ready', updated_at: new Date().toISOString() })
       .eq('id', id)
       .in('status', ['proposed', 'adr_ready'])
-      .select('id, status, title')
+      .select('*')
       .maybeSingle();
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: 'approval not found or not in proposed state' };
+    mirrorApproval(data as any);
     return { success: true, data };
   }
 
@@ -712,8 +714,9 @@ async function runTool(name: string, args: any): Promise<any> {
           description: description.trim().slice(0, 500),
         }))
       )
-      .select('id, description, status');
+      .select('*');
     if (error) return { success: false, error: error.message };
+    for (const row of data ?? []) mirrorAction(row as any);
     return { success: true, data: { project_id: pid, actions: data ?? [] } };
   }
 
@@ -732,10 +735,11 @@ async function runTool(name: string, args: any): Promise<any> {
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select('id, project_id, description, status, result_ref')
+      .select('*')
       .maybeSingle();
     if (error) return { success: false, error: error.message };
     if (!data) return { success: false, error: `action not found: ${id}` };
+    mirrorAction(data as any);
     return { success: true, data };
   }
 
