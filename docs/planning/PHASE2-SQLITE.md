@@ -61,9 +61,19 @@ Verified: note/steps/config/chat writes appeared in SQLite; counts moved
 - Verified: inserted a config outbox row → `processed 1`, cloud value `synced`,
   pending 0; launchd run exit 0.
 
+## Pull sync (phone → desktop)
+
+- `lib/sync-pull.ts` pulls messages/signals incrementally (cursor in
+  `sync_state`), config fully (skips keys still in outbox), and small tables
+  (projects/docs/goals/actions/approvals/fenshen/maps) every run.
+- `/api/sync/pull` (CRON_SECRET); `sync-outbox.sh` does flush → pull.
+- Verified: phone message inserted in Supabase → pull returned 1 → appeared in
+  SQLite; cursors advanced. Second pull idempotent.
+
 ## Not yet
 
-- Conflict resolution / pull sync; Supabase remains authoritative for cloud-originated rows.
+- Full conflict resolution: config uses "outbox wins until flushed"; other
+  tables are cloud-wins (LWW by cloud updated_at).
 - Full repository abstraction (routes still call Supabase first).
 - Tauri app uses the same DB path and starts with `node:sqlite` (274 MB app).
 

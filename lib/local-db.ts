@@ -99,6 +99,10 @@ create table if not exists fenshen (
   has_all_tools integer,
   enabled integer
 );
+create table if not exists sync_state (
+  entity text primary key,
+  cursor text
+);
 create table if not exists outbox (
   id integer primary key autoincrement,
   entity text not null,
