@@ -1,6 +1,6 @@
 # ES-083 — Enforce “Action-First” Agent Loop
 
-- **Status:** In Progress (2026-11-11). **Tracking:** P2-66.
+- **Status:** Done (2026-11-11, merged #98). **Tracking:** P2-66.
 - **Numbering:** the RAG skeleton moved ES-083 → **ES-087**.
 
 ## 1. Rule (highest priority)

@@ -1,6 +1,6 @@
 # ES-082 — Global Tool Access & Hard Tool Call Enforcement
 
-- **Status:** In Progress (2026-11-11). **Tracking:** P2-65.
+- **Status:** Done (2026-11-11, merged #98). **Tracking:** P2-65.
 - **Numbering:** the evening pipeline moved ES-082 → **ES-086**.
 
 ## 1. Global tool access

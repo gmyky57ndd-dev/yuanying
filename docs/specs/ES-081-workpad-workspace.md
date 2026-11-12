@@ -1,6 +1,6 @@
 # ES-081 — Workpad: From Chatroom to True Workspace
 
-- **Status:** In Progress (2026-11-11). **Tracking:** P2-64.
+- **Status:** Done (2026-11-11, merged #98; on-device visual check pending). **Tracking:** P2-64.
 - **Numbering:** the morning-plan task moved from ES-081 to **ES-085**.
 
 ## 1. Diagnosis
