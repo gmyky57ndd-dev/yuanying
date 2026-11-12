@@ -33,8 +33,12 @@ function listWiki(limit = 8) {
 /** ES-080: one aggregate for the desktop hub (read-only). */
 export async function GET(req: NextRequest) {
   const projectId = new URL(req.url).searchParams.get('project_id')?.trim() || null;
-  if (new URL(req.url).searchParams.get('local') === '1') {
-    return NextResponse.json(localHub(projectId));
+  const source = new URL(req.url).searchParams.get('source');
+  if (source !== 'cloud') {
+    const local = localHub(projectId);
+    if ((local.projects?.length ?? 0) > 0) {
+      return NextResponse.json(local);
+    }
   }
   const tz = await getConfigTimezone();
   const { start, end } = getTodayRange(tz);

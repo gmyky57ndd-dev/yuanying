@@ -222,7 +222,9 @@ never by the section they happened to be written under.
 - **Reads/fallback**: `/api/history`, `/api/config`, `/api/hub` fall back to SQLite on Supabase error; `?local=1` forces local. Verified local history/config/hub.
 - **Writes**: goals, approvals, project docs, member maps, chat actions/approvals mirrored. Verified new goal/approval rows.
 - **Outbox/sync**: `outbox` table; note/config/steps queue on Supabase failure; `/api/sync/flush` + launchd 60s. Verified config probe processed 1, cloud value synced.
-- **Not yet**: pull sync/conflict rules; full repository abstraction.
+- **Pull sync**: `/api/sync/pull` pulls messages/signals by cursor, config (skipping pending outbox keys), and small tables; verified phone message → SQLite.
+- **Conflict**: config outbox-wins until flush; other tables cloud-wins (LWW).
+- **Local-first reads**: history/config/hub read SQLite first, cloud fallback; `?source=cloud` forces cloud; history returns remote ids.
 - **Docs**: `docs/planning/PHASE2-SQLITE.md`.
 
 ### [P2-71] Phase 1 桌面产品面 (ES-080/081 + Phase 1) — In Progress

@@ -31,7 +31,7 @@ export function localHistory(opts: {
 }) {
   const limit = Math.min(Math.max(opts.limit ?? 50, 1), 500);
   let sql =
-    'select id, role, content, created_at, metadata, responder_fenshen_id from messages';
+    'select id, remote_id, role, content, created_at, metadata, responder_fenshen_id from messages';
   const where: string[] = [];
   const params: unknown[] = [];
   if (opts.projectId) {
@@ -51,7 +51,7 @@ export function localHistory(opts: {
   return rows.reverse().map(r => {
     const meta = parseJson<Record<string, any>>(r.metadata, {});
     return {
-      id: Number(r.id),
+      id: Number(r.remote_id ?? r.id),
       role: r.role,
       content: r.content,
       created_at: r.created_at,
