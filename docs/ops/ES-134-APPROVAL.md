@@ -13,7 +13,7 @@
 - `submit_adr` / `POST /api/approvals` action `adr` → `adr_ready`
 - owner `approve` (only from `adr_ready`) → `approved`
 - owner `reject` → `rejected` (kept; `reopen` → `proposed`)
-- `push_to_dev` with `approval_id`:
+- `push_to_dev` **requires** an `approval_id`; no id is rejected:
   - only `approved` may create an issue;
   - issue created → `status=implementing`, `issue_number/url` backwritten;
   - `implementing` + issue number is idempotent (returns the same issue);
@@ -28,7 +28,8 @@
 
 ## Evidence
 
-- Unapproved (`proposed` #5) → `approval #5 is proposed; only 'approved' may push_to_dev`; GitHub search found 0 issues.
+- No `approval_id` → `approval_id required; only an owner-approved item may push_to_dev`; GitHub search found 0 issues.
+- Unapproved (`proposed` #5) → `approval #5 is proposed; only 'approved' may push_to_dev`; 0 issues.
 - Approved probe #6: created issue **#135**, status `implementing`, `issue_number=135`, `issue_url` backwritten.
 - Reject probe → `rejected`, `issue_number=null`, no issue.
 - #135 closed after validation; probe approval removed.
