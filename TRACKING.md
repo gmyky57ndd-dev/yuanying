@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-81] v0.02b GitHub API 写工具 — Done
+
+- **Status**: Done (2026-11-13) · **Refs**: approval #10
+- **Tools**: `git_commit` / `submit_pr` (DSH), GitHub REST only; no local `.git`.
+- **Guards**: approval approved/implementing; branch prefix; path denies `.git`/`.env`/secret/node_modules; PR base main only, no merge.
+- **Verified**: commit `ad4f2bf` on `agent/yuanying/10-v002b-test`; PR #152 created; test branch/PR closed+deleted; local git status unchanged.
+- **Next**: v0.02c runner (owner approval).
+
 ### [P2-80] v0.02a 只读日志工具 — Done
 
 - **Status**: Done (2026-11-13) · **Refs**: approval #9
