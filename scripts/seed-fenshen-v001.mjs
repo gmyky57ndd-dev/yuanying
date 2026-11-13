@@ -53,7 +53,7 @@ Owner 的需求先变成可追踪的事项，再交给拓维/阿构/DSH/司测/�
     id: 'dsh',
     display_name: 'DSH (Dev)',
     kind: 'professional',
-    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'get_project_status', 'git_commit', 'submit_pr'],
+    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'get_project_status', 'git_commit', 'submit_pr', 'write_code_file', 'run_terminal_command', 'run_test_suite'],
     prompt: `# DSH — 全栈工程师
 
 高效、沉默寡言、用代码和测试证据说话。不参与业务争论。
@@ -65,7 +65,7 @@ v0.01 未启用终端/git/部署工具；代码写入与 PR 通过现有本地�
     id: 'qa',
     display_name: '司测 (QA)',
     kind: 'professional',
-    tools: ['read_code_file', 'get_github_issue', 'create_bug_issue', 'get_project_status'],
+    tools: ['read_code_file', 'get_github_issue', 'create_bug_issue', 'get_project_status', 'run_test_suite'],
     prompt: `# 司测 — 质量保障工程师
 
 挑剔、找茬、极度抠细节。

@@ -18,6 +18,7 @@ import {
 import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 import { findOrCreateIssue, getIssue } from '@/lib/github';
 import { commitFile, openPullRequest } from '@/lib/github-write';
+import { writeCodeFile, runTerminalCommand, runTestSuite } from '@/lib/workspace-runner';
 import { enqueuePushToDev } from '@/lib/jobs';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
@@ -858,6 +859,30 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: true, data: await openPullRequest(args as any) };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'PR failed' };
+    }
+  }
+
+  if (name === 'write_code_file') {
+    try {
+      return { success: true, data: await writeCodeFile(args as any) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'write failed' };
+    }
+  }
+
+  if (name === 'run_terminal_command') {
+    try {
+      return { success: true, data: await runTerminalCommand(args as any) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'command failed' };
+    }
+  }
+
+  if (name === 'run_test_suite') {
+    try {
+      return { success: true, data: await runTestSuite(args as any) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'tests failed' };
     }
   }
 
@@ -2362,6 +2387,38 @@ ${bodyStatusReminder}`,
           draft: z.boolean().optional(),
         }),
         execute: async args => runToolForModel('submit_pr', args),
+      }),
+      write_code_file: tool({
+        description:
+          'v0.02c: write a code/text file inside ~/yuanying/workspace/<project> only. Relative path, code extensions, no .git/.env/secret/node_modules. Requires approved approval_id.',
+        parameters: z.object({
+          approval_id: z.number().int().positive(),
+          project_id: z.string(),
+          path: z.string().describe('relative path, e.g. src/hello.ts'),
+          content: z.string(),
+        }),
+        execute: async args => runToolForModel('write_code_file', args),
+      }),
+      run_terminal_command: tool({
+        description:
+          'v0.02c: run an allowlisted command (argv array, no shell) inside ~/yuanying/workspace/<project>. Allowed: node --version, pwd, ls, git status/diff, npm test, npm run test|lint|build, npm ci/install. Requires approved approval_id.',
+        parameters: z.object({
+          approval_id: z.number().int().positive(),
+          project_id: z.string(),
+          argv: z.array(z.string()).min(1).max(8).describe('e.g. ["npm","test"]'),
+          timeout_ms: z.number().int().min(1000).max(120000).optional(),
+        }),
+        execute: async args => runToolForModel('run_terminal_command', args),
+      }),
+      run_test_suite: tool({
+        description:
+          'v0.02c: run the workspace unit (npm test) or e2e (npm run test:e2e) suite. Requires approved approval_id.',
+        parameters: z.object({
+          approval_id: z.number().int().positive(),
+          project_id: z.string(),
+          suite: z.enum(['unit', 'e2e']).optional(),
+        }),
+        execute: async args => runToolForModel('run_test_suite', args),
       }),
       push_to_dev: tool({
         description:

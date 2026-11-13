@@ -215,11 +215,11 @@ export default function DesktopPage() {
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-semibold">v0.02 沙箱安全设计</h1>
                 <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] text-amber-800">
-                  v0.02b · GitHub API 已接入
+                  v0.02c · 代码/测试已接入
                 </span>
               </div>
               <p className="text-[12px] text-stone-500">
-                8 个高危工具的权限边界。v0.02b 已接入只读日志 + GitHub API 写；其余需分阶段批准。
+                8 个高危工具的权限边界。v0.02c 已接入只读日志 + GitHub API + workspace runner；部署/环境变量待批准。
                 审批 <b>#9</b> 在 Workpad → 审批 tab；批准前不新增任何高危工具。
               </p>
               <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white p-4">
@@ -231,9 +231,9 @@ export default function DesktopPage() {
                     {[
                       ['git_commit', '✅ v0.02b：GitHub API 建 branch/commit；不碰本地 .git', 'approval_id + issue'],
                       ['submit_pr', '✅ v0.02b：GitHub REST 建 PR；禁止 merge/force', 'approval_id + CI'],
-                      ['run_terminal_command', 'workspace 内 argv 白名单；无 shell/rm/sudo', '每次审批'],
-                      ['run_test_suite', '只允许 npm test / test:e2e 包装', 'approval_id'],
-                      ['write_code_file', 'workspace 内代码 + diff', 'diff 预览'],
+                      ['run_terminal_command', '✅ v0.02c：workspace 内 argv 白名单；无 shell/rm/sudo', 'approval_id'],
+                      ['run_test_suite', '✅ v0.02c：npm test / test:e2e 包装', 'approval_id'],
+                      ['write_code_file', '✅ v0.02c：workspace 内代码 + diff', 'approval_id'],
                       ['deploy_to_coolify', 'Coolify webhook；只在 UI 触发', 'Owner 红色弹窗'],
                       ['update_env_vars', '加密 + diff；日志脱敏', 'Owner 弹窗'],
                       ['read_server_logs', '只读 tail + 脱敏', '已接入（只读）'],

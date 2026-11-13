@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-82] v0.02c Workspace runner — Done
+
+- **Status**: Done (2026-11-13) · **Refs**: approval #11
+- **Tools**: `write_code_file`, `run_terminal_command`, `run_test_suite` (DSH); QA gets `run_test_suite`.
+- **Guards**: `~/yuanying/workspace/<project>` only; code extensions; no .git/.env/secret/node_modules; argv allowlist; execFile no shell; 120s/200KB; approval approved/implementing.
+- **Verified**: wrote `src/hello.ts`; `node --version`; `npm test` → exit 0; `bash -c rm` denied.
+- **Limits**: not full macOS sandbox/uid isolation yet; workspace+allowlist baseline. v0.02d deploy/env still pending.
+
 ### [P2-81] v0.02b GitHub API 写工具 — Done
 
 - **Status**: Done (2026-11-13) · **Refs**: approval #10
