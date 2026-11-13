@@ -219,22 +219,13 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!title) return { success: false, error: 'title required' };
     if (!body) return { success: false, error: 'body required' };
 
-    // Phase 1: when an approval id is supplied, the issue may only be created
-    // after the owner approved it (approved/implementing).
+    // #134: push_to_dev is approval-only. No approval id → no dev issue.
     const approvalId = Number(args?.approval_id);
-    const gateProjectId = String(args?.project_id ?? '').trim();
-    if (gateProjectId) {
-      const { data: gate } = await supabase
-        .from('projects')
-        .select('require_approval')
-        .eq('id', gateProjectId)
-        .maybeSingle();
-      if (gate?.require_approval === true && !(Number.isInteger(approvalId) && approvalId > 0)) {
-        return {
-          success: false,
-          error: `project ${gateProjectId} requires owner approval; pass an approved approval_id`,
-        };
-      }
+    if (!(Number.isInteger(approvalId) && approvalId > 0)) {
+      return {
+        success: false,
+        error: 'approval_id required; only an owner-approved item may push_to_dev',
+      };
     }
     let approval: {
       id: number;

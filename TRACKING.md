@@ -208,7 +208,7 @@ never by the section they happened to be written under.
 
 - **Status**: Done (2026-11-13) · **Category**: Workflow / Approval
 - **Model**: `approvals` → `work_approvals`, `issue_number` added.
-- **Gate**: `push_to_dev` only from `approved`; success → `implementing` + issue number/url; no timeout queue for approval pushes.
+- **Gate**: `push_to_dev` requires an `approval_id`, only from `approved`; success → `implementing` + issue number/url; no timeout queue. No-id and proposed ids rejected with 0 issues.
 - **Verified**: proposed #5 rejected (no issue); approved probe #6 → issue #135, status implementing; reject probe → rejected.
 - **UI**: 审批 tab shows GitHub #issue link.
 - **Docs**: `docs/ops/ES-134-APPROVAL.md`.
