@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-77] #102 访问控制合并 + 语义修正 — In Progress
+
+- **Status**: In Progress (2026-11-13) · **Refs**: #102, #101, #111
+- **Canonical**: #102 merged #101/#111/#85/#94/#110/#128; #101 closed as implemented via `fenshen`.
+- **Fixes**: `tools_whitelist=[]` now means unrestricted (was 0 tools); `get_system_status` always added; room member select carries `has_all_tools` (was silently defaulting to all tools).
+- **Verified**: strict `["get_notes"]` → 2 tools (get_notes + get_system_status); strict `[]` → 33; default 33.
+- **Still**: `/api/chat/tool` bypass audit, full #102 acceptance.
+
 ### [P2-76] Human-in-the-loop 审批节点 (#134) — Done
 
 - **Status**: Done (2026-11-13) · **Category**: Workflow / Approval

@@ -1170,7 +1170,7 @@ export async function POST(req: NextRequest) {
       const { data: map } = await supabase
         .from('project_fenshen_map')
         .select(
-          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, enabled)'
+          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, enabled, has_all_tools)'
         )
         .eq('project_id', projectId)
         .order('is_lead', { ascending: false });
@@ -1518,9 +1518,13 @@ export async function POST(req: NextRequest) {
         : 'unknown';
     // ES-078: the authoritative tool list follows the active fenshen whitelist.
     // Tool names are shared with the fenshen config UI (lib/tool-names.ts).
-    const toolWhitelist = Array.isArray(requestFenshen?.tools_whitelist)
-      ? requestFenshen!.tools_whitelist
-      : null;
+    // #102: [] and null both mean "unrestricted" (owner decision); only a
+    // non-empty list turns on strict filtering.
+    const toolWhitelist =
+      Array.isArray(requestFenshen?.tools_whitelist) &&
+      requestFenshen!.tools_whitelist.length > 0
+        ? requestFenshen!.tools_whitelist
+        : null;
     // ES-082: full tool access by default; the whitelist only applies when
     // has_all_tools is explicitly false.
     const useAllTools = requestFenshen?.has_all_tools !== false;
@@ -1622,11 +1626,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const allowedToolNames = useAllTools
+    const baseAllowedToolNames = useAllTools
       ? ALL_TOOL_NAMES
       : toolWhitelist
         ? ALL_TOOL_NAMES.filter(name => toolWhitelist.includes(name))
         : ALL_TOOL_NAMES;
+    // #102: get_system_status is globally available, even in strict mode.
+    const allowedToolNames = baseAllowedToolNames.includes('get_system_status')
+      ? baseAllowedToolNames
+      : [...baseAllowedToolNames, 'get_system_status'];
     // ES-081: Workpad context — onboarding, open issues, pending actions.
     let onboarding = '';
     let pendingActions: Array<{ id: number; description: string; status: string }> = [];
