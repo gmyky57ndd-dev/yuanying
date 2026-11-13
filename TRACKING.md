@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-75] GitHub 锚定台账 (ES-085 / #130) — Done
+
+- **Status**: Done (2026-11-13) · **Category**: Workpad / Data integrity
+- **Schema**: `github_issue_number/url`; constraint pending/in_progress must have a number (verified insert rejected).
+- **Reconcile**: actions 13/15/16/17/18 linked to #102/#104/#105/#106/#107; #129 added and done; #128/#129 closed.
+- **plan_actions**: creates a GitHub issue per action before insert; failure writes no ledger row. Probe created #132, linked, then done on close.
+- **Sync**: `/api/sync/actions`; launchd 60s flush→pull→actions. #129 closed → action 20 done.
+- **UI**: Workpad「台账」tab with issue links/status.
+
 ### [P2-74] 群聊 @ 路由 + submit_adr 别名 + request_id 诊断 (#127) — Done
 
 - **Status**: Done (2026-11-12) · **Refs**: #127

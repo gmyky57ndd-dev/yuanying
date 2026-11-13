@@ -170,15 +170,17 @@ export function mirrorAction(row: {
   description: string;
   status: string;
   result_ref?: string | null;
+  github_issue_number?: number | null;
+  github_issue_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 }): void {
   try {
     getLocalDb()
       .prepare(
-        `insert into workpad_actions (id, project_id, description, status, result_ref, created_at, updated_at)
-         values (?, ?, ?, ?, ?, ?, ?)
-         on conflict(id) do update set description=excluded.description, status=excluded.status, result_ref=excluded.result_ref, updated_at=excluded.updated_at`
+        `insert into workpad_actions (id, project_id, description, status, result_ref, github_issue_number, github_issue_url, created_at, updated_at)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         on conflict(id) do update set description=excluded.description, status=excluded.status, result_ref=excluded.result_ref, github_issue_number=excluded.github_issue_number, github_issue_url=excluded.github_issue_url, updated_at=excluded.updated_at`
       )
       .run(
         row.id,
@@ -186,6 +188,8 @@ export function mirrorAction(row: {
         row.description,
         row.status,
         row.result_ref ?? null,
+        row.github_issue_number ?? null,
+        row.github_issue_url ?? null,
         row.created_at ?? null,
         row.updated_at ?? null
       );

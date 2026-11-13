@@ -71,6 +71,8 @@ create table if not exists workpad_actions (
   description text,
   status text,
   result_ref text,
+  github_issue_number integer,
+  github_issue_url text,
   created_at text,
   updated_at text
 );
@@ -127,6 +129,16 @@ export function getLocalDb(): DatabaseSync {
   db.exec('PRAGMA journal_mode = WAL;');
   db.exec('PRAGMA busy_timeout = 3000;');
   db.exec(SCHEMA);
+  // Existing DBs predate #130 columns; add them in place.
+  const actionCols = db.prepare('pragma table_info(workpad_actions)').all() as Array<{
+    name: string;
+  }>;
+  if (!actionCols.some(c => c.name === 'github_issue_number')) {
+    db.exec('alter table workpad_actions add column github_issue_number integer');
+  }
+  if (!actionCols.some(c => c.name === 'github_issue_url')) {
+    db.exec('alter table workpad_actions add column github_issue_url text');
+  }
   return db;
 }
 

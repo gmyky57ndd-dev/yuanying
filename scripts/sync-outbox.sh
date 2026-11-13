@@ -12,6 +12,12 @@ for port in 3000 3100; do
   if curl -fsS -m 30 -X POST "http://127.0.0.1:${port}/api/sync/flush" \
     -H "Authorization: Bearer ${SECRET}" -H 'Content-Type: application/json' -d '{}'; then
     echo
+    curl -fsS -m 60 -X POST "http://127.0.0.1:${port}/api/sync/pull" \
+      -H "Authorization: Bearer ${SECRET}" -H 'Content-Type: application/json' -d '{}'
+    echo
+    curl -fsS -m 60 -X POST "http://127.0.0.1:${port}/api/sync/actions" \
+      -H "Authorization: Bearer ${SECRET}" -H 'Content-Type: application/json' -d '{}'
+    echo
     exit 0
   fi
 done
