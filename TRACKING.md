@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-74] 群聊 @ 路由 + submit_adr 别名 + request_id 诊断 (#127) — Done
+
+- **Status**: Done (2026-11-12) · **Refs**: #127
+- **Mention routing**: match full display names (spaces/parentheses), ids and pre-"(" aliases; **first mention in message wins**; logs `[mention] tokens/candidates/picked`.
+- **Verified**: `@AI 架构师 @小悟` → ai_architect; `@小悟 @AI 架构师` → xiaowu; `@拓维` → ai_pm.
+- **submit_adr**: accepts `content` alias for `adr` (schema + branch); verified adr_ready.
+- **Diagnostics**: failure text includes `request_id=…（no_tool_call）`; stream response carries `X-Request-Id`.
+
 ### [P2-73] Phase 3 审批硬门禁 + Tauri secrets/signing — In Progress
 
 - **Status**: In Progress (2026-11-12) · **Category**: Workflow / Desktop
