@@ -204,6 +204,13 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-80] v0.02a 只读日志工具 — Done
+
+- **Status**: Done (2026-11-13) · **Refs**: approval #9
+- **Tool**: `read_server_logs` (devops whitelist): sources desktop/bridge/sync, max 500 lines, 256KB chunk, secret redaction.
+- **Verified**: devops active_tools=3; chat call returned bridge tail; no writes/arbitrary paths.
+- **Next**: v0.02b GitHub API git/PR (not started).
+
 ### [P2-79] v0.02 沙箱安全设计 — In Review
 
 - **Status**: In Review (2026-11-13) · **Refs**: #102, #134

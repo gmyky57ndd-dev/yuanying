@@ -29,6 +29,7 @@ export const ALL_TOOL_NAMES = [
   'complete_action',
   'get_project_status',
   'read_code_file',
+  'read_server_logs',
   'read_local_file',
   'write_local_file',
   'ingest_external_chat',

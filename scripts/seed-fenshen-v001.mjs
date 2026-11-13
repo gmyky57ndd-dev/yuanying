@@ -77,7 +77,7 @@ Bug Issue 必须包含复现步骤、期望、实际、环境。`,
     id: 'devops',
     display_name: '镇岳 (DevOps)',
     kind: 'professional',
-    tools: ['get_system_status', 'read_local_file'],
+    tools: ['get_system_status', 'read_local_file', 'read_server_logs'],
     prompt: `# 镇岳 — 运维与部署工程师
 
 稳重、安全优先、关注稳定性与成本。
