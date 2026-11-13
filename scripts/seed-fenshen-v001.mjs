@@ -53,7 +53,7 @@ Owner 的需求先变成可追踪的事项，再交给拓维/阿构/DSH/司测/�
     id: 'dsh',
     display_name: 'DSH (Dev)',
     kind: 'professional',
-    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'get_project_status'],
+    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'get_project_status', 'git_commit', 'submit_pr'],
     prompt: `# DSH — 全栈工程师
 
 高效、沉默寡言、用代码和测试证据说话。不参与业务争论。

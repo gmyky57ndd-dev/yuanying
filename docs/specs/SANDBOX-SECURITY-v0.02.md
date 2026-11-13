@@ -1,6 +1,6 @@
 # v0.02 沙箱安全设计（高危工具）
 
-**状态**: Owner 已批准（2026-11-13）。v0.02a（read_server_logs）已实现；其余未写代码。
+**状态**: Owner 已批准（2026-11-13）。v0.02a（read_server_logs）与 v0.02b（git_commit/submit_pr）已实现；其余未写代码。
 **范围**: 8 个未启用工具：`git_commit`、`submit_pr`、`run_terminal_command`、`run_test_suite`、`write_code_file`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`。
 
 ## 0. 原则
@@ -16,8 +16,8 @@
 
 | 工具 | 允许 | 禁止 | 确认 |
 |---|---|---|---|
-| `git_commit` | GitHub Contents API 创建 branch/commit | 本地 `.git`、force push、改 main | approval_id + issue |
-| `submit_pr` | REST 创建 PR（base/head/title/body） | merge、force、改保护分支 | approval_id + CI |
+| `git_commit` | ✅ v0.02b：GitHub Contents API 创建 branch/commit | 本地 `.git`、force push、改 main | approval_id + issue |
+| `submit_pr` | ✅ v0.02b：REST 创建 PR | merge、force、改保护分支 | approval_id + CI |
 | `run_terminal_command` | workspace 内命令白名单（argv） | shell 拼接、`rm`、`sudo`、`curl` 任意 URL | 每次审批/策略 |
 | `run_test_suite` | `npm test` / `npm run test:e2e` 包装 | 任意脚本、网络任意域名 | approval_id |
 | `write_code_file` | workspace 内代码文件、diff 预览 | `.git`、`.env`、密钥、绝对路径 | 写入前 diff |

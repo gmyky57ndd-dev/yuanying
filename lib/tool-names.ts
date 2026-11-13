@@ -37,6 +37,8 @@ export const ALL_TOOL_NAMES = [
   'ask_claude',
   'ask_external_agent',
   'push_to_dev',
+  'git_commit',
+  'submit_pr',
 ] as const;
 
 export type ToolName = (typeof ALL_TOOL_NAMES)[number];

@@ -533,7 +533,7 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 - 小悟：`get_project_status`、`plan_actions`、`propose_work`、`ask_owner`、`configure_fenshen`。只派活/催进度，不写代码、不改架构。
 - 拓维：`web_search`、`read_local_file`、`write_local_file`、`push_to_dev`、`get_github_issue`、`get_project_status`。只产出 PRD/需求 Issue。
 - 阿构：`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`。只产出 ADR/设计，不写实现。
-- DSH：`read_code_file`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`。只实现已批准 ADR。
+- DSH：`read_code_file`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`、`git_commit`、`submit_pr`（v0.02b，仅 GitHub REST，不碰本地 .git）。只实现已批准 ADR。
 - 司测：`read_code_file`、`get_github_issue`、`create_bug_issue`、`get_project_status`。只测/报 Bug，不改代码。
 - 镇岳：`get_system_status`、`read_local_file`、`read_server_logs`（v0.02a，只读脱敏）。生产发布必须 Owner 在 UI 明确确认。
 - 司书：`search_local_kb`、`read_local_file`、`write_local_file`、`web_search`。只做本地知识库。

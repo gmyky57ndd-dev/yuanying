@@ -17,6 +17,7 @@ import {
 } from '@/lib/timezone';
 import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 import { findOrCreateIssue, getIssue } from '@/lib/github';
+import { commitFile, openPullRequest } from '@/lib/github-write';
 import { enqueuePushToDev } from '@/lib/jobs';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
@@ -841,6 +842,22 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: true, data: { issue, action: data } };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'github error' };
+    }
+  }
+
+  if (name === 'git_commit') {
+    try {
+      return { success: true, data: await commitFile(args as any) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'git commit failed' };
+    }
+  }
+
+  if (name === 'submit_pr') {
+    try {
+      return { success: true, data: await openPullRequest(args as any) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'PR failed' };
     }
   }
 
@@ -2318,6 +2335,33 @@ ${bodyStatusReminder}`,
         }),
         execute: async ({ approval_id, adr, content }) =>
           runToolForModel('submit_adr', { approval_id, adr: adr ?? content }),
+      }),
+      git_commit: tool({
+        description:
+          'v0.02b: commit a file to a GitHub branch via REST API (never touches local .git). Requires approved approval_id; branch must be agent/…, feat/… or fix/…; secrets/.git/node_modules denied.',
+        parameters: z.object({
+          approval_id: z.number().int().positive(),
+          project_id: z.string(),
+          branch: z.string().describe('agent/<project>/<approval>-<slug>'),
+          path: z.string().describe('relative file path, e.g. src/foo.ts'),
+          content: z.string().describe('full file content'),
+          message: z.string().describe('commit message'),
+        }),
+        execute: async args => runToolForModel('git_commit', args),
+      }),
+      submit_pr: tool({
+        description:
+          'v0.02b: open a GitHub pull request via REST API from a branch; never merges, base must be main. Requires approved approval_id.',
+        parameters: z.object({
+          approval_id: z.number().int().positive(),
+          project_id: z.string(),
+          title: z.string(),
+          body: z.string(),
+          head: z.string().describe('agent/… branch name'),
+          base: z.string().optional().describe('only main'),
+          draft: z.boolean().optional(),
+        }),
+        execute: async args => runToolForModel('submit_pr', args),
       }),
       push_to_dev: tool({
         description:
