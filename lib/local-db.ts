@@ -85,6 +85,7 @@ create table if not exists approvals (
   status text,
   created_by text,
   approved_by text,
+  issue_number integer,
   issue_url text,
   created_at text,
   updated_at text,
@@ -138,6 +139,12 @@ export function getLocalDb(): DatabaseSync {
   }
   if (!actionCols.some(c => c.name === 'github_issue_url')) {
     db.exec('alter table workpad_actions add column github_issue_url text');
+  }
+  const approvalCols = db.prepare('pragma table_info(approvals)').all() as Array<{
+    name: string;
+  }>;
+  if (!approvalCols.some(c => c.name === 'issue_number')) {
+    db.exec('alter table approvals add column issue_number integer');
   }
   return db;
 }

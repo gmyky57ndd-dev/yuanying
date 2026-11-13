@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-76] Human-in-the-loop 审批节点 (#134) — Done
+
+- **Status**: Done (2026-11-13) · **Category**: Workflow / Approval
+- **Model**: `approvals` → `work_approvals`, `issue_number` added.
+- **Gate**: `push_to_dev` only from `approved`; success → `implementing` + issue number/url; no timeout queue for approval pushes.
+- **Verified**: proposed #5 rejected (no issue); approved probe #6 → issue #135, status implementing; reject probe → rejected.
+- **UI**: 审批 tab shows GitHub #issue link.
+- **Docs**: `docs/ops/ES-134-APPROVAL.md`.
+
 ### [P2-75] GitHub 锚定台账 (ES-085 / #130) — Done
 
 - **Status**: Done (2026-11-13) · **Category**: Workpad / Data integrity

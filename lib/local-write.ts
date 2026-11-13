@@ -133,6 +133,7 @@ export function mirrorApproval(row: {
   status: string;
   created_by?: string | null;
   approved_by?: string | null;
+  issue_number?: number | null;
   issue_url?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -141,9 +142,9 @@ export function mirrorApproval(row: {
   try {
     getLocalDb()
       .prepare(
-        `insert into approvals (id, project_id, title, description, adr, status, created_by, approved_by, issue_url, created_at, updated_at, approved_at)
-         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         on conflict(id) do update set title=excluded.title, description=excluded.description, adr=excluded.adr, status=excluded.status, approved_by=excluded.approved_by, approved_at=excluded.approved_at, updated_at=excluded.updated_at`
+        `insert into approvals (id, project_id, title, description, adr, status, created_by, approved_by, issue_number, issue_url, created_at, updated_at, approved_at)
+         values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         on conflict(id) do update set title=excluded.title, description=excluded.description, adr=excluded.adr, status=excluded.status, approved_by=excluded.approved_by, issue_number=excluded.issue_number, issue_url=excluded.issue_url, approved_at=excluded.approved_at, updated_at=excluded.updated_at`
       )
       .run(
         row.id,
@@ -154,6 +155,7 @@ export function mirrorApproval(row: {
         row.status,
         row.created_by ?? null,
         row.approved_by ?? null,
+        row.issue_number ?? null,
         row.issue_url ?? null,
         row.created_at ?? null,
         row.updated_at ?? null,

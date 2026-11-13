@@ -180,7 +180,7 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: false, error: 'project_id and title required' };
     }
     const { data, error } = await supabase
-      .from('approvals')
+      .from('work_approvals')
       .insert({
         project_id: pid,
         title: title.slice(0, 300),
@@ -201,7 +201,7 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: false, error: 'approval_id and adr required' };
     }
     const { data, error } = await supabase
-      .from('approvals')
+      .from('work_approvals')
       .update({ adr: adr.slice(0, 12000), status: 'adr_ready', updated_at: new Date().toISOString() })
       .eq('id', id)
       .in('status', ['proposed', 'adr_ready'])
@@ -236,19 +236,41 @@ async function runTool(name: string, args: any): Promise<any> {
         };
       }
     }
+    let approval: {
+      id: number;
+      status: string;
+      issue_number?: number | null;
+      issue_url?: string | null;
+    } | null = null;
     if (Number.isInteger(approvalId) && approvalId > 0) {
-      const { data: approval } = await supabase
-        .from('approvals')
-        .select('id, status')
+      const { data } = await supabase
+        .from('work_approvals')
+        .select('id, status, issue_number, issue_url')
         .eq('id', approvalId)
         .maybeSingle();
-      if (!approval) {
+      if (!data) {
         return { success: false, error: `approval not found: ${approvalId}` };
       }
-      if (!['approved', 'implementing'].includes(String(approval.status))) {
+      const found = data as any;
+      approval = found;
+      // Idempotency: an already-implemented approval returns its issue.
+      if (String(found.status) === 'implementing' && found.issue_number) {
+        return {
+          success: true,
+          data: {
+            issue_url: found.issue_url,
+            number: found.issue_number,
+            approval_id: found.id,
+            status: 'implementing',
+            already: true,
+          },
+        };
+      }
+      // #134: only an owner-approved ADR may create an issue.
+      if (String(found.status) !== 'approved') {
         return {
           success: false,
-          error: `approval #${approvalId} is ${approval.status}; owner approval required before push_to_dev`,
+          error: `approval #${approvalId} is ${found.status}; only 'approved' may push_to_dev`,
         };
       }
     }
@@ -259,12 +281,33 @@ async function runTool(name: string, args: any): Promise<any> {
       const issue = await findOrCreateIssue(title, body, {
         signal: controller.signal,
       });
+      if (approval) {
+        const { error: upErr } = await supabase
+          .from('work_approvals')
+          .update({
+            status: 'implementing',
+            issue_number: issue.number,
+            issue_url: issue.issue_url,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', approval.id)
+          .eq('status', 'approved');
+        if (upErr) {
+          return {
+            success: false,
+            error: `issue #${issue.number} created but approval backwrite failed: ${upErr.message}`,
+          };
+        }
+      }
       return {
         success: true,
         data: {
           issue_url: issue.issue_url,
           number: issue.number,
           already: issue.already,
+          ...(approval
+            ? { approval_id: approval.id, status: 'implementing' }
+            : {}),
         },
       };
     } catch (e) {
@@ -272,6 +315,12 @@ async function runTool(name: string, args: any): Promise<any> {
 
       // ES-046: if GitHub is slow/unreachable, enqueue instead of blocking the
       // SSE stream. The queue is processed by the PWA reminder poll.
+      if (
+        approval ||
+        !/abort|timeout|network|fetch failed|ECONN|ETIMEDOUT/i.test(reason)
+      ) {
+        return { success: false, error: reason };
+      }
       if (/abort|timeout|network|fetch failed|ECONN|ETIMEDOUT/i.test(reason)) {
         try {
           const job = await enqueuePushToDev(
