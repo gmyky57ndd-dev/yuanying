@@ -215,11 +215,11 @@ export default function DesktopPage() {
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-semibold">v0.02 沙箱安全设计</h1>
                 <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] text-amber-800">
-                  设计稿 · 未写实现代码
+                  v0.02a · 只读日志已接入
                 </span>
               </div>
               <p className="text-[12px] text-stone-500">
-                8 个高危工具的权限边界。Owner 批准后才按阶段实现。
+                8 个高危工具的权限边界。v0.02a 已接入只读日志；其余需分阶段批准。
                 审批 <b>#9</b> 在 Workpad → 审批 tab；批准前不新增任何高危工具。
               </p>
               <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white p-4">
@@ -236,7 +236,7 @@ export default function DesktopPage() {
                       ['write_code_file', 'workspace 内代码 + diff', 'diff 预览'],
                       ['deploy_to_coolify', 'Coolify webhook；只在 UI 触发', 'Owner 红色弹窗'],
                       ['update_env_vars', '加密 + diff；日志脱敏', 'Owner 弹窗'],
-                      ['read_server_logs', '只读 tail + 脱敏', '只读'],
+                      ['read_server_logs', '只读 tail + 脱敏', '已接入（只读）'],
                     ].map(([n, a, c]) => (
                       <tr key={n} className="border-t border-stone-100">
                         <td className="py-2 pr-3 font-mono text-[11px]">{n}</td>

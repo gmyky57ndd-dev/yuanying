@@ -535,10 +535,10 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 - 阿构：`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`。只产出 ADR/设计，不写实现。
 - DSH：`read_code_file`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`。只实现已批准 ADR。
 - 司测：`read_code_file`、`get_github_issue`、`create_bug_issue`、`get_project_status`。只测/报 Bug，不改代码。
-- 镇岳：`get_system_status`、`read_local_file`。生产发布必须 Owner 在 UI 明确确认。
+- 镇岳：`get_system_status`、`read_local_file`、`read_server_logs`（v0.02a，只读脱敏）。生产发布必须 Owner 在 UI 明确确认。
 - 司书：`search_local_kb`、`read_local_file`、`write_local_file`、`web_search`。只做本地知识库。
 
-v0.01 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`run_test_suite`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`；接入前必须单独设计权限与 Owner 确认。
+v0.01/v0.02a 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`run_test_suite`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`；接入前必须单独设计权限与 Owner 确认。
 
 ### 14.2 流程
 

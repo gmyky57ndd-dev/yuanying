@@ -1,6 +1,6 @@
 # v0.02 沙箱安全设计（高危工具）
 
-**状态**: 设计稿，未写实现代码。Owner 批准后才进入实现。
+**状态**: Owner 已批准（2026-11-13）。v0.02a（read_server_logs）已实现；其余未写代码。
 **范围**: 8 个未启用工具：`git_commit`、`submit_pr`、`run_terminal_command`、`run_test_suite`、`write_code_file`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`。
 
 ## 0. 原则
@@ -23,7 +23,7 @@
 | `write_code_file` | workspace 内代码文件、diff 预览 | `.git`、`.env`、密钥、绝对路径 | 写入前 diff |
 | `deploy_to_coolify` | Coolify webhook（预配置） | 模型直接调用、无 UI 确认 | Owner 红色弹窗 |
 | `update_env_vars` | 加密存储 + diff 预览 | 明文日志、无确认 | Owner 弹窗 |
-| `read_server_logs` | 只读 tail + 脱敏 | 下载全量、写操作 | 只读 |
+| `read_server_logs` | ✅ v0.02a 已接入：只读 tail + 脱敏 | 下载全量、写操作 | 只读 |
 
 ## 2. Git：只走 GitHub API
 

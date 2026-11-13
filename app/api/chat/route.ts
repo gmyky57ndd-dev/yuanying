@@ -1138,6 +1138,15 @@ async function runTool(name: string, args: any): Promise<any> {
     }
   }
 
+  if (name === 'read_server_logs') {
+    try {
+      const { readServerLogs } = await import('@/lib/server-logs');
+      return { success: true, data: readServerLogs(args?.source, args?.lines) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'log read failed' };
+    }
+  }
+
   if (name === 'read_local_file') {
     const filePath = String(args?.path ?? '').trim();
     if (!filePath) return { success: false, error: 'path required' };
@@ -2189,6 +2198,15 @@ ${bodyStatusReminder}`,
         }),
         execute: async ({ time, action }) =>
           runToolForModel('scheduler', { time, action }),
+      }),
+      read_server_logs: tool({
+        description:
+          'v0.02a read-only: tail a server log (desktop | bridge | sync), max 500 lines, secrets redacted. No writes, no arbitrary paths.',
+        parameters: z.object({
+          source: z.enum(['desktop', 'bridge', 'sync']).optional().describe('log source, default desktop'),
+          lines: z.number().int().min(1).max(500).optional().describe('tail line count, default 100'),
+        }),
+        execute: async args => runToolForModel('read_server_logs', args),
       }),
       read_local_file: tool({
         description:

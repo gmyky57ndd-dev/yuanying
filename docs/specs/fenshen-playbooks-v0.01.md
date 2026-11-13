@@ -14,7 +14,7 @@ Retired: **Elara**, **Kael** (rows + project maps removed).
 | 阿构 `ai_architect` | 系统架构师 | `read_local_file`, `write_local_file`, `get_github_issue`, `get_project_status` |
 | DSH `dsh` | 全栈工程师 | `read_code_file`, `read_local_file`, `write_local_file`, `get_github_issue`, `get_project_status` |
 | 司测 `qa` | 质量保障 | `read_code_file`, `get_github_issue`, `create_bug_issue`, `get_project_status` |
-| 镇岳 `devops` | 运维/部署 | `get_system_status`, `read_local_file` |
+| 镇岳 `devops` | 运维/部署 | `get_system_status`, `read_local_file`, `read_server_logs` (v0.02a) |
 | 司书 `librarian` | 知识库管理员 | `search_local_kb`, `read_local_file`, `write_local_file`, `web_search` |
 
 `get_system_status` is always appended server-side.
