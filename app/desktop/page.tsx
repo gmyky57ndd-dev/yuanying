@@ -111,6 +111,12 @@ export default function DesktopPage() {
           className="mx-auto w-full max-w-xl rounded-full border border-stone-200 bg-stone-50 px-4 py-1.5 text-sm outline-none focus:border-stone-400"
         />
         <nav className="flex items-center gap-1 text-sm">
+          <Link
+            href="/desktop/sandbox"
+            className="rounded-full px-3 py-1.5 text-stone-600 hover:bg-stone-100"
+          >
+            沙箱设计
+          </Link>
           {tabs.map(t => (
             <button
               key={t.id}

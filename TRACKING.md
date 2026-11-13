@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-79] v0.02 沙箱安全设计 — In Review
+
+- **Status**: In Review (2026-11-13) · **Refs**: #102, #134
+- **Design**: `docs/specs/SANDBOX-SECURITY-v0.02.md`; UI at `/desktop/sandbox`.
+- **8 tools**: GitHub API-only git/PR, workspace argv allowlist, red deploy modal, env/log protections, audit.
+- **Approval**: Workpad approval #9 `v0.02 沙箱安全设计确认` (adr_ready), awaiting Owner.
+- **No code**: high-risk tools still disabled until Owner approves.
+
 ### [P2-78] Fenshen 核心团队 v0.01 — Done
 
 - **Status**: Done (2026-11-13) · **Refs**: #102, AGENTS.md §14
