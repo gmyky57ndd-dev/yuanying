@@ -1,4 +1,4 @@
-# Fenshen: AI 进化研究与架构分身 (ai_architect)
+# 阿构 — AI-Architect (ai_architect)
 
 **Status**: Active on-demand.
 **Summon command**: "召出架构师" / "问一下 D 老师" / "AI Research"

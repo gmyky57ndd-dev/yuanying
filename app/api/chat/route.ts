@@ -752,6 +752,98 @@ async function runTool(name: string, args: any): Promise<any> {
     return { success: true, data: data ?? [] };
   }
 
+  if (name === 'ask_owner') {
+    const pid = String(args?.project_id ?? 'yuanying').trim() || 'yuanying';
+    const title = String(args?.title ?? '').trim();
+    const description = String(args?.description ?? '').trim();
+    if (!title) return { success: false, error: 'title required' };
+    const { data, error } = await supabase
+      .from('work_approvals')
+      .insert({
+        project_id: pid,
+        title: title.slice(0, 300),
+        description: description.slice(0, 4000),
+        status: 'proposed',
+        created_by: 'xiaowu',
+      })
+      .select('*')
+      .single();
+    if (error) return { success: false, error: error.message };
+    mirrorApproval(data as any);
+    return { success: true, data };
+  }
+
+  if (name === 'configure_fenshen') {
+    const id = String(args?.fenshen_id ?? '').trim();
+    if (!id) return { success: false, error: 'fenshen_id required' };
+    const { data: existing } = await supabase
+      .from('fenshen')
+      .select('id')
+      .eq('id', id)
+      .maybeSingle();
+    if (!existing) return { success: false, error: `unknown fenshen: ${id}` };
+    const patch: Record<string, unknown> = {};
+    if (typeof args?.prompt_md === 'string') patch.prompt_md = args.prompt_md.slice(0, 20000);
+    if (typeof args?.enabled === 'boolean') patch.enabled = args.enabled;
+    if (typeof args?.has_all_tools === 'boolean') patch.has_all_tools = args.has_all_tools;
+    if (Array.isArray(args?.tools_whitelist)) {
+      const tools = args.tools_whitelist.filter(
+        (t: unknown): t is string =>
+          typeof t === 'string' && (ALL_TOOL_NAMES as readonly string[]).includes(t)
+      );
+      if (tools.length !== args.tools_whitelist.length) {
+        return { success: false, error: 'tools_whitelist contains unknown tool names' };
+      }
+      patch.tools_whitelist = tools;
+    }
+    if (args?.model_name === null || args?.model_name === '') {
+      patch.model_name = null;
+    } else if (typeof args?.model_name === 'string') {
+      const { data: model } = await supabase
+        .from('models')
+        .select('id')
+        .eq('id', args.model_name)
+        .maybeSingle();
+      if (!model) return { success: false, error: `unknown model: ${args.model_name}` };
+      patch.model_name = args.model_name;
+    }
+    if (!Object.keys(patch).length) return { success: false, error: 'nothing to update' };
+    const { data, error } = await supabase
+      .from('fenshen')
+      .update(patch)
+      .eq('id', id)
+      .select('id, display_name, model_name, tools_whitelist, has_all_tools, enabled')
+      .single();
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  }
+
+  if (name === 'create_bug_issue') {
+    const pid = String(args?.project_id ?? 'yuanying').trim() || 'yuanying';
+    const title = String(args?.title ?? '').trim();
+    const body = String(args?.body ?? '').trim();
+    if (!title || !body) return { success: false, error: 'title and body required' };
+    try {
+      const issue = await findOrCreateIssue(`[Bug] ${title}`.slice(0, 200), body);
+      const { data } = await supabase
+        .from('workpad_actions')
+        .insert({
+          project_id: pid,
+          description: `[Bug] ${title}`.slice(0, 500),
+          status: 'pending',
+          github_issue_number: issue.number,
+          github_issue_url: issue.issue_url,
+          result_ref: issue.issue_url,
+        })
+        .select('*')
+        .single();
+      if (data) mirrorAction(data as any);
+      return { success: true, data: { issue, action: data } };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'github error' };
+    }
+  }
+
   if (name === 'plan_actions') {
     const pid = String(args?.project_id ?? '').trim();
     const actions = Array.isArray(args?.actions)
@@ -1186,11 +1278,18 @@ export async function POST(req: NextRequest) {
       const norm = (v: string) => v.toLowerCase().replace(/\s+/g, '');
       const lowerMsg = message.toLowerCase();
       const normMsg = norm(message);
+      const EXTRA_ALIASES: Record<string, string[]> = {
+        ai_architect: ['AI 架构师'],
+      };
       const candidates: Array<{ m: any; idx: number; score: number; alias: string }> = [];
       for (const m of allowed) {
         const name = String(m.display_name).toLowerCase();
         const id = String(m.id).toLowerCase();
-        const aliases = new Set<string>([name, id]);
+        const aliases = new Set<string>([
+          name,
+          id,
+          ...(EXTRA_ALIASES[String(m.id)] ?? []),
+        ]);
         const beforeParen = name.split('(')[0].trim();
         if (beforeParen && beforeParen.length >= 2) aliases.add(beforeParen);
         for (const alias of Array.from(aliases)) {
@@ -1948,6 +2047,39 @@ ${bodyStatusReminder}`,
         }),
         execute: async ({ project_id }) =>
           runToolForModel('get_project_status', { project_id }),
+      }),
+      ask_owner: tool({
+        description:
+          'Ask the owner a question or request a decision; creates a proposed approval the owner sees in the Workpad approval tab.',
+        parameters: z.object({
+          project_id: z.string().optional().describe('project id, defaults to yuanying'),
+          title: z.string().describe('short question / decision title'),
+          description: z.string().describe('context and options for the owner'),
+        }),
+        execute: async args => runToolForModel('ask_owner', args),
+      }),
+      configure_fenshen: tool({
+        description:
+          'Configure a fenshen playbook: model, prompt, tool whitelist, has_all_tools, enabled. Owner-only (supervisor). Model must exist in the models table.',
+        parameters: z.object({
+          fenshen_id: z.string().describe('xiaowu, ai_pm, ai_architect, dsh, qa, devops, librarian'),
+          model_name: z.string().nullable().optional().describe('model id; null restores global default'),
+          prompt_md: z.string().optional(),
+          tools_whitelist: z.array(z.string()).optional(),
+          has_all_tools: z.boolean().optional(),
+          enabled: z.boolean().optional(),
+        }),
+        execute: async args => runToolForModel('configure_fenshen', args),
+      }),
+      create_bug_issue: tool({
+        description:
+          'QA only: create a GitHub bug issue (with ledger anchoring) without touching code. Include reproduction steps, expected, actual, environment.',
+        parameters: z.object({
+          project_id: z.string().optional().describe('project id, defaults to yuanying'),
+          title: z.string().describe('bug summary'),
+          body: z.string().describe('reproduction, expected, actual, environment'),
+        }),
+        execute: async args => runToolForModel('create_bug_issue', args),
       }),
       read_project_doc: tool({
         description:

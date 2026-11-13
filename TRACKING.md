@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-78] Fenshen 核心团队 v0.01 — Done
+
+- **Status**: Done (2026-11-13) · **Refs**: #102, AGENTS.md §14
+- **Team**: 小悟 / 拓维 / 阿构 / DSH / 司测 / 镇岳 / 司书；Elara/Kael 已移除。
+- **Config**: `has_all_tools=false` + role whitelists; `model_name=null` (global default).
+- **Rooms**: yuanying 全员, bwp PM/architect/DSH/QA, aso PM/architect.
+- **Flexible model**: API + chat `configure_fenshen`; verified DSH model set/reset.
+- **Gaps**: terminal/git/test/deploy/env/log tools not enabled (Owner approval needed); docs `docs/specs/fenshen-playbooks-v0.01.md`.
+
 ### [P2-77] #102 访问控制合并 + 语义修正 — In Progress
 
 - **Status**: In Progress (2026-11-13) · **Refs**: #102, #101, #111
