@@ -522,5 +522,44 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 - 收到广播时，如果 `sender_device_id === my_device_id`，忽略（防重复）；如果是其他设备发的，追加到 UI。
 
 ---
+---
+
+## 14. Fenshen 核心团队工作流 (v0.01)
+
+核心团队：小悟（Supervisor）、拓维（AI-PM）、阿构（AI-Architect）、DSH（Dev）、司测（QA）、镇岳（DevOps）、司书（Librarian）。
+
+### 14.1 工具边界
+
+- 小悟：`get_project_status`、`plan_actions`、`propose_work`、`ask_owner`、`configure_fenshen`。只派活/催进度，不写代码、不改架构。
+- 拓维：`web_search`、`read_local_file`、`write_local_file`、`push_to_dev`、`get_github_issue`、`get_project_status`。只产出 PRD/需求 Issue。
+- 阿构：`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`。只产出 ADR/设计，不写实现。
+- DSH：`read_code_file`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`。只实现已批准 ADR。
+- 司测：`read_code_file`、`get_github_issue`、`create_bug_issue`、`get_project_status`。只测/报 Bug，不改代码。
+- 镇岳：`get_system_status`、`read_local_file`。生产发布必须 Owner 在 UI 明确确认。
+- 司书：`search_local_kb`、`read_local_file`、`write_local_file`、`web_search`。只做本地知识库。
+
+v0.01 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`run_test_suite`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`；接入前必须单独设计权限与 Owner 确认。
+
+### 14.2 流程
+
+1. 需求：Owner → 小悟 → 拓维（PRD）
+2. 设计：拓维 @阿构 → ADR → Owner 审批
+3. 开发：阿构 @DSH → 实现 + PR
+4. 测试：DSH @司测 → E2E/验收；失败打回 DSH，通过通知镇岳
+5. 部署：镇岳执行 → Owner 最终验收
+
+### 14.3 铁律
+
+- DB Schema 或重大架构变更：阿构出 ADR，Owner 批准后 DSH 才能写代码。
+- 生产发布：Owner 在 UI 点击确认后，镇岳才能执行。
+- 审批以 `work_approvals` 为准：只有 `approved` 的审批项能 `push_to_dev`（见 #134）。
+- 每个 action 必须锚定 GitHub Issue（见 #130）。
+
+### 14.4 模型配置
+
+模型不写死在角色里：`fenshen.model_name` 为空时使用全局 `active_model_id`。
+- API：`PUT /api/fenshen/config` 传 `model_name`；`POST /api/models` 新增模型；`PUT /api/models` 切换全局。
+- Chat：小悟可用 `configure_fenshen` 设置任意分身的 model/prompt/tools/enabled（仅 Owner 对话）。
+
 
 **End of AGENTS.md v1.15**
