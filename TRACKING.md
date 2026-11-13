@@ -207,7 +207,7 @@ never by the section they happened to be written under.
 ### [P2-79] v0.02 沙箱安全设计 — In Review
 
 - **Status**: In Review (2026-11-13) · **Refs**: #102, #134
-- **Design**: `docs/specs/SANDBOX-SECURITY-v0.02.md`; UI at `/desktop/sandbox`.
+- **Design**: `docs/specs/SANDBOX-SECURITY-v0.02.md`; UI at Desktop Hub → 沙箱设计 tab.
 - **8 tools**: GitHub API-only git/PR, workspace argv allowlist, red deploy modal, env/log protections, audit.
 - **Approval**: Workpad approval #9 `v0.02 沙箱安全设计确认` (adr_ready), awaiting Owner.
 - **No code**: high-risk tools still disabled until Owner approves.

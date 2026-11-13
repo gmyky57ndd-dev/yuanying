@@ -22,6 +22,7 @@ type Hub = {
 
 const tabs = [
   { id: 'home', label: '首页' },
+  { id: 'sandbox', label: '沙箱设计' },
   { id: 'settings', label: '设置' },
 ] as const;
 type Tab = (typeof tabs)[number]['id'];
@@ -111,12 +112,6 @@ export default function DesktopPage() {
           className="mx-auto w-full max-w-xl rounded-full border border-stone-200 bg-stone-50 px-4 py-1.5 text-sm outline-none focus:border-stone-400"
         />
         <nav className="flex items-center gap-1 text-sm">
-          <Link
-            href="/desktop/sandbox"
-            className="rounded-full px-3 py-1.5 text-stone-600 hover:bg-stone-100"
-          >
-            沙箱设计
-          </Link>
           {tabs.map(t => (
             <button
               key={t.id}
@@ -215,12 +210,68 @@ export default function DesktopPage() {
             </>
           )}
 
+          {tab === 'sandbox' && (
+            <div className="mx-auto max-w-4xl space-y-4">
+              <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-semibold">v0.02 沙箱安全设计</h1>
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] text-amber-800">
+                  设计稿 · 未写实现代码
+                </span>
+              </div>
+              <p className="text-[12px] text-stone-500">
+                8 个高危工具的权限边界。Owner 批准后才按阶段实现。
+                审批 <b>#9</b> 在 Workpad → 审批 tab；批准前不新增任何高危工具。
+              </p>
+              <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white p-4">
+                <table className="w-full text-left text-[12px]">
+                  <thead className="text-stone-400">
+                    <tr><th className="py-1 pr-3">工具</th><th className="py-1 pr-3">允许</th><th className="py-1">确认</th></tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      ['git_commit', 'GitHub Contents API 建 branch/commit；不碰本地 .git', 'approval_id + issue'],
+                      ['submit_pr', 'GitHub REST 建 PR；禁止 merge/force', 'approval_id + CI'],
+                      ['run_terminal_command', 'workspace 内 argv 白名单；无 shell/rm/sudo', '每次审批'],
+                      ['run_test_suite', '只允许 npm test / test:e2e 包装', 'approval_id'],
+                      ['write_code_file', 'workspace 内代码 + diff', 'diff 预览'],
+                      ['deploy_to_coolify', 'Coolify webhook；只在 UI 触发', 'Owner 红色弹窗'],
+                      ['update_env_vars', '加密 + diff；日志脱敏', 'Owner 弹窗'],
+                      ['read_server_logs', '只读 tail + 脱敏', '只读'],
+                    ].map(([n, a, c]) => (
+                      <tr key={n} className="border-t border-stone-100">
+                        <td className="py-2 pr-3 font-mono text-[11px]">{n}</td>
+                        <td className="py-2 pr-3">{a}</td>
+                        <td className="py-2 text-stone-500">{c}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-stone-200 bg-white p-4 text-[12px] text-stone-600">
+                  <b>Git 写操作</b>：只走 GitHub REST，不读写本地 .git；禁止 .env/secret/node_modules 路径。
+                </div>
+                <div className="rounded-xl border border-stone-200 bg-white p-4 text-[12px] text-stone-600">
+                  <b>代码执行</b>：固定 <code>~/yuanying/workspace/&lt;project&gt;</code>；argv 白名单、120s、200KB、独立 runner。
+                </div>
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-[12px] text-rose-800">
+                  <b>生产发布</b>：模型不能直接 deploy；全屏红色确认弹窗 + 确认短语 + 一次性 webhook token。
+                </div>
+                <div className="rounded-xl border border-stone-200 bg-white p-4 text-[12px] text-stone-600">
+                  <b>审计</b>：approval_id、参数摘要、结果、拒绝原因；密钥不落日志。
+                </div>
+              </div>
+              <p className="text-[11px] text-stone-400">
+                完整文档：docs/specs/SANDBOX-SECURITY-v0.02.md
+              </p>
+            </div>
+          )}
+
           {tab === 'settings' && (
             <div className="space-y-4">
               <h1 className="text-2xl font-semibold">分身与工具白名单</h1>
               <p className="text-[12px] text-stone-500">
-                只改 prompt 与工具边界；模型仍走全局路由。当前所有分身默认
-                <b> has_all_tools=true </b>（全部工具开放）；白名单仅在关闭时生效。
+                只改 prompt 与工具边界；模型仍走全局路由。当前核心团队按角色启用白名单（has_all_tools=false）；只有显式开启“全部工具”才放开。
               </p>
               <div className="rounded-xl border border-stone-200 bg-white p-4">
                 <select
