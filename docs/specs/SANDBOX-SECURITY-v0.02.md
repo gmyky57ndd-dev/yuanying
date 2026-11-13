@@ -1,6 +1,6 @@
 # v0.02 沙箱安全设计（高危工具）
 
-**状态**: Owner 已批准（2026-11-13）。v0.02a（read_server_logs）与 v0.02b（git_commit/submit_pr）已实现；其余未写代码。
+**状态**: Owner 已批准（2026-11-13）。v0.02a（read_server_logs）、v0.02b（git_commit/submit_pr）与 v0.02c（workspace runner）已实现；部署/环境变量未写代码。
 **范围**: 8 个未启用工具：`git_commit`、`submit_pr`、`run_terminal_command`、`run_test_suite`、`write_code_file`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`。
 
 ## 0. 原则
@@ -18,9 +18,9 @@
 |---|---|---|---|
 | `git_commit` | ✅ v0.02b：GitHub Contents API 创建 branch/commit | 本地 `.git`、force push、改 main | approval_id + issue |
 | `submit_pr` | ✅ v0.02b：REST 创建 PR | merge、force、改保护分支 | approval_id + CI |
-| `run_terminal_command` | workspace 内命令白名单（argv） | shell 拼接、`rm`、`sudo`、`curl` 任意 URL | 每次审批/策略 |
-| `run_test_suite` | `npm test` / `npm run test:e2e` 包装 | 任意脚本、网络任意域名 | approval_id |
-| `write_code_file` | workspace 内代码文件、diff 预览 | `.git`、`.env`、密钥、绝对路径 | 写入前 diff |
+| `run_terminal_command` | ✅ v0.02c：workspace + argv 白名单 | shell 拼接、`rm`、`sudo`、`curl` 任意 URL | approval_id |
+| `run_test_suite` | ✅ v0.02c：`npm test` / `test:e2e` 包装 | 任意脚本、网络任意域名 | approval_id |
+| `write_code_file` | ✅ v0.02c：workspace 内代码文件 | `.git`、`.env`、密钥、绝对路径 | approval_id |
 | `deploy_to_coolify` | Coolify webhook（预配置） | 模型直接调用、无 UI 确认 | Owner 红色弹窗 |
 | `update_env_vars` | 加密存储 + diff 预览 | 明文日志、无确认 | Owner 弹窗 |
 | `read_server_logs` | ✅ v0.02a 已接入：只读 tail + 脱敏 | 下载全量、写操作 | 只读 |
