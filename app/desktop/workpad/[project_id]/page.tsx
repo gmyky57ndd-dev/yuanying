@@ -8,7 +8,7 @@ type Issue = { number: number; title: string; state: string; url: string; update
 type Message = { id: number; role: string; content: string; created_at: string; responder_fenshen_id?: string | null; truncated?: boolean };
 type FenshenRow = { id: string; display_name: string; model_name: string | null; tools_whitelist: string[] | null };
 type ModelRow = { id: string; provider: string; model_name: string };
-type Approval = { id: number; title: string; description: string | null; adr: string | null; status: string; approved_by: string | null; updated_at: string };
+type Approval = { id: number; title: string; description: string | null; adr: string | null; status: string; approved_by: string | null; issue_number: number | null; issue_url: string | null; updated_at: string };
 
 const tabs = [
   { id: 'chat', label: '群聊' },
@@ -383,6 +383,15 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                     </span>
                   </div>
                   {a.description && <p className="mt-1 text-[12px] text-stone-500">{a.description}</p>}
+                  {a.issue_number && (
+                    <a
+                      href={a.issue_url ?? undefined}
+                      target="_blank"
+                      className="mt-1 inline-block text-[11px] text-blue-600 hover:underline"
+                    >
+                      GitHub #{a.issue_number}
+                    </a>
+                  )}
                   {a.adr && (
                     <pre className="mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap rounded bg-stone-50 p-2 text-[11px] text-stone-600">
                       {a.adr}

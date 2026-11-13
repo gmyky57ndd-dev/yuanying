@@ -163,8 +163,8 @@ export async function pullAll(): Promise<{
       r => [r.id, r.project_id, r.description, r.status, r.result_ref, r.github_issue_number, r.github_issue_url, r.created_at, r.updated_at],
     ],
     [
-      'approvals',
-      'id, project_id, title, description, adr, status, created_by, approved_by, issue_url, created_at, updated_at, approved_at',
+      'work_approvals',
+      'id, project_id, title, description, adr, status, created_by, approved_by, issue_number, issue_url, created_at, updated_at, approved_at',
       r => [
         r.id,
         r.project_id,
@@ -174,6 +174,7 @@ export async function pullAll(): Promise<{
         r.status,
         r.created_by,
         r.approved_by,
+        r.issue_number,
         r.issue_url,
         r.created_at,
         r.updated_at,
@@ -218,7 +219,8 @@ export async function pullAll(): Promise<{
     try {
       const { data, error } = await supabase.from(table).select(cols);
       if (error) throw new Error(error.message);
-      const stmt = db.prepare(sqlFor(table, cols));
+      const localTable = table === 'work_approvals' ? 'approvals' : table;
+      const stmt = db.prepare(sqlFor(localTable, cols));
       for (const r of data ?? []) stmt.run(...map(r));
       tables += data?.length ?? 0;
     } catch (e) {

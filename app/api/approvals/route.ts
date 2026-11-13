@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   const projectId = new URL(req.url).searchParams.get('project_id')?.trim();
   let q = supabase
-    .from('approvals')
-    .select('id, project_id, title, description, adr, status, created_by, approved_by, issue_url, created_at, updated_at, approved_at')
+    .from('work_approvals')
+    .select('id, project_id, title, description, adr, status, created_by, approved_by, issue_number, issue_url, created_at, updated_at, approved_at')
     .order('updated_at', { ascending: false })
     .limit(100);
   if (projectId) q = q.eq('project_id', projectId);
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'project_id and title required' }, { status: 400 });
     }
     const { data, error } = await supabase
-      .from('approvals')
+      .from('work_approvals')
       .insert({
         project_id: projectId,
         title: title.slice(0, 300),
@@ -65,7 +65,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { data: current } = await supabase
-      .from('approvals')
+      .from('work_approvals')
       .select('id, status')
       .eq('id', id)
       .maybeSingle();
@@ -92,7 +92,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const { data, error } = await supabase
-      .from('approvals')
+      .from('work_approvals')
       .update(patch)
       .eq('id', id)
       .select()
