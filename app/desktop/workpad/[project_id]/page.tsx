@@ -15,6 +15,7 @@ const tabs = [
   { id: 'artifacts', label: 'Artifacts' },
   { id: 'issues', label: 'Issues' },
   { id: 'approvals', label: '审批' },
+  { id: 'ledger', label: '台账' },
 ] as const;
 type Tab = (typeof tabs)[number]['id'];
 
@@ -42,6 +43,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [sending, setSending] = useState(false);
   const [expandedMsgs, setExpandedMsgs] = useState<Record<string, boolean>>({});
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [ledger, setLedger] = useState<any[]>([]);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [adrDraft, setAdrDraft] = useState<Record<number, string>>({});
@@ -49,7 +51,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [requireApproval, setRequireApproval] = useState(false);
 
   const load = useCallback(async () => {
-    const [h, m, a, i, cfg, mods, appr, prj] = await Promise.all([
+    const [h, m, a, i, cfg, mods, appr, prj, led] = await Promise.all([
       fetch('/api/hub', { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/fenshen`, { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/artifacts`, { cache: 'no-store' }).then(r => r.json()),
@@ -60,6 +62,9 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
         cache: 'no-store',
       }).then(r => r.json()),
       fetch('/api/projects', { cache: 'no-store' }).then(r => r.json()),
+      fetch(`/api/actions?project_id=${encodeURIComponent(projectId)}`, {
+        cache: 'no-store',
+      }).then(r => r.json()),
     ]);
     const p = (h?.projects ?? []).find((x: any) => x.id === projectId);
     if (p) setProjectName(p.name);
@@ -69,6 +74,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     setAllFenshen(Array.isArray(cfg?.fenshen) ? cfg.fenshen : []);
     setModels(Array.isArray(mods?.models) ? mods.models : []);
     setApprovals(Array.isArray(appr?.approvals) ? appr.approvals : []);
+    setLedger(Array.isArray(led?.actions) ? led.actions : []);
     const proj = (prj?.projects ?? []).find((x: any) => x.id === projectId);
     setRequireApproval(proj?.require_approval === true);
     setArtifacts(Array.isArray(a?.artifacts) ? a.artifacts : []);
@@ -423,6 +429,52 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                   )}
                 </div>
               ))}
+            </div>
+          )}
+
+          {tab === 'ledger' && (
+            <div className="mx-auto max-w-3xl p-4">
+              <h2 className="mb-1 text-sm font-semibold text-stone-600">台账 · GitHub 锚定</h2>
+              <p className="mb-3 text-[11px] text-stone-400">
+                pending/in_progress 必须有 GitHub issue；issue 关闭后 60 秒内自动变 Done。
+              </p>
+              <div className="space-y-2">
+                {ledger.map((a: any) => (
+                  <div key={a.id} className="rounded-lg border border-stone-200 bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[13px] text-stone-800">{a.description}</p>
+                      <span
+                        className={
+                          'shrink-0 rounded px-2 py-0.5 text-[10px] ' +
+                          (a.status === 'done'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : a.status === 'failed'
+                              ? 'bg-rose-50 text-rose-700'
+                              : 'bg-amber-50 text-amber-700')
+                        }
+                      >
+                        {a.status}
+                      </span>
+                    </div>
+                    {a.github_issue_number ? (
+                      <a
+                        href={a.github_issue_url}
+                        target="_blank"
+                        className="mt-1 inline-block text-[11px] text-blue-600 hover:underline"
+                      >
+                        #{a.github_issue_number} {a.github_issue_url}
+                      </a>
+                    ) : (
+                      <span className="mt-1 block text-[11px] text-rose-500">
+                        缺少 GitHub issue
+                      </span>
+                    )}
+                  </div>
+                ))}
+                {ledger.length === 0 && (
+                  <div className="text-[12px] text-stone-400">还没有台账项。</div>
+                )}
+              </div>
             </div>
           )}
 

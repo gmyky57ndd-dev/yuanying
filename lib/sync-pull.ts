@@ -159,8 +159,8 @@ export async function pullAll(): Promise<{
     ],
     [
       'workpad_actions',
-      'id, project_id, description, status, result_ref, created_at, updated_at',
-      r => [r.id, r.project_id, r.description, r.status, r.result_ref, r.created_at, r.updated_at],
+      'id, project_id, description, status, result_ref, github_issue_number, github_issue_url, created_at, updated_at',
+      r => [r.id, r.project_id, r.description, r.status, r.result_ref, r.github_issue_number, r.github_issue_url, r.created_at, r.updated_at],
     ],
     [
       'approvals',

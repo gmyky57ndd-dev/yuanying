@@ -720,12 +720,40 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!pid || actions.length === 0) {
       return { success: false, error: 'project_id and actions[] required' };
     }
+    // #130: every ledger action is anchored to a GitHub issue. If issue
+    // creation fails, refuse to write the ledger row.
+    const planned: Array<{
+      description: string;
+      number: number;
+      url: string;
+    }> = [];
+    for (const raw of actions.slice(0, 20)) {
+      const description = raw.trim().slice(0, 500);
+      try {
+        const issue = await findOrCreateIssue(
+          description.slice(0, 180),
+          `Project: ${pid}\n\n${description}\n\n_Auto-created by plan_actions (#130)._`
+        );
+        planned.push({ description, number: issue.number, url: issue.issue_url });
+      } catch (e) {
+        return {
+          success: false,
+          error: `GitHub issue creation failed: ${
+            e instanceof Error ? e.message : 'unknown'
+          }`,
+        };
+      }
+    }
     const { data, error } = await supabase
       .from('workpad_actions')
       .insert(
-        actions.slice(0, 20).map(description => ({
+        planned.map(a => ({
           project_id: pid,
-          description: description.trim().slice(0, 500),
+          description: a.description,
+          status: 'pending',
+          github_issue_number: a.number,
+          github_issue_url: a.url,
+          result_ref: a.url,
         }))
       )
       .select('*');
