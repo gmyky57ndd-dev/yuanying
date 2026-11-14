@@ -538,7 +538,7 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 - 镇岳：`get_system_status`、`read_local_file`、`read_server_logs`（v0.02a，只读脱敏）。生产发布必须 Owner 在 UI 明确确认。
 - 司书：`search_local_kb`、`read_local_file`、`write_local_file`、`web_search`。只做本地知识库。
 
-v0.01–v0.02b 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`run_test_suite`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`；接入前必须单独设计权限与 Owner 确认。
+v0.01–v0.02b 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`run_test_suite`、`deploy_production`、`update_env_vars`、`read_server_logs`；接入前必须单独设计权限与 Owner 确认。
 
 ### 14.2 流程
 
@@ -555,7 +555,14 @@ v0.01–v0.02b 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`
 - 审批以 `work_approvals` 为准：只有 `approved` 的审批项能 `push_to_dev`（见 #134）。
 - 每个 action 必须锚定 GitHub Issue（见 #130）。
 
-### 14.4 模型配置
+### 14.4 部署边界
+
+- 桌面端是本地发布：`tauri:build` + ad-hoc 签名 + smoke，不需要服务器或 Coolify。
+- Coolify 是**手机/云阶段**的可选方案，已 defer；不要把它当作 fenshen/desktop 的依赖。
+- 生产发布确认 UI 是 provider-agnostic；Coolify 只是可选 webhook adapter。
+- 决策记录：`docs/ops/DEPLOYMENT-DECISION.md`。
+
+### 14.5 模型配置
 
 模型不写死在角色里：`fenshen.model_name` 为空时使用全局 `active_model_id`。
 - API：`PUT /api/fenshen/config` 传 `model_name`；`POST /api/models` 新增模型；`PUT /api/models` 切换全局。

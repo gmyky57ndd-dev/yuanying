@@ -284,7 +284,7 @@ export default function DesktopPage() {
                       ['run_terminal_command', '✅ v0.02c：workspace 内 argv 白名单；无 shell/rm/sudo', 'approval_id'],
                       ['run_test_suite', '✅ v0.02c：npm test / test:e2e 包装', 'approval_id'],
                       ['write_code_file', '✅ v0.02c：workspace 内代码 + diff', 'approval_id'],
-                      ['deploy_to_coolify', '✅ v0.02d：Coolify webhook；只在 UI 触发', 'Owner 红色弹窗'],
+                      ['deploy_production', '✅ v0.02d：可选部署 webhook（Coolify/Vercel/自托管）；只在 UI 触发', 'Owner 红色弹窗'],
                       ['update_env_vars', '待接：加密 + diff', 'Owner 弹窗'],
                       ['read_server_logs', '只读 tail + 脱敏', '已接入（只读）'],
                     ].map(([n, a, c]) => (
@@ -314,7 +314,7 @@ export default function DesktopPage() {
               <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4">
                 <h2 className="text-sm font-semibold text-rose-800">生产环境发布审批</h2>
                 <p className="mt-1 text-[11px] text-rose-700">
-                  只有你在这里点击并输入确认短语，才会触发 Coolify webhook。模型不能直接部署。
+                  只有你在这里点击并输入确认短语，才会触发可选部署 webhook（Coolify/Vercel/自托管）。模型不能直接部署。桌面端发布不需要 webhook。
                 </p>
                 <button
                   onClick={() => {

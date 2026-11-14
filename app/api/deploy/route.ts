@@ -66,11 +66,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'confirmation phrase mismatch' }, { status: 403 });
     }
 
-    const webhook = process.env.COOLIFY_DEPLOY_WEBHOOK;
+    // Provider-agnostic; Coolify is one optional adapter (deferred for desktop).
+    const webhook = process.env.DEPLOY_WEBHOOK_URL || process.env.COOLIFY_DEPLOY_WEBHOOK;
     if (!webhook) {
       await supabase.from('deploy_confirmations').update({ status: 'missing_webhook' }).eq('id', id);
       return NextResponse.json(
-        { error: 'COOLIFY_DEPLOY_WEBHOOK is not configured; no deployment was triggered' },
+        { error: 'DEPLOY_WEBHOOK_URL is not configured; no deployment was triggered' },
         { status: 400 }
       );
     }

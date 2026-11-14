@@ -1,7 +1,7 @@
 # v0.02 沙箱安全设计（高危工具）
 
 **状态**: Owner 已批准（2026-11-13）。v0.02a–c 已实现；v0.02d 的发布确认 UI/API 已实现，`update_env_vars` 尚未实现（等待加密存储方案）。
-**范围**: 8 个未启用工具：`git_commit`、`submit_pr`、`run_terminal_command`、`run_test_suite`、`write_code_file`、`deploy_to_coolify`、`update_env_vars`、`read_server_logs`。
+**范围**: 8 个未启用工具：`git_commit`、`submit_pr`、`run_terminal_command`、`run_test_suite`、`write_code_file`、`deploy_production`、`update_env_vars`、`read_server_logs`。
 
 ## 0. 原则
 
@@ -21,7 +21,7 @@
 | `run_terminal_command` | ✅ v0.02c：workspace + argv 白名单 | shell 拼接、`rm`、`sudo`、`curl` 任意 URL | approval_id |
 | `run_test_suite` | ✅ v0.02c：`npm test` / `test:e2e` 包装 | 任意脚本、网络任意域名 | approval_id |
 | `write_code_file` | ✅ v0.02c：workspace 内代码文件 | `.git`、`.env`、密钥、绝对路径 | approval_id |
-| `deploy_to_coolify` | ✅ v0.02d：Coolify webhook（UI 一次性 token） | 模型直接调用、无 UI 确认 | Owner 红色弹窗 |
+| `deploy_production` | ✅ v0.02d：可选 provider webhook（UI 一次性 token）；Coolify 只是可选适配器 | 模型直接调用、无 UI 确认 | Owner 红色弹窗 |
 | `update_env_vars` | 待接：加密存储 + diff 预览 | 明文日志、无确认 | Owner 弹窗 |
 | `read_server_logs` | ✅ v0.02a 已接入：只读 tail + 脱敏 | 下载全量、写操作 | 只读 |
 
@@ -53,12 +53,12 @@
 
 ## 4. 生产部署：Webhook + 红色确认
 
-- `deploy_to_coolify` 不接受模型直接调用；只能在 UI 触发。
+- `deploy_production` 不接受模型直接调用；只能在 UI 触发。Coolify 只是可选 provider，桌面端不需要。
 - 流程：
   1. 镇岳生成部署计划（版本、变更、回滚）；
   2. UI 弹出全屏红色弹窗「生产环境发布审批」，显示计划 + 影响范围；
   3. Owner 输入确认短语（如 `DEPLOY <project> <version>`）并点击；
-  4. 后端一次性 token 调用 Coolify webhook；
+  4. 后端一次性 token 调用可选部署 webhook（Coolify/Vercel/自托管）；
   5. 记录审计 + 部署结果；失败自动回滚提示。
 - 模型只能准备计划，不能点击确认。
 - `update_env_vars` 同 UI 确认；值加密存储，日志脱敏；显示 diff（隐藏值）。
@@ -85,7 +85,7 @@
 - **v0.02a**：`read_server_logs` 只读 + 脱敏（低风险）。
 - **v0.02b**：GitHub API `git_commit` / `submit_pr`（不碰本地 .git）。
 - **v0.02c**：runner + `run_terminal_command` / `run_test_suite` / `write_code_file`。
-- **v0.02d**：Coolify webhook + 红色发布弹窗 + `update_env_vars`。
+- **v0.02d**：通用发布确认 + 可选 webhook；`update_env_vars` 留待本地 Keychain 方案。Coolify 不在桌面关键路径。
 
 每个阶段独立 Owner 批准，不一次性全开。
 
