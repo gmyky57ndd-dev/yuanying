@@ -63,7 +63,7 @@ Role matrix:
 
 ## Status
 
-- App exists (ID 5761017), installed on `Yuanying-Bot`
+- App exists (ID 5761017), installed on both `Yuanying-Bot` and `yuanying`
   (installation **181996170**).
 - Private key stored at
   `~/Library/Application Support/com.yuanying.desktop/github-app.pem` (0600).
@@ -75,10 +75,11 @@ token ok, expires ... permissions {"contents":"write","issues":"write",
 "metadata":"read","pull_requests":"write"}
 ```
 
-- Existing tools still use the global `GITHUB_TOKEN`. The App is **not yet
-  installed on `yuanying`**, so per-role tokens cannot write the main repo yet.
-- Install the App on `yuanying` (or authorize using `Yuanying-Bot` as the
-  sandbox) before wiring per-role tokens into tools.
+- `lib/github-token.ts` now resolves role-scoped App tokens for GitHub Issue
+  and `git_commit` / `submit_pr` tools. Verified issue read and `git_commit`
+  (`bda1275`) with the App token.
+- Background jobs (`lib/action-sync`, `lib/jobs`) still use the global PAT;
+  per-role isolation there is not claimed.
 
 ## Client ID vs App ID
 

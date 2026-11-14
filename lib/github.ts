@@ -3,6 +3,8 @@
  * the `push_to_dev` tool. Idempotent by exact title among recent issues.
  */
 
+import { githubTokenForRole } from './github-token.ts';
+
 export class GitHubConfigError extends Error {
   constructor() {
     super('GitHub config missing');
@@ -52,11 +54,11 @@ export type CreatedIssue = {
 export async function findOrCreateIssue(
   title: string,
   body: string,
-  opts: { signal?: AbortSignal } = {}
+  opts: { signal?: AbortSignal; role?: string | null } = {}
 ): Promise<CreatedIssue> {
-  const token = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO;
-  if (!token || !repo) throw new GitHubConfigError();
+  if (!repo) throw new GitHubConfigError();
+  const token = await githubTokenForRole(opts.role);
 
   const expectedTitle = (title.trim() || 'Yuanying Feedback').slice(0, 200);
   const headers = {
@@ -214,10 +216,13 @@ function clip(value: string, max: number): string {
 }
 
 /** ES-038: read an issue + its comments so 元婴 can verify delivery. */
-export async function getIssue(issueNumber: number): Promise<IssueDetails> {
-  const token = process.env.GITHUB_TOKEN;
+export async function getIssue(
+  issueNumber: number,
+  opts: { role?: string | null } = {}
+): Promise<IssueDetails> {
   const repo = process.env.GITHUB_REPO;
-  if (!token || !repo) throw new GitHubConfigError();
+  if (!repo) throw new GitHubConfigError();
+  const token = await githubTokenForRole(opts.role);
   if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
     throw new GitHubRequestError('issue_number must be a positive integer', 400);
   }
