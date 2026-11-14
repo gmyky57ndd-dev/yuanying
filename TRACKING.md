@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-86] ADR-004 成本路由 + ADR-005 skills — In Progress
+
+- **Status**: In Progress (2026-11-14) · **Refs**: approval #8
+- **ADR-004**: model routing, `cost_ledger`, `model_prices`, monthly project budgets, 80% warning, 100% 429; `get_project_cost`/`set_budget`; `/api/cost` + Workpad budget card.
+- **Verified**: token_budget=50 → second chat 429; cost row model=deepseek-chat.
+- **ADR-005**: `skill_prompt` injection + UI/API/configure tool; GitHub App token isolation **not** implemented (needs App credentials).
+- **Limits**: nested tool usage not counted; pricing seed must be maintained.
+
 ### [P2-85] Inbox/台账清理 + plan_actions 降噪 — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: #130, #138–#146

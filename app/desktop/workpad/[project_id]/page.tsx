@@ -44,13 +44,17 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [expandedMsgs, setExpandedMsgs] = useState<Record<string, boolean>>({});
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
+  const [cost, setCost] = useState<any>(null);
+  const [budgetTokens, setBudgetTokens] = useState('');
+  const [budgetCost, setBudgetCost] = useState('');
+  const [budgetMsg, setBudgetMsg] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [adrDraft, setAdrDraft] = useState<Record<number, string>>({});
   const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [h, m, a, i, cfg, mods, appr, led] = await Promise.all([
+    const [h, m, a, i, cfg, mods, appr, led, costRes] = await Promise.all([
       fetch('/api/hub', { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/fenshen`, { cache: 'no-store' }).then(r => r.json()),
       fetch(`/api/projects/${projectId}/artifacts`, { cache: 'no-store' }).then(r => r.json()),
@@ -63,6 +67,9 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
       fetch(`/api/actions?project_id=${encodeURIComponent(projectId)}`, {
         cache: 'no-store',
       }).then(r => r.json()),
+      fetch(`/api/cost?project_id=${encodeURIComponent(projectId)}`, {
+        cache: 'no-store',
+      }).then(r => r.json()),
     ]);
     const p = (h?.projects ?? []).find((x: any) => x.id === projectId);
     if (p) setProjectName(p.name);
@@ -73,6 +80,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     setModels(Array.isArray(mods?.models) ? mods.models : []);
     setApprovals(Array.isArray(appr?.approvals) ? appr.approvals : []);
     setLedger(Array.isArray(led?.actions) ? led.actions : []);
+    setCost(costRes?.cost ?? null);
     setArtifacts(Array.isArray(a?.artifacts) ? a.artifacts : []);
     setIssues(i.ok ? i.data?.issues ?? [] : []);
     setIssueError(i.ok ? null : i.data?.error ?? 'GitHub unavailable');
@@ -150,6 +158,32 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     const d = await r.json().catch(() => ({}));
     setApprovalMsg(r.ok ? '已更新' : `失败：${d.error ?? r.status}`);
     if (r.ok) await load();
+  }
+
+  useEffect(() => {
+    if (cost) {
+      setBudgetTokens(String(cost.token_budget ?? 0));
+      setBudgetCost(String(cost.cost_budget ?? 0));
+    }
+  }, [cost]);
+
+  async function saveBudget() {
+    setBudgetMsg(null);
+    const r = await fetch('/api/projects', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: projectId,
+        token_budget: Number(budgetTokens) || 0,
+        cost_budget: Number(budgetCost) || 0,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setBudgetMsg(r.ok ? '预算已保存' : `失败：${d.error ?? r.status}`);
+    if (r.ok) {
+      const c = await fetch(`/api/cost?project_id=${encodeURIComponent(projectId)}`, { cache: 'no-store' }).then(x => x.json()).catch(() => null);
+      setCost(c?.cost ?? null);
+    }
   }
 
   async function saveMembers() {
@@ -426,6 +460,23 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
               <p className="mb-3 text-[11px] text-stone-400">
                 pending/in_progress 必须有 GitHub issue；issue 关闭后 60 秒内自动变 Done。
               </p>
+              {cost && (
+                <div className="mb-3 rounded-lg border border-stone-200 bg-white p-3 text-[12px] text-stone-600">
+                  本月：<b>{cost.tokens_used}</b> tokens / <b>${cost.cost_used}</b>
+                  {' · '}预算 {cost.token_budget || '∞'} tokens / {cost.cost_budget || '∞'}
+                  {cost.blocked ? (
+                    <span className="ml-2 rounded bg-rose-50 px-2 py-0.5 text-rose-700">预算已耗尽</span>
+                  ) : cost.warning ? (
+                    <span className="ml-2 rounded bg-amber-50 px-2 py-0.5 text-amber-700">80% 警告</span>
+                  ) : null}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <input value={budgetTokens} onChange={e => setBudgetTokens(e.target.value)} className="w-28 rounded border border-stone-200 px-2 py-1 text-[11px]" placeholder="token 预算" />
+                    <input value={budgetCost} onChange={e => setBudgetCost(e.target.value)} className="w-24 rounded border border-stone-200 px-2 py-1 text-[11px]" placeholder="USD 预算" />
+                    <button onClick={saveBudget} className="rounded bg-stone-800 px-2 py-1 text-[11px] text-white">保存预算</button>
+                    {budgetMsg && <span className="text-[11px] text-stone-400">{budgetMsg}</span>}
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {ledger.map((a: any) => (
                   <div key={a.id} className="rounded-lg border border-stone-200 bg-white p-3">

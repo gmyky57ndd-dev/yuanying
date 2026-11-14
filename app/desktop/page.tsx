@@ -42,6 +42,7 @@ export default function DesktopPage() {
   const [error, setError] = useState<string | null>(null);
   const [editId, setEditId] = useState('ai_pm');
   const [editPrompt, setEditPrompt] = useState('');
+  const [editSkill, setEditSkill] = useState('');
   const [editTools, setEditTools] = useState<string[]>([]);
   const [editEnabled, setEditEnabled] = useState(true);
   const [editAllTools, setEditAllTools] = useState(true);
@@ -77,6 +78,7 @@ export default function DesktopPage() {
     const row = fenshen.find(f => f.id === editId);
     if (row) {
       setEditPrompt(String((row as any).prompt_md ?? ''));
+      setEditSkill(String((row as any).skill_prompt ?? ''));
       setEditTools(Array.isArray((row as any).tools_whitelist) ? (row as any).tools_whitelist : []);
       setEditEnabled((row as any).enabled !== false);
       setEditAllTools((row as any).has_all_tools !== false);
@@ -97,6 +99,7 @@ export default function DesktopPage() {
       body: JSON.stringify({
         id: editId,
         prompt_md: editPrompt,
+        skill_prompt: editSkill,
         tools_whitelist: editTools,
         enabled: editEnabled,
         has_all_tools: editAllTools,
@@ -375,6 +378,15 @@ export default function DesktopPage() {
                   rows={8}
                   className="w-full rounded-lg border border-stone-200 px-3 py-2 font-mono text-[12px] outline-none focus:border-stone-400"
                 />
+                <label className="mt-3 block text-[11px] text-stone-400">
+                  技能包（追加到 prompt 末尾）
+                  <textarea
+                    value={editSkill}
+                    onChange={e => setEditSkill(e.target.value)}
+                    rows={4}
+                    className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-2 font-mono text-[12px] outline-none focus:border-stone-400"
+                  />
+                </label>
                 <div className="mt-3 grid max-h-64 grid-cols-2 gap-1 overflow-y-auto">
                   {tools.map(t => (
                     <label key={t} className="flex items-center gap-2 text-[12px] text-stone-600">

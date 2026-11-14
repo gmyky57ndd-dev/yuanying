@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const { data, error } = await supabase
     .from('projects')
-    .select('id, name, description, status, require_approval, created_at')
+    .select('id, name, description, status, require_approval, token_budget, cost_budget, created_at')
     .order('created_at');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ projects: data ?? [] });
@@ -24,6 +24,12 @@ export async function PATCH(req: NextRequest) {
       patch.require_approval = body.require_approval;
     }
     if (typeof body?.description === 'string') patch.description = body.description;
+    if (typeof body?.token_budget === 'number' && body.token_budget >= 0) {
+      patch.token_budget = Math.floor(body.token_budget);
+    }
+    if (typeof body?.cost_budget === 'number' && body.cost_budget >= 0) {
+      patch.cost_budget = body.cost_budget;
+    }
     if (!Object.keys(patch).length) {
       return NextResponse.json({ error: 'nothing to update' }, { status: 400 });
     }

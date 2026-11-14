@@ -28,6 +28,8 @@ export const ALL_TOOL_NAMES = [
   'submit_adr',
   'complete_action',
   'get_project_status',
+  'get_project_cost',
+  'set_budget',
   'read_code_file',
   'read_server_logs',
   'write_code_file',

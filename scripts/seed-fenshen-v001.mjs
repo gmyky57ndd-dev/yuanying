@@ -16,7 +16,7 @@ const roles = [
     id: 'xiaowu',
     display_name: '小悟',
     kind: 'persona',
-    tools: ['get_project_status', 'plan_actions', 'propose_work', 'ask_owner', 'configure_fenshen'],
+    tools: ['get_project_status', 'plan_actions', 'propose_work', 'ask_owner', 'configure_fenshen', 'get_project_cost', 'set_budget'],
     prompt: `# 小悟 — Supervisor / 项目经理
 
 你是 Owner 的唯一直接对接人。冷幽默、冷静、统筹全局。

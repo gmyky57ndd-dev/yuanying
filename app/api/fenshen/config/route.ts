@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const { data, error } = await supabase
     .from('fenshen')
-    .select('id, display_name, prompt_md, tools_whitelist, model_name, kind, avatar_url, enabled, has_all_tools')
+    .select('id, display_name, prompt_md, skill_prompt, tools_whitelist, model_name, kind, avatar_url, enabled, has_all_tools')
     .order('id');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ fenshen: data ?? [], tools: ALL_TOOL_NAMES });
@@ -24,6 +24,7 @@ export async function PUT(req: NextRequest) {
 
     const patch: Record<string, unknown> = {};
     if (typeof body?.prompt_md === 'string') patch.prompt_md = body.prompt_md;
+    if (typeof body?.skill_prompt === 'string') patch.skill_prompt = body.skill_prompt;
     if (typeof body?.enabled === 'boolean') patch.enabled = body.enabled;
     if (typeof body?.has_all_tools === 'boolean') {
       patch.has_all_tools = body.has_all_tools;
