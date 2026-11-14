@@ -66,3 +66,7 @@ collector/android/keystore.properties
 /src-tauri/target/
 /.tauri-build/
 /var/
+
+# GitHub App private keys
+**/github-app*.pem
+*.pem
