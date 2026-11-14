@@ -1,22 +1,22 @@
 import { supabase } from './db';
+import { githubTokenForRole } from './github-token';
 
-const TOKEN = () => process.env.GITHUB_TOKEN || '';
 const REPO = () => process.env.GITHUB_REPO || '';
 
-function headers() {
+function headers(token: string) {
   return {
-    Authorization: `Bearer ${TOKEN()}`,
+    Authorization: `Bearer ${token}`,
     Accept: 'application/vnd.github+json',
     'Content-Type': 'application/json',
     'User-Agent': 'yuanying-sandbox',
   };
 }
 
-async function gh(path: string, init: RequestInit = {}) {
-  if (!TOKEN() || !REPO()) throw new Error('GitHub not configured');
+async function gh(path: string, token: string, init: RequestInit = {}) {
+  if (!REPO()) throw new Error('GitHub not configured');
   const res = await fetch(`https://api.github.com/repos/${REPO()}${path}`, {
     ...init,
-    headers: { ...headers(), ...(init.headers || {}) },
+    headers: { ...headers(token), ...(init.headers || {}) },
     signal: AbortSignal.timeout(15000),
     cache: 'no-store',
   });
@@ -72,6 +72,7 @@ export async function commitFile(args: {
   path: string;
   content: string;
   message: string;
+  fenshen_id?: string | null;
 }) {
   const approvalId = Number(args.approval_id);
   if (!Number.isInteger(approvalId) || approvalId <= 0) throw new Error('approval_id required');
@@ -83,15 +84,16 @@ export async function commitFile(args: {
   const message = String(args.message ?? '').trim().slice(0, 200);
   if (!message) throw new Error('commit message required');
   if (typeof args.content !== 'string' || !args.content) throw new Error('content required');
+  const token = await githubTokenForRole(args.fenshen_id);
 
   // Ensure branch exists, based on main's current head (no local .git).
   try {
-    await gh(`/git/ref/heads/${encodeURIComponent(branch)}`);
+    await gh(`/git/ref/heads/${encodeURIComponent(branch)}`, token);
   } catch {
-    const main = await gh('/git/ref/heads/main');
+    const main = await gh('/git/ref/heads/main', token);
     const baseSha = main?.object?.sha;
     if (!baseSha) throw new Error('cannot resolve main');
-    await gh('/git/refs', {
+    await gh('/git/refs', token, {
       method: 'POST',
       body: JSON.stringify({ ref: `refs/heads/${branch}`, sha: baseSha }),
     });
@@ -101,7 +103,8 @@ export async function commitFile(args: {
   let existingSha: string | undefined;
   try {
     const existing = await gh(
-      `/contents/${filePath.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(branch)}`
+      `/contents/${filePath.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(branch)}`,
+      token
     );
     if (existing?.sha) existingSha = existing.sha;
   } catch {
@@ -116,6 +119,7 @@ export async function commitFile(args: {
   if (existingSha) body.sha = existingSha;
   const result = await gh(
     `/contents/${filePath.split('/').map(encodeURIComponent).join('/')}`,
+    token,
     { method: 'PUT', body: JSON.stringify(body) }
   );
 
@@ -142,6 +146,7 @@ export async function openPullRequest(args: {
   head: string;
   base?: string;
   draft?: boolean;
+  fenshen_id?: string | null;
 }) {
   const approvalId = Number(args.approval_id);
   if (!Number.isInteger(approvalId) || approvalId <= 0) throw new Error('approval_id required');
@@ -154,8 +159,9 @@ export async function openPullRequest(args: {
   if (base !== 'main') throw new Error('only main is allowed as base');
   const title = String(args.title ?? '').trim().slice(0, 200);
   if (!title) throw new Error('title required');
+  const token = await githubTokenForRole(args.fenshen_id);
 
-  const pr = await gh('/pulls', {
+  const pr = await gh('/pulls', token, {
     method: 'POST',
     body: JSON.stringify({
       title,

@@ -274,6 +274,7 @@ async function runTool(name: string, args: any): Promise<any> {
     try {
       const issue = await findOrCreateIssue(title, body, {
         signal: controller.signal,
+        role: args?.fenshen_id as string | undefined,
       });
       if (approval) {
         const { error: upErr } = await supabase
@@ -737,7 +738,7 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
       return { success: false, error: 'issue_number must be a positive integer' };
     }
-    const issue = await getIssue(issueNumber);
+    const issue = await getIssue(issueNumber, { role: args?.fenshen_id as string | undefined });
     return { success: true, data: issue };
   }
 
@@ -828,7 +829,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const body = String(args?.body ?? '').trim();
     if (!title || !body) return { success: false, error: 'title and body required' };
     try {
-      const issue = await findOrCreateIssue(`[Bug] ${title}`.slice(0, 200), body);
+      const issue = await findOrCreateIssue(`[Bug] ${title}`.slice(0, 200), body, { role: args?.fenshen_id as string | undefined });
       const { data } = await supabase
         .from('workpad_actions')
         .insert({
@@ -931,7 +932,8 @@ async function runTool(name: string, args: any): Promise<any> {
       const checklist = planned.map(a => `- [ ] ${a}`).join('\n');
       issue = await findOrCreateIssue(
         title,
-        `Project: ${pid}\n\n${checklist}\n\n_Auto-created by plan_actions (umbrella issue; one per plan). Roll the checklist into the ledger._`
+        `Project: ${pid}\n\n${checklist}\n\n_Auto-created by plan_actions (umbrella issue; one per plan). Roll the checklist into the ledger._`,
+        { role: args?.fenshen_id as string | undefined }
       );
     } catch (e) {
       return {
@@ -1058,7 +1060,7 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: false, error: 'issue_number must be a positive integer' };
     }
     console.log(`[tool] get_github_issue #${issueNumber}`);
-    return { success: true, data: await getIssue(issueNumber) };
+    return { success: true, data: await getIssue(issueNumber, { role: args?.fenshen_id as string | undefined }) };
   }
 
   if (name === 'get_issue_status') {
@@ -1066,7 +1068,7 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!Number.isInteger(issueNumber) || issueNumber <= 0) {
       return { success: false, error: 'issue_number must be a positive integer' };
     }
-    const issue = await getIssue(issueNumber);
+    const issue = await getIssue(issueNumber, { role: args?.fenshen_id as string | undefined });
     return {
       success: true,
       data: {
@@ -1948,13 +1950,17 @@ ${bodyStatusReminder}`,
     ) => {
       const started = Date.now();
       toolTrace.push(name);
+      const roleArgs = {
+        ...args,
+        fenshen_id: (args as any)?.fenshen_id ?? requestFenshen?.id ?? null,
+      };
       try {
-        const raw = await runToolSafely(name, args);
+        const raw = await runToolSafely(name, roleArgs);
         const result = normalizeToolResult(name, raw, verboseTools);
         await recordToolEvent({
           request_id: requestId,
           tool: name,
-          args,
+          args: roleArgs,
           duration_ms: Date.now() - started,
           ok: result?.success !== false,
           error: result?.success === false ? result?.error ?? 'tool failed' : null,
