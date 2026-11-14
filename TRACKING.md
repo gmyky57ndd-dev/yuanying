@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-89] #168 指派可执行性修复 — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: #168, ES-086/087
+- **Bug**: xiaowu's assign only wrote GitHub label/comment; ai_architect was not woken and the poll notification landed in `aso`, not `yuanying`.
+- **Fix**: `assign_issue` posts a Workpad message with issue title/body/link; poll notification uses the ledger project and includes issue context; #168 reposted to `yuanying`.
+- **Verified**: assignment test #169 → Workpad `yuanying` message with body; test cleaned.
+- **Limit**: no auto-LLM wake; owner @ still required.
+
 ### [P2-88] ES-087 分身空闲 GitHub 巡检 — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: approval #5

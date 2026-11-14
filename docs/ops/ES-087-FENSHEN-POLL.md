@@ -11,7 +11,7 @@
 - **Assignment** is the `fenshen:<id>` label (written by xiaowu's `assign_issue`).
 - **First run is a silent baseline** (no replay of historical issues).
 - **Change** → one Workpad assistant message, e.g.
-  `巡检 拓维：#166 新指派…`; **no change → silent**.
+  `巡检 拓维：#166 新指派…` plus issue title/body/link; **no change → silent**.
 - No LLM call; deterministic notification. No token cost.
 - State: `fenshen_poll_state` (last_full_at, last_light_at, seen JSONB).
 
@@ -41,7 +41,7 @@ Each fenshen uses its **role-scoped GitHub App installation token**
 
 - Notification only; it does **not** auto-invoke the fenshen LLM. The assignee
   still needs Workpad @ or a future auto-wake step.
-- A fenshen in multiple rooms shares one poll state; project selection is the
-  first mapped room. Duplicate notifications are suppressed, but the room may
-  not be the one the owner is watching.
+- A fenshen in multiple rooms shares one poll state. The notification is posted
+  to the project that owns the issue in the ledger (fallback: first mapped
+  room), so #168 lands in `yuanying` rather than `aso`.
 - Only label-based assignment; native GitHub assignee is optional.

@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto';
+import { supabase } from './db';
+import { mirrorMessages } from './local-write';
 import { findOrCreateIssue } from './github.ts';
 import { githubTokenForRole } from './github-token.ts';
 
@@ -74,7 +77,14 @@ export async function assignIssue(args: {
   fenshen_id: 'ai_pm' | 'ai_architect' | 'dsh' | 'qa' | 'devops' | 'librarian';
   note?: string;
   assignee?: string;
-}): Promise<{ number: number; label: string; comment_url: string | null; assignee: string | null }> {
+  project_id?: string;
+}): Promise<{
+  number: number;
+  label: string;
+  comment_url: string | null;
+  assignee: string | null;
+  workpad_message_id: number | null;
+}> {
   const n = Number(args.issue_number);
   if (!Number.isInteger(n) || n <= 0) throw new Error('issue_number required');
   const label = `fenshen:${args.fenshen_id}`;
@@ -103,7 +113,48 @@ export async function assignIssue(args: {
     });
     assignee = updated?.assignees?.[0]?.login ?? args.assignee;
   }
-  return { number: n, label, comment_url: comment?.html_url ?? null, assignee };
+
+  // A GitHub comment does NOT wake a fenshen (there is no GitHub poller that
+  // invokes the LLM). Put the assignment in the Workpad room so the owner can
+  // @ the assignee, and include the issue content for context.
+  let workpadMessageId: number | null = null;
+  if (args.project_id) {
+    try {
+      const issue = await gh(`/issues/${n}`);
+      const content = `@${display[args.fenshen_id]} 新任务 #${n} ${issue.title}\n\n${String(
+        issue.body ?? ''
+      ).slice(0, 1200)}\n\n${issue.html_url}\n\n请先调用 get_github_issue(${n}) 读全文，按 Issue 正文执行；完成后在 Issue 回帖。`;
+      const { data } = await supabase
+        .from('messages')
+        .insert({
+          role: 'assistant',
+          content,
+          session_id: randomUUID(),
+          project_id: args.project_id,
+          responder_fenshen_id: 'xiaowu',
+          metadata: {
+            kind: 'assignment',
+            issue_number: n,
+            fenshen_id: args.fenshen_id,
+            issue_url: issue.html_url,
+          },
+        })
+        .select('id, role, content, session_id, project_id, responder_fenshen_id, metadata, created_at');
+      if (data?.[0]) {
+        workpadMessageId = data[0].id;
+        mirrorMessages(data as any[]);
+      }
+    } catch (e) {
+      console.warn('assignment Workpad message failed', e);
+    }
+  }
+  return {
+    number: n,
+    label,
+    comment_url: comment?.html_url ?? null,
+    assignee,
+    workpad_message_id: workpadMessageId,
+  };
 }
 
 export async function commentOnIssue(args: {
