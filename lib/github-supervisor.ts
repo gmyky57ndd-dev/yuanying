@@ -35,9 +35,23 @@ async function gh(path: string, init: RequestInit = {}) {
   return json;
 }
 
+export async function addProjectLabel(issueNumber: number, projectId: string): Promise<void> {
+  const pid = String(projectId ?? '').trim();
+  if (!pid) return;
+  try {
+    await gh(`/issues/${issueNumber}/labels`, {
+      method: 'POST',
+      body: JSON.stringify({ labels: [`project:${pid}`] }),
+    });
+  } catch (e) {
+    console.warn('project label failed', e);
+  }
+}
+
 export async function createEpic(args: {
   title: string;
   body: string;
+  project_id?: string;
 }): Promise<{ number: number; url: string; already: boolean }> {
   const title = String(args.title ?? '').trim();
   const body = String(args.body ?? '').trim();
@@ -45,6 +59,7 @@ export async function createEpic(args: {
   const issue = await findOrCreateIssue(`[Epic] ${title}`.slice(0, 180), body, {
     role: ROLE,
   });
+  if (args.project_id) await addProjectLabel(issue.number, args.project_id);
   return { number: issue.number, url: issue.issue_url, already: issue.already };
 }
 
@@ -97,9 +112,11 @@ export async function assignIssue(args: {
     devops: '镇岳',
     librarian: '司书',
   };
+  const labels = [label];
+  if (args.project_id) labels.push(`project:${args.project_id}`);
   await gh(`/issues/${n}/labels`, {
     method: 'POST',
-    body: JSON.stringify({ labels: [label] }),
+    body: JSON.stringify({ labels }),
   });
   const body = `@${display[args.fenshen_id]} ${args.note ?? '请接手这个任务。'}\n\n_Assigned by 小悟 (Supervisor)._`;
   const comment = await gh(`/issues/${n}/comments`, {

@@ -7,9 +7,11 @@
 
 | Tool | Backend |
 |---|---|
-| `create_issue` | GitHub Issue + ledger action |
+| `create_issue` | GitHub Issue + `project:<id>` label + ledger action |
 | `list_issues` | GET /issues (state/labels/limit) |
-| `assign_issue` | label `fenshen:<id>` + `@name` comment + **Workpad message with issue body**; optional GitHub assignee |
+| `get_github_issue` | read issue + comments (supervisor verification) |
+| `complete_action` | close ledger action |
+| `assign_issue` | labels `project:<id>` + `fenshen:<id>` + `@name` comment + **Workpad message + auto-handoff**; optional GitHub assignee |
 | `comment_on_issue` | POST /issues/{n}/comments |
 | `update_issue_status` | PATCH /issues/{n} state |
 | `list_pull_requests` | GET /pulls |
@@ -30,6 +32,10 @@ requirement routing, progress audit, loop closure, information aggregation.
 - `assign_issue` → label `fenshen:ai_pm`, bot comment `@拓维 请基于此输出 PRD`;
 - Issue closed and test action cleaned;
 - “项目进度如何” → tool-backed 3-sentence report (open issues #104/#105/#106 etc.).
+
+## Project visibility
+
+`get_project_status` filters issues by `label:project:<id>`. Every supervisor-created or assigned issue gets this label. If the list is empty, use `list_issues`/`get_github_issue` before concluding there are no issues.
 
 ## Important limitation
 

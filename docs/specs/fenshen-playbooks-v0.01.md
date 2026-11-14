@@ -9,7 +9,7 @@ Retired: **Elara**, **Kael** (rows + project maps removed).
 
 | Fenshen | 角色 | 工具白名单（实际启用） |
 |---|---|---|
-| 小悟 `xiaowu` | Supervisor / 项目经理 | `get_project_status`, `plan_actions`, `create_issue`, `list_issues`, `assign_issue`, `comment_on_issue`, `update_issue_status`, `list_pull_requests`, `propose_work`, `ask_owner`, `configure_fenshen`, `write_local_file` |
+| 小悟 `xiaowu` | Supervisor / 项目经理 | `get_project_status`, `plan_actions`, `create_issue`, `list_issues`, `get_github_issue`, `assign_issue`, `complete_action`, `comment_on_issue`, `update_issue_status`, `list_pull_requests`, `propose_work`, `ask_owner`, `configure_fenshen`, `write_local_file` |
 | 拓维 `ai_pm` | 产品经理 | `web_search`, `read_local_file`, `write_local_file`, `push_to_dev`, `get_github_issue`, `get_project_status` |
 | 阿构 `ai_architect` | 系统架构师 | `read_code_file`, `read_local_file`, `write_local_file`, `get_github_issue`, `get_project_status` |
 | DSH `dsh` | 全栈工程师 | `read_code_file`, `read_local_file`, `write_local_file`, `get_github_issue`, `get_project_status`, `git_commit`, `submit_pr` (v0.02b), `write_code_file`, `run_terminal_command`, `run_test_suite` (v0.02c) |
