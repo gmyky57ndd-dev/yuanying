@@ -209,7 +209,7 @@ never by the section they happened to be written under.
 - **Status**: In Progress (2026-11-14) · **Refs**: approval #8
 - **ADR-004**: model routing, `cost_ledger`, `model_prices`, monthly project budgets, 80% warning, 100% 429; `get_project_cost`/`set_budget`; `/api/cost` + Workpad budget card.
 - **Verified**: token_budget=50 → second chat 429; cost row model=deepseek-chat.
-- **ADR-005**: `skill_prompt` injection + UI/API/configure tool; GitHub App token isolation **not** implemented (needs App credentials).
+- **ADR-005**: `skill_prompt` injection + UI/API/configure tool; GitHub App token exchange verified on `Yuanying-Bot` (installation 181996170); per-role token isolation not yet wired; main repo install pending.
 - **Limits**: nested tool usage not counted; pricing seed must be maintained.
 
 ### [P2-85] Inbox/台账清理 + plan_actions 降噪 — Done

@@ -63,9 +63,22 @@ Role matrix:
 
 ## Status
 
-- App exists (ID 5761017); **private key + installation ID still needed**.
-- Existing tools still use the global `GITHUB_TOKEN`; do not claim per-role
-  isolation until the App token is wired and verified.
+- App exists (ID 5761017), installed on `Yuanying-Bot`
+  (installation **181996170**).
+- Private key stored at
+  `~/Library/Application Support/com.yuanying.desktop/github-app.pem` (0600).
+- Verified token exchange (2026-11-14):
+
+```
+installation 181996170 repo gmyky57ndd-dev/Yuanying-Bot
+token ok, expires ... permissions {"contents":"write","issues":"write",
+"metadata":"read","pull_requests":"write"}
+```
+
+- Existing tools still use the global `GITHUB_TOKEN`. The App is **not yet
+  installed on `yuanying`**, so per-role tokens cannot write the main repo yet.
+- Install the App on `yuanying` (or authorize using `Yuanying-Bot` as the
+  sandbox) before wiring per-role tokens into tools.
 
 ## Client ID vs App ID
 
