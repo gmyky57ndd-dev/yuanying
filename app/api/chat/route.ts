@@ -19,6 +19,7 @@ import { getDisplaySummary, generateSummary } from '@/lib/summary-generator';
 import { findOrCreateIssue, getIssue } from '@/lib/github';
 import { commitFile, openPullRequest } from '@/lib/github-write';
 import { writeCodeFile, runTerminalCommand, runTestSuite } from '@/lib/workspace-runner';
+import { enforceBudget, recordCost, getProjectBudget, setProjectBudget } from '@/lib/budget';
 import { enqueuePushToDev } from '@/lib/jobs';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
@@ -786,6 +787,7 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!existing) return { success: false, error: `unknown fenshen: ${id}` };
     const patch: Record<string, unknown> = {};
     if (typeof args?.prompt_md === 'string') patch.prompt_md = args.prompt_md.slice(0, 20000);
+    if (typeof args?.skill_prompt === 'string') patch.skill_prompt = args.skill_prompt.slice(0, 10000);
     if (typeof args?.enabled === 'boolean') patch.enabled = args.enabled;
     if (typeof args?.has_all_tools === 'boolean') patch.has_all_tools = args.has_all_tools;
     if (Array.isArray(args?.tools_whitelist)) {
@@ -883,6 +885,30 @@ async function runTool(name: string, args: any): Promise<any> {
       return { success: true, data: await runTestSuite(args as any) };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'tests failed' };
+    }
+  }
+
+  if (name === 'get_project_cost') {
+    const pid = String(args?.project_id ?? '').trim();
+    if (!pid) return { success: false, error: 'project_id required' };
+    return { success: true, data: await getProjectBudget(pid) };
+  }
+
+  if (name === 'set_budget') {
+    const pid = String(args?.project_id ?? '').trim();
+    if (!pid) return { success: false, error: 'project_id required' };
+    try {
+      return {
+        success: true,
+        data: await setProjectBudget(pid, {
+          token_budget:
+            args?.token_budget === undefined ? undefined : Number(args.token_budget),
+          cost_budget:
+            args?.cost_budget === undefined ? undefined : Number(args.cost_budget),
+        }),
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'set budget failed' };
     }
   }
 
@@ -1263,7 +1289,7 @@ export async function POST(req: NextRequest) {
     if (requestedFenshenId) {
       const { data: row } = await supabase
         .from('fenshen')
-        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, has_all_tools')
+        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, skill_prompt, has_all_tools')
         .eq('id', requestedFenshenId)
         .maybeSingle();
       if (row) requestFenshen = row as any;
@@ -1280,6 +1306,7 @@ export async function POST(req: NextRequest) {
 
     // ES-080: project scoping (Project → Role → Workpad → Artifact).
     let project: { id: string; name: string; require_approval?: boolean } | null = null;
+    let budgetStatus: Awaited<ReturnType<typeof enforceBudget>> | null = null;
     let projectDocNames: string[] = [];
     if (projectId) {
       const { data: projectRow } = await supabase
@@ -1294,6 +1321,21 @@ export async function POST(req: NextRequest) {
         );
       }
       project = projectRow as any;
+      try {
+        const budget = await enforceBudget(projectId);
+        if (budget.blocked) {
+          return NextResponse.json(
+            {
+              error: '当前项目预算已耗尽，请老板充值或调整额度。',
+              budget,
+            },
+            { status: 429 }
+          );
+        }
+        budgetStatus = budget;
+      } catch (e) {
+        console.warn('budget check failed; allowing request', e);
+      }
       const { data: docs } = await supabase
         .from('project_docs')
         .select('name')
@@ -1313,7 +1355,7 @@ export async function POST(req: NextRequest) {
       const { data: map } = await supabase
         .from('project_fenshen_map')
         .select(
-          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, enabled, has_all_tools)'
+          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, skill_prompt, enabled, has_all_tools)'
         )
         .eq('project_id', projectId)
         .order('is_lead', { ascending: false });
@@ -2109,6 +2151,22 @@ ${bodyStatusReminder}`,
         }),
         execute: async args => runToolForModel('ask_owner', args),
       }),
+      get_project_cost: tool({
+        description:
+          'ADR-004: current project budget vs this month\'s token/cost spend, percentages, warning/blocked flags.',
+        parameters: z.object({ project_id: z.string() }),
+        execute: async args => runToolForModel('get_project_cost', args),
+      }),
+      set_budget: tool({
+        description:
+          'ADR-004 (supervisor only): set a project monthly token/cost budget. 0 means unlimited. Owner should confirm.',
+        parameters: z.object({
+          project_id: z.string(),
+          token_budget: z.number().min(0).optional(),
+          cost_budget: z.number().min(0).optional(),
+        }),
+        execute: async args => runToolForModel('set_budget', args),
+      }),
       configure_fenshen: tool({
         description:
           'Configure a fenshen playbook: model, prompt, tool whitelist, has_all_tools, enabled. Owner-only (supervisor). Model must exist in the models table.',
@@ -2116,6 +2174,7 @@ ${bodyStatusReminder}`,
           fenshen_id: z.string().describe('xiaowu, ai_pm, ai_architect, dsh, qa, devops, librarian'),
           model_name: z.string().nullable().optional().describe('model id; null restores global default'),
           prompt_md: z.string().optional(),
+          skill_prompt: z.string().optional(),
           tools_whitelist: z.array(z.string()).optional(),
           has_all_tools: z.boolean().optional(),
           enabled: z.boolean().optional(),
@@ -2474,9 +2533,12 @@ ${bodyStatusReminder}`,
     const guardedSystemPrompt = repeatSaveQuestion
       ? `${systemPrompt}\n\n【打断】你已经连续多次用同一句请示（「要我存下来吗」）。不要再问；直接执行主人最新的一条指令，或简短结束。${notePromptSuffix}`
       : `${systemPrompt}${notePromptSuffix}`;
-    const finalSystemPrompt = kbContext
+    const budgetNote = budgetStatus?.warning
+      ? `\n\n【预算警告】项目本月已用 ${budgetStatus.tokens_used} tokens / $${budgetStatus.cost_used}（预算 ${budgetStatus.token_budget} tokens / $${budgetStatus.cost_budget}）。请提醒 Owner 控制消耗。`
+      : '';
+    const finalSystemPrompt = (kbContext
       ? `${guardedSystemPrompt}${kbContext}`
-      : guardedSystemPrompt;
+      : guardedSystemPrompt) + budgetNote;
 
     const activeTools =
       !useAllTools && toolWhitelist
@@ -2814,6 +2876,18 @@ ${bodyStatusReminder}`,
             : streamError || silentWrite || missedTool
               ? 500
               : 200;
+
+        if (projectId && usage) {
+          const u = usage as any;
+          await recordCost({
+            projectId,
+            fenshenId: requestFenshen?.id ?? null,
+            modelId: requestFenshen?.model_name || modelInfo?.id || 'unknown',
+            requestId,
+            promptTokens: Number(u.promptTokens ?? u.inputTokens ?? 0),
+            completionTokens: Number(u.completionTokens ?? u.outputTokens ?? 0),
+          });
+        }
 
         await recordSystemEvent({
           route: '/api/chat',
