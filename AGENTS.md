@@ -530,7 +530,7 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 ### 14.1 工具边界
 
-- 小悟：`get_project_status`、`plan_actions`、`propose_work`、`ask_owner`、`configure_fenshen`。只派活/催进度，不写代码、不改架构。
+- 小悟：`get_project_status`、`plan_actions`、`propose_work`、`ask_owner`、`configure_fenshen`。只派活/催进度，不写代码、不改架构。`plan_actions` 每个计划只建一个 umbrella Issue + checklist，不把每个微步骤都变成 Issue。
 - 拓维：`web_search`、`read_local_file`、`write_local_file`、`push_to_dev`、`get_github_issue`、`get_project_status`。只产出 PRD/需求 Issue。
 - 阿构：`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`。只产出 ADR/设计，不写实现。
 - DSH：`read_code_file`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`、`git_commit`、`submit_pr`（v0.02b，仅 GitHub REST，不碰本地 .git）、`write_code_file`、`run_terminal_command`、`run_test_suite`（v0.02c，仅 workspace 白名单）。只实现已批准 ADR。

@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-85] Inbox/台账清理 + plan_actions 降噪 — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: #130, #138–#146
+- **Cleanup**: closed #107 (superseded by #134) and #138–#146; removed duplicate action 32; sync marked 7 actions done.
+- **Approvals**: #3/#4/#9 → done; #8 (team) and #5 (idle polling) remain proposed.
+- **Policy**: `plan_actions` now creates one umbrella Issue + checklist per plan; all actions link to it. Verified #157 / 2 actions.
+- **Remaining ledger**: #104/#105/#106 pending (real backlog).
+
 ### [P2-84] 部署决策记录：Desktop-first / Coolify Deferred — Done
 
 - **Status**: Done (2026-11-13) · **Refs**: AGENTS.md §14.4

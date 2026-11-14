@@ -37,12 +37,15 @@ status poll after the issue closed.
 
 ## plan_actions
 
-- Creates a GitHub issue per action **before** writing the ledger.
-- If any issue creation fails, returns `success:false` and writes no rows.
-- Stores `github_issue_number/url` and `result_ref`.
+- Creates **one umbrella GitHub issue per plan** (checklist), not one issue
+  per micro-action. This avoids the #138–#146 inbox flood.
+- If issue creation fails, returns `success:false` and writes no rows.
+- All actions in the plan link to the same issue (`github_issue_number/url`,
+  `result_ref`); the checklist is the human-readable plan.
 
-Verified: `plan_actions` probe → issue **#132** created; ledger row linked;
-issue closed → poll flipped row to `done`.
+Verified: plan with two actions → single issue **#157**, two ledger rows linked
+to #157; test issue/actions cleaned up. (Earlier per-action probe #132 was the
+old behavior.)
 
 ## Status sync
 
