@@ -20,7 +20,7 @@ import { findOrCreateIssue, getIssue } from '@/lib/github';
 import { commitFile, openPullRequest } from '@/lib/github-write';
 import { writeCodeFile, runTerminalCommand, runTestSuite } from '@/lib/workspace-runner';
 import { enforceBudget, recordCost, getProjectBudget, setProjectBudget } from '@/lib/budget';
-import { createEpic, listIssues, assignIssue, commentOnIssue, updateIssueStatus, listPullRequests } from '@/lib/github-supervisor';
+import { createEpic, addProjectLabel, listIssues, assignIssue, commentOnIssue, updateIssueStatus, listPullRequests } from '@/lib/github-supervisor';
 import { enqueuePushToDev } from '@/lib/jobs';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
@@ -831,6 +831,7 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!title || !body) return { success: false, error: 'title and body required' };
     try {
       const issue = await findOrCreateIssue(`[Bug] ${title}`.slice(0, 200), body, { role: args?.fenshen_id as string | undefined });
+      await addProjectLabel(issue.number, pid);
       const { data } = await supabase
         .from('workpad_actions')
         .insert({
@@ -920,7 +921,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const body = String(args?.body ?? '').trim();
     if (!title || !body) return { success: false, error: 'title and body required' };
     try {
-      const issue = await createEpic({ title, body });
+      const issue = await createEpic({ title, body, project_id: pid });
       const { data: action } = await supabase
         .from('workpad_actions')
         .insert({
@@ -1036,6 +1037,7 @@ async function runTool(name: string, args: any): Promise<any> {
         `Project: ${pid}\n\n${checklist}\n\n_Auto-created by plan_actions (umbrella issue; one per plan). Roll the checklist into the ledger._`,
         { role: args?.fenshen_id as string | undefined }
       );
+      await addProjectLabel(issue.number, pid);
     } catch (e) {
       return {
         success: false,

@@ -16,7 +16,7 @@ const roles = [
     id: 'xiaowu',
     display_name: '小悟',
     kind: 'persona',
-    tools: ['get_project_status', 'plan_actions', 'propose_work', 'ask_owner', 'configure_fenshen', 'get_project_cost', 'set_budget', 'create_issue', 'list_issues', 'assign_issue', 'comment_on_issue', 'update_issue_status', 'list_pull_requests', 'write_local_file'],
+    tools: ['get_project_status', 'plan_actions', 'propose_work', 'ask_owner', 'configure_fenshen', 'get_project_cost', 'set_budget', 'create_issue', 'list_issues', 'get_github_issue', 'assign_issue', 'complete_action', 'comment_on_issue', 'update_issue_status', 'list_pull_requests', 'write_local_file'],
     skill: `## 你的核心职能：项目主管 (Program Manager)
 1. **需求路由**：Owner 提出需求时，建 Issue，@拓维 (PM) 启动流程。
 2. **进度巡检**：定期查询 Issue 和 Action Ledger。如果发现停滞，直接 @ 对应分身催办。

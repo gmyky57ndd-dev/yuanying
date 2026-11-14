@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-92] Supervisor project labels + verification — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: #168
+- **Bug**: `get_project_status` filters `label:project:<id>`, but supervisor-created issues lacked it, so #168 appeared in "no open issues".
+- **Fix**: `create_issue`/`plan_actions`/`create_bug_issue`/`assign_issue` add `project:<id>`; #168 backfilled.
+- **Tools**: xiaowu gets `get_github_issue` (read comments) and `complete_action`; skill says verify comments before closing.
+- **Verified**: xiaowu read architect comment, corrected its wrong read-chain claim, commented "已核验，收口" and closed #168; action 37 done.
+
 ### [P2-91] Supervisor assignment auto-handoff — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: #168
