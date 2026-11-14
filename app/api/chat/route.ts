@@ -20,6 +20,7 @@ import { findOrCreateIssue, getIssue } from '@/lib/github';
 import { commitFile, openPullRequest } from '@/lib/github-write';
 import { writeCodeFile, runTerminalCommand, runTestSuite } from '@/lib/workspace-runner';
 import { enforceBudget, recordCost, getProjectBudget, setProjectBudget } from '@/lib/budget';
+import { createEpic, listIssues, assignIssue, commentOnIssue, updateIssueStatus, listPullRequests } from '@/lib/github-supervisor';
 import { enqueuePushToDev } from '@/lib/jobs';
 import { getActiveModelInfo, getModel } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
@@ -910,6 +911,105 @@ async function runTool(name: string, args: any): Promise<any> {
       };
     } catch (e) {
       return { success: false, error: e instanceof Error ? e.message : 'set budget failed' };
+    }
+  }
+
+  if (name === 'create_issue') {
+    const pid = String(args?.project_id ?? 'yuanying').trim() || 'yuanying';
+    const title = String(args?.title ?? '').trim();
+    const body = String(args?.body ?? '').trim();
+    if (!title || !body) return { success: false, error: 'title and body required' };
+    try {
+      const issue = await createEpic({ title, body });
+      const { data: action } = await supabase
+        .from('workpad_actions')
+        .insert({
+          project_id: pid,
+          description: title.slice(0, 500),
+          status: 'pending',
+          github_issue_number: issue.number,
+          github_issue_url: issue.url,
+          result_ref: issue.url,
+        })
+        .select('*')
+        .single();
+      if (action) mirrorAction(action as any);
+      return { success: true, data: { issue, action } };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'create issue failed' };
+    }
+  }
+
+  if (name === 'list_issues') {
+    try {
+      return {
+        success: true,
+        data: await listIssues({
+          state: args?.state as any,
+          labels: typeof args?.labels === 'string' ? args.labels : undefined,
+          limit: Number(args?.limit) || 30,
+        }),
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'list issues failed' };
+    }
+  }
+
+  if (name === 'assign_issue') {
+    try {
+      return {
+        success: true,
+        data: await assignIssue({
+          issue_number: Number(args?.issue_number),
+          fenshen_id: args?.fenshen_id as any,
+          note: typeof args?.note === 'string' ? args.note : undefined,
+          assignee: typeof args?.assignee === 'string' ? args.assignee : undefined,
+        }),
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'assign failed' };
+    }
+  }
+
+  if (name === 'comment_on_issue') {
+    try {
+      return {
+        success: true,
+        data: await commentOnIssue({
+          issue_number: Number(args?.issue_number),
+          body: String(args?.body ?? ''),
+        }),
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'comment failed' };
+    }
+  }
+
+  if (name === 'update_issue_status') {
+    try {
+      return {
+        success: true,
+        data: await updateIssueStatus({
+          issue_number: Number(args?.issue_number),
+          state: args?.state === 'closed' ? 'closed' : 'open',
+        }),
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'status update failed' };
+    }
+  }
+
+  if (name === 'list_pull_requests') {
+    try {
+      return {
+        success: true,
+        data: await listPullRequests({
+          state: args?.state as any,
+          limit: Number(args?.limit) || 20,
+        }),
+      };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'list PRs failed' };
     }
   }
 
@@ -2156,6 +2256,61 @@ ${bodyStatusReminder}`,
           description: z.string().describe('context and options for the owner'),
         }),
         execute: async args => runToolForModel('ask_owner', args),
+      }),
+      create_issue: tool({
+        description:
+          'Supervisor: create an Epic/Issue and anchor a ledger action to it. Use for a new Owner request.',
+        parameters: z.object({
+          title: z.string(),
+          body: z.string(),
+          project_id: z.string().optional(),
+        }),
+        execute: async args => runToolForModel('create_issue', args),
+      }),
+      list_issues: tool({
+        description:
+          'Supervisor: list GitHub Issues (open/closed/all), with labels/assignees, to audit progress.',
+        parameters: z.object({
+          state: z.enum(['open', 'closed', 'all']).optional(),
+          labels: z.string().optional().describe('comma-separated labels'),
+          limit: z.number().int().min(1).max(50).optional(),
+        }),
+        execute: async args => runToolForModel('list_issues', args),
+      }),
+      assign_issue: tool({
+        description:
+          'Supervisor: assign an Issue to a fenshen (PM/architect/DSH/QA/DevOps/Librarian) via label + @mention comment; optional GitHub assignee.',
+        parameters: z.object({
+          issue_number: z.number().int().positive(),
+          fenshen_id: z.enum(['ai_pm', 'ai_architect', 'dsh', 'qa', 'devops', 'librarian']),
+          note: z.string().optional(),
+          assignee: z.string().optional().describe('optional GitHub username'),
+        }),
+        execute: async args => runToolForModel('assign_issue', args),
+      }),
+      comment_on_issue: tool({
+        description: 'Supervisor: comment on an Issue (bug/status/handoff).',
+        parameters: z.object({
+          issue_number: z.number().int().positive(),
+          body: z.string(),
+        }),
+        execute: async args => runToolForModel('comment_on_issue', args),
+      }),
+      update_issue_status: tool({
+        description: 'Supervisor: close or reopen an Issue.',
+        parameters: z.object({
+          issue_number: z.number().int().positive(),
+          state: z.enum(['open', 'closed']),
+        }),
+        execute: async args => runToolForModel('update_issue_status', args),
+      }),
+      list_pull_requests: tool({
+        description: 'Supervisor: list pull requests to check development progress.',
+        parameters: z.object({
+          state: z.enum(['open', 'closed', 'all']).optional(),
+          limit: z.number().int().min(1).max(50).optional(),
+        }),
+        execute: async args => runToolForModel('list_pull_requests', args),
       }),
       get_project_cost: tool({
         description:

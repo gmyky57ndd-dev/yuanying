@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-87] ES-086 Supervisor tools & skills — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: ES-086
+- **Tools**: create_issue, list_issues, assign_issue, comment_on_issue, update_issue_status, list_pull_requests (+ existing status/plan/cost/configure/write).
+- **Skills**: Program Manager SOP injected into xiaowu.skill_prompt.
+- **Verified**: Epic #164 created; assigned via `fenshen:ai_pm` + bot comment; progress report from get_project_status/list_issues.
+- **Limit**: assignment is logical label/@comment; no per-fenshen GitHub accounts; no auto-poll.
+
 ### [P2-86] ADR-004 成本路由 + ADR-005 skills — In Progress
 
 - **Status**: In Progress (2026-11-14) · **Refs**: approval #8

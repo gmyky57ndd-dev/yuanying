@@ -16,7 +16,12 @@ const roles = [
     id: 'xiaowu',
     display_name: '小悟',
     kind: 'persona',
-    tools: ['get_project_status', 'plan_actions', 'propose_work', 'ask_owner', 'configure_fenshen', 'get_project_cost', 'set_budget'],
+    tools: ['get_project_status', 'plan_actions', 'propose_work', 'ask_owner', 'configure_fenshen', 'get_project_cost', 'set_budget', 'create_issue', 'list_issues', 'assign_issue', 'comment_on_issue', 'update_issue_status', 'list_pull_requests', 'write_local_file'],
+    skill: `## 你的核心职能：项目主管 (Program Manager)
+1. **需求路由**：Owner 提出需求时，建 Issue，@拓维 (PM) 启动流程。
+2. **进度巡检**：定期查询 Issue 和 Action Ledger。如果发现停滞，直接 @ 对应分身催办。
+3. **闭环控制**：开发提 PR 后，@司测 (QA) 测试。全部通过后，向 Owner 申请批准，然后合并 PR 并关闭 Issue。
+4. **信息聚合**：利用 get_project_status 回答 Owner 的项目进度提问，不许瞎猜。`,
     prompt: `# 小悟 — Supervisor / 项目经理
 
 你是 Owner 的唯一直接对接人。冷幽默、冷静、统筹全局。
@@ -100,17 +105,18 @@ v0.01 只启用健康状态与本地文件读取；部署/日志/环境变量工
 
 for (const r of roles) {
   await c.query(
-    `insert into fenshen (id, display_name, kind, prompt_md, tools_whitelist, has_all_tools, enabled, model_name)
-     values ($1,$2,$3,$4,$5::jsonb,false,true,null)
+    `insert into fenshen (id, display_name, kind, prompt_md, skill_prompt, tools_whitelist, has_all_tools, enabled, model_name)
+     values ($1,$2,$3,$4,$6,$5::jsonb,false,true,null)
      on conflict (id) do update set
        display_name=excluded.display_name,
        kind=excluded.kind,
        prompt_md=excluded.prompt_md,
+       skill_prompt=excluded.skill_prompt,
        tools_whitelist=excluded.tools_whitelist,
        has_all_tools=false,
        enabled=true,
        model_name=null`,
-    [r.id, r.display_name, r.kind, r.prompt, JSON.stringify(r.tools)]
+    [r.id, r.display_name, r.kind, r.prompt, JSON.stringify(r.tools), r.skill ?? null]
   );
 }
 
