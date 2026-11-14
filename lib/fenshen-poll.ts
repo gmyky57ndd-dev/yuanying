@@ -77,6 +77,7 @@ async function pollOne(args: {
   const seen: Seen = (stateRow?.seen as Seen) ?? {};
   const next: Seen = { ...seen };
   const changes: string[] = [];
+  const changedNumbers = new Set<number>();
   const baseline = !stateRow;
 
   for (const issue of issues) {
@@ -92,32 +93,57 @@ async function pollOne(args: {
     if (baseline) continue;
     if (!prev) {
       changes.push(`新指派：${label} → #${issue.number} ${current.title}`);
+      changedNumbers.add(issue.number);
       continue;
     }
     if (current.comments > prev.comments) {
       changes.push(`#${issue.number} 有新评论（${prev.comments}→${current.comments}）`);
+      changedNumbers.add(issue.number);
     }
     if (args.mode === 'full' && current.state !== prev.state) {
       changes.push(`#${issue.number} 状态 ${prev.state}→${current.state}`);
+      changedNumbers.add(issue.number);
     }
     if (args.mode === 'full' && current.updated_at !== prev.updated_at && current.comments === prev.comments && current.state === prev.state) {
       changes.push(`#${issue.number} 有新动态`);
+      changedNumbers.add(issue.number);
     }
   }
 
   const now = new Date().toISOString();
   if (changes.length > 0) {
+    // Prefer the project that owns the issue (ledger anchor), not the first
+    // room alphabetically. This fixes #168 landing in `aso` instead of the
+    // room the owner was watching.
+    let reportProject = args.projectId;
+    if (changedNumbers.size > 0) {
+      const { data: action } = await supabase
+        .from('workpad_actions')
+        .select('project_id')
+        .in('github_issue_number', Array.from(changedNumbers))
+        .limit(1)
+        .maybeSingle();
+      if (action?.project_id) reportProject = action.project_id;
+    }
+    const detail = issues
+      .filter((i: any) => changedNumbers.has(Number(i.number)))
+      .slice(0, 3)
+      .map(
+        (i: any) =>
+          `#${i.number} ${i.title}\n${String(i.body ?? '').slice(0, 600)}\n${i.html_url}`
+      )
+      .join('\n\n');
     const content = `巡检 ${displayName(args.fenshenId)}：\n${changes
       .slice(0, 8)
       .map(c => `- ${c}`)
-      .join('\n')}`;
+      .join('\n')}${detail ? `\n\n${detail}` : ''}\n\n请先调用 get_github_issue 读全文，按 Issue 正文执行。`;
     const { data: inserted } = await supabase
       .from('messages')
       .insert({
         role: 'assistant',
         content,
         session_id: randomUUID(),
-        project_id: args.projectId,
+        project_id: reportProject,
         responder_fenshen_id: args.fenshenId,
         metadata: {
           kind: 'idle_poll',

@@ -964,6 +964,7 @@ async function runTool(name: string, args: any): Promise<any> {
           fenshen_id: args?.fenshen_id as any,
           note: typeof args?.note === 'string' ? args.note : undefined,
           assignee: typeof args?.assignee === 'string' ? args.assignee : undefined,
+          project_id: typeof args?.project_id === 'string' ? args.project_id : undefined,
         }),
       };
     } catch (e) {
@@ -2053,6 +2054,7 @@ ${bodyStatusReminder}`,
       const roleArgs = {
         ...args,
         fenshen_id: (args as any)?.fenshen_id ?? requestFenshen?.id ?? null,
+        ...(projectId && !(args as any)?.project_id ? { project_id: projectId } : {}),
       };
       try {
         const raw = await runToolSafely(name, roleArgs);
@@ -2279,7 +2281,7 @@ ${bodyStatusReminder}`,
       }),
       assign_issue: tool({
         description:
-          'Supervisor: assign an Issue to a fenshen (PM/architect/DSH/QA/DevOps/Librarian) via label + @mention comment; optional GitHub assignee.',
+          'Supervisor: assign an Issue to a fenshen via label + @comment, and post the issue content into the Workpad room (GitHub comments do not wake a fenshen). Optional GitHub assignee.',
         parameters: z.object({
           issue_number: z.number().int().positive(),
           fenshen_id: z.enum(['ai_pm', 'ai_architect', 'dsh', 'qa', 'devops', 'librarian']),

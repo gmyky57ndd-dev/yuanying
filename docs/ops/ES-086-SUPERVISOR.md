@@ -9,7 +9,7 @@
 |---|---|
 | `create_issue` | GitHub Issue + ledger action |
 | `list_issues` | GET /issues (state/labels/limit) |
-| `assign_issue` | label `fenshen:<id>` + `@name` comment; optional GitHub assignee |
+| `assign_issue` | label `fenshen:<id>` + `@name` comment + **Workpad message with issue body**; optional GitHub assignee |
 | `comment_on_issue` | POST /issues/{n}/comments |
 | `update_issue_status` | PATCH /issues/{n} state |
 | `list_pull_requests` | GET /pulls |
@@ -38,8 +38,10 @@ GitHub has no per-fenshen user accounts. Assignment is **logical**:
 - bot comment `@display_name`
 - optional native assignee if a GitHub username is supplied.
 
-A fenshen does not automatically poll GitHub comments; Workpad routing still
-requires the owner (or a future polling loop) to wake the assignee.
+A fenshen does not automatically poll GitHub comments. `assign_issue` now
+posts the issue title/body/link into the Workpad room; the owner can @ the
+assignee there (or a future auto-wake can). GitHub comments alone do not wake
+any fenshen.
 
 ## Not included
 
