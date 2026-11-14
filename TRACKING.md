@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-83] v0.02d 生产发布确认 — Done (partial)
+
+- **Status**: Done (2026-11-13) · **Refs**: approval #9
+- **UI**: Desktop Hub「沙箱设计」→红框「生产环境发布审批」；项目/版本/计划 → 一次性确认短语 → 触发。
+- **API**: `/api/deploy` request/confirm; 15 min TTL; phrase mismatch 403; no webhook → `missing_webhook` (no deploy).
+- **Verified**: request → phrase `DEPLOY yuanying vtest`; wrong → 403; correct → 400 missing webhook.
+- **Pending**: `COOLIFY_DEPLOY_WEBHOOK` not configured; `update_env_vars` still needs encrypted store.
+
 ### [P2-82] v0.02c Workspace runner — Done
 
 - **Status**: Done (2026-11-13) · **Refs**: approval #11

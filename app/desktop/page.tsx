@@ -46,6 +46,14 @@ export default function DesktopPage() {
   const [editEnabled, setEditEnabled] = useState(true);
   const [editAllTools, setEditAllTools] = useState(true);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [deployOpen, setDeployOpen] = useState(false);
+  const [deployProject, setDeployProject] = useState('yuanying');
+  const [deployVersion, setDeployVersion] = useState('');
+  const [deployPlan, setDeployPlan] = useState('');
+  const [deployConfirmation, setDeployConfirmation] = useState<{ id: string; phrase: string } | null>(null);
+  const [deployPhrase, setDeployPhrase] = useState('');
+  const [deployMsg, setDeployMsg] = useState<string | null>(null);
+  const [deployBusy, setDeployBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -97,6 +105,48 @@ export default function DesktopPage() {
     const d = await r.json().catch(() => ({}));
     setSaveMsg(r.ok ? '已保存' : `保存失败：${d.error ?? r.status}`);
     if (r.ok) void load();
+  }
+
+  async function requestDeploy() {
+    setDeployBusy(true);
+    setDeployMsg(null);
+    try {
+      const r = await fetch('/api/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request', project_id: deployProject, version: deployVersion, plan: deployPlan }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error ?? String(r.status));
+      setDeployConfirmation(d.confirmation);
+      setDeployPhrase('');
+    } catch (e) {
+      setDeployMsg(e instanceof Error ? e.message : 'request failed');
+    } finally {
+      setDeployBusy(false);
+    }
+  }
+
+  async function confirmDeploy() {
+    if (!deployConfirmation) return;
+    setDeployBusy(true);
+    setDeployMsg(null);
+    try {
+      const r = await fetch('/api/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm', id: deployConfirmation.id, phrase: deployPhrase }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error ?? String(r.status));
+      setDeployMsg(d.status === 'triggered' ? '已触发部署 webhook' : `部署状态：${d.status}`);
+      setDeployConfirmation(null);
+      setDeployPhrase('');
+    } catch (e) {
+      setDeployMsg(e instanceof Error ? e.message : 'confirm failed');
+    } finally {
+      setDeployBusy(false);
+    }
   }
 
   return (
@@ -215,11 +265,11 @@ export default function DesktopPage() {
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-semibold">v0.02 沙箱安全设计</h1>
                 <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] text-amber-800">
-                  v0.02c · 代码/测试已接入
+                  v0.02d · 发布确认已接入
                 </span>
               </div>
               <p className="text-[12px] text-stone-500">
-                8 个高危工具的权限边界。v0.02c 已接入只读日志 + GitHub API + workspace runner；部署/环境变量待批准。
+                8 个高危工具的权限边界。v0.02d 已接入只读日志 + GitHub API + runner + 发布确认；环境变量待接。
                 审批 <b>#9</b> 在 Workpad → 审批 tab；批准前不新增任何高危工具。
               </p>
               <div className="overflow-x-auto rounded-2xl border border-stone-200 bg-white p-4">
@@ -234,8 +284,8 @@ export default function DesktopPage() {
                       ['run_terminal_command', '✅ v0.02c：workspace 内 argv 白名单；无 shell/rm/sudo', 'approval_id'],
                       ['run_test_suite', '✅ v0.02c：npm test / test:e2e 包装', 'approval_id'],
                       ['write_code_file', '✅ v0.02c：workspace 内代码 + diff', 'approval_id'],
-                      ['deploy_to_coolify', 'Coolify webhook；只在 UI 触发', 'Owner 红色弹窗'],
-                      ['update_env_vars', '加密 + diff；日志脱敏', 'Owner 弹窗'],
+                      ['deploy_to_coolify', '✅ v0.02d：Coolify webhook；只在 UI 触发', 'Owner 红色弹窗'],
+                      ['update_env_vars', '待接：加密 + diff', 'Owner 弹窗'],
                       ['read_server_logs', '只读 tail + 脱敏', '已接入（只读）'],
                     ].map(([n, a, c]) => (
                       <tr key={n} className="border-t border-stone-100">
@@ -260,6 +310,24 @@ export default function DesktopPage() {
                 <div className="rounded-xl border border-stone-200 bg-white p-4 text-[12px] text-stone-600">
                   <b>审计</b>：approval_id、参数摘要、结果、拒绝原因；密钥不落日志。
                 </div>
+              </div>
+              <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4">
+                <h2 className="text-sm font-semibold text-rose-800">生产环境发布审批</h2>
+                <p className="mt-1 text-[11px] text-rose-700">
+                  只有你在这里点击并输入确认短语，才会触发 Coolify webhook。模型不能直接部署。
+                </p>
+                <button
+                  onClick={() => {
+                    setDeployOpen(true);
+                    setDeployMsg(null);
+                    setDeployConfirmation(null);
+                    setDeployVersion('');
+                    setDeployPlan('');
+                  }}
+                  className="mt-3 rounded-lg bg-rose-700 px-4 py-2 text-sm font-medium text-white hover:bg-rose-800"
+                >
+                  打开红色发布确认
+                </button>
               </div>
               <p className="text-[11px] text-stone-400">
                 完整文档：docs/specs/SANDBOX-SECURITY-v0.02.md
@@ -356,6 +424,57 @@ export default function DesktopPage() {
           </div>
         </aside>
       </div>
+
+      {deployOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/60 p-4">
+          <div className="w-full max-w-lg overflow-hidden rounded-2xl border-4 border-rose-600 bg-white shadow-2xl">
+            <div className="bg-rose-700 px-5 py-3 text-white">
+              <div className="text-[11px] uppercase tracking-widest text-rose-200">Production Deploy</div>
+              <div className="text-lg font-semibold">生产环境发布审批</div>
+            </div>
+            <div className="space-y-3 p-5">
+              <p className="text-[12px] text-stone-500">
+                模型不能触发部署。请求后 15 分钟内有效；确认短语必须逐字输入。
+              </p>
+              {!deployConfirmation ? (
+                <>
+                  <label className="block text-[12px] text-stone-600">
+                    项目
+                    <select value={deployProject} onChange={e => setDeployProject(e.target.value)} className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-1.5">
+                      {(hub?.projects ?? []).map(p => <option key={p.id} value={p.id}>{p.name} ({p.id})</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-[12px] text-stone-600">
+                    版本 / Tag
+                    <input value={deployVersion} onChange={e => setDeployVersion(e.target.value)} placeholder="v0.2.0" className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-1.5" />
+                  </label>
+                  <label className="block text-[12px] text-stone-600">
+                    发布计划（变更 + 回滚）
+                    <textarea value={deployPlan} onChange={e => setDeployPlan(e.target.value)} rows={4} className="mt-1 w-full rounded-lg border border-stone-200 px-3 py-1.5" />
+                  </label>
+                  <button onClick={requestDeploy} disabled={deployBusy || !deployVersion.trim() || !deployPlan.trim()} className="w-full rounded-lg bg-rose-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+                    {deployBusy ? '生成确认…' : '生成一次性确认'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div className="rounded-lg bg-rose-50 p-3 text-[12px] text-rose-900">
+                    确认短语：<code className="font-semibold">{deployConfirmation.phrase}</code>
+                  </div>
+                  <input value={deployPhrase} onChange={e => setDeployPhrase(e.target.value)} placeholder="逐字输入确认短语" className="w-full rounded-lg border border-rose-300 px-3 py-2 font-mono text-[12px]" />
+                  <button onClick={confirmDeploy} disabled={deployBusy || deployPhrase !== deployConfirmation.phrase} className="w-full rounded-lg bg-rose-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-40">
+                    {deployBusy ? '执行…' : '确认并触发部署'}
+                  </button>
+                </>
+              )}
+              {deployMsg && <div className="text-[12px] text-rose-700">{deployMsg}</div>}
+              <button onClick={() => setDeployOpen(false)} className="w-full rounded-lg border border-stone-300 px-4 py-2 text-sm text-stone-600">
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
