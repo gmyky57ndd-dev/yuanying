@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-90] #168 阿构缺少代码读取 — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: #168
+- **Root cause**: #168 was a code investigation, but ai_architect's whitelist lacked `read_code_file`; it correctly refused to fabricate. GitHub comments also do not wake a fenshen.
+- **Fix**: added `read_code_file` to ai_architect; assignment now posts issue title/body to Workpad; #168 was reposted to `yuanying`.
+- **Verified**: ai_architect read `lib/llm-router.ts` and explained `getModel` fallback.
+- **Note**: #168 is closed and action 37 done; investigation can be reopened/new issue if needed.
+
 ### [P2-89] #168 指派可执行性修复 — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: #168, ES-086/087
