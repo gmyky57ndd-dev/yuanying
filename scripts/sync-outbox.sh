@@ -18,6 +18,9 @@ for port in 3000 3100; do
     curl -fsS -m 60 -X POST "http://127.0.0.1:${port}/api/sync/actions" \
       -H "Authorization: Bearer ${SECRET}" -H 'Content-Type: application/json' -d '{}'
     echo
+    curl -fsS -m 60 -X POST "http://127.0.0.1:${port}/api/cron/fenshen-poll" \
+      -H "Authorization: Bearer ${SECRET}" -H 'Content-Type: application/json' -d '{}'
+    echo
     exit 0
   fi
 done
