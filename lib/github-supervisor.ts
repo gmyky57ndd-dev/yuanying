@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { supabase } from './db';
 import { mirrorMessages } from './local-write';
 import { findOrCreateIssue } from './github.ts';
+import { handoffToFenshen } from './handoff.ts';
 import { githubTokenForRole } from './github-token.ts';
 
 const ROLE = 'xiaowu';
@@ -143,6 +144,13 @@ export async function assignIssue(args: {
       if (data?.[0]) {
         workpadMessageId = data[0].id;
         mirrorMessages(data as any[]);
+        // Actually wake the assignee. A GitHub comment cannot do this.
+        void handoffToFenshen({
+          projectId: args.project_id,
+          fenshenId: args.fenshen_id,
+          issueNumber: n,
+          message: content,
+        });
       }
     } catch (e) {
       console.warn('assignment Workpad message failed', e);

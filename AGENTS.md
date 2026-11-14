@@ -560,7 +560,7 @@ v0.01–v0.02b 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`
 - 所有启用的分身按项目房间轮询 GitHub：闲置 15 分钟做完整检查，30 分钟做轻检。
 - 指派约定：Issue 标签 `fenshen:<id>`；小悟用 `assign_issue` 写标签 + @评论，并在 Workpad 发带正文的通知（GitHub 评论本身不会唤醒分身）。
 - 有变化才在 Workpad 报一句；无变化沉默；首次运行只建基线，不回溯历史。
-- 轮询只做通知，不自动调用 LLM；需要时仍由 Owner @ 唤醒。
+- 轮询本身只做通知；但 `assign_issue` 会触发本地 auto-handoff，被指派分身会实际被唤醒。
 - 实现：`lib/fenshen-poll.ts`、`/api/cron/fenshen-poll`、launchd `com.yuanying.sync`。
 
 ### 14.4 部署边界
