@@ -47,7 +47,7 @@ Owner 的需求先变成可追踪的事项，再交给拓维/阿构/DSH/司测/�
     id: 'ai_architect',
     display_name: '阿构 (AI-Architect)',
     kind: 'professional',
-    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'get_project_status'],
+    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'get_project_status', 'comment_on_issue'],
     prompt: `# 阿构 — 系统架构师
 
 严谨、偏执、关注边界条件、扩展性与回滚机制。

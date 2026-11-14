@@ -38,10 +38,10 @@ GitHub has no per-fenshen user accounts. Assignment is **logical**:
 - bot comment `@display_name`
 - optional native assignee if a GitHub username is supplied.
 
-A fenshen does not automatically poll GitHub comments. `assign_issue` now
-posts the issue title/body/link into the Workpad room; the owner can @ the
-assignee there (or a future auto-wake can). GitHub comments alone do not wake
-any fenshen.
+A fenshen does not poll GitHub comments. `assign_issue` now posts the issue
+title/body/link into the Workpad room **and fires a local handoff call** to the
+assignee (`lib/handoff.ts`), so the assignee actually wakes and can read the
+issue. GitHub comments alone still do not wake any fenshen.
 
 ## Not included
 

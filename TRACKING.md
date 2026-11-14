@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-91] Supervisor assignment auto-handoff — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: #168
+- **Root cause**: Workpad assignment message did not invoke the assignee; GitHub @ comments cannot wake a fenshen.
+- **Fix**: `assign_issue` posts the issue title/body/link and calls `lib/handoff.ts` → local `/api/chat` as the assignee (fire-and-forget, 120s).
+- **Verified**: xiaowu reassigned #168; ai_architect woke, read code, and posted code-level conclusion on GitHub (comment 6884518259).
+- **Note**: poll notifications remain notification-only; assignments wake.
+
 ### [P2-90] #168 阿构缺少代码读取 — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: #168

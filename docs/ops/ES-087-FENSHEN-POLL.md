@@ -39,8 +39,8 @@ Each fenshen uses its **role-scoped GitHub App installation token**
 
 ## Limits
 
-- Notification only; it does **not** auto-invoke the fenshen LLM. The assignee
-  still needs Workpad @ or a future auto-wake step.
+- Poll notifications are notification-only. **Assignments** are different: the
+  `assign_issue` tool triggers a local auto-handoff and wakes the assignee.
 - A fenshen in multiple rooms shares one poll state. The notification is posted
   to the project that owns the issue in the ledger (fallback: first mapped
   room), so #168 lands in `yuanying` rather than `aso`.
