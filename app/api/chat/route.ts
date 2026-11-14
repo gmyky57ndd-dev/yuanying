@@ -894,46 +894,46 @@ async function runTool(name: string, args: any): Promise<any> {
     if (!pid || actions.length === 0) {
       return { success: false, error: 'project_id and actions[] required' };
     }
-    // #130: every ledger action is anchored to a GitHub issue. If issue
-    // creation fails, refuse to write the ledger row.
-    const planned: Array<{
-      description: string;
-      number: number;
-      url: string;
-    }> = [];
-    for (const raw of actions.slice(0, 20)) {
-      const description = raw.trim().slice(0, 500);
-      try {
-        const issue = await findOrCreateIssue(
-          description.slice(0, 180),
-          `Project: ${pid}\n\n${description}\n\n_Auto-created by plan_actions (#130)._`
-        );
-        planned.push({ description, number: issue.number, url: issue.issue_url });
-      } catch (e) {
-        return {
-          success: false,
-          error: `GitHub issue creation failed: ${
-            e instanceof Error ? e.message : 'unknown'
-          }`,
-        };
-      }
+    // #130 + 2026-11-14 cleanup: one umbrella issue per plan, not one issue
+    // per micro-action. Every ledger row is still anchored to that issue.
+    const planned = actions
+      .slice(0, 20)
+      .map(raw => raw.trim().slice(0, 500));
+    let issue: { number: number; issue_url: string };
+    try {
+      const title = `[Plan] ${pid}: ${planned[0]}`.slice(0, 180);
+      const checklist = planned.map(a => `- [ ] ${a}`).join('\n');
+      issue = await findOrCreateIssue(
+        title,
+        `Project: ${pid}\n\n${checklist}\n\n_Auto-created by plan_actions (umbrella issue; one per plan). Roll the checklist into the ledger._`
+      );
+    } catch (e) {
+      return {
+        success: false,
+        error: `GitHub issue creation failed: ${
+          e instanceof Error ? e.message : 'unknown'
+        }`,
+      };
     }
     const { data, error } = await supabase
       .from('workpad_actions')
       .insert(
-        planned.map(a => ({
+        planned.map(description => ({
           project_id: pid,
-          description: a.description,
+          description,
           status: 'pending',
-          github_issue_number: a.number,
-          github_issue_url: a.url,
-          result_ref: a.url,
+          github_issue_number: issue.number,
+          github_issue_url: issue.issue_url,
+          result_ref: issue.issue_url,
         }))
       )
       .select('*');
     if (error) return { success: false, error: error.message };
     for (const row of data ?? []) mirrorAction(row as any);
-    return { success: true, data: { project_id: pid, actions: data ?? [] } };
+    return {
+      success: true,
+      data: { project_id: pid, issue, actions: data ?? [] },
+    };
   }
 
   if (name === 'complete_action') {
