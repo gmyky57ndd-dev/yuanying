@@ -1,5 +1,8 @@
 # ES-074 — Coolify Migration Proposal (leave Vercel + Tailscale Funnel)
 
+> **Status: DEFERRED (phone/cloud phase).** Coolify is not required for fenshen or the desktop app. See `docs/ops/DEPLOYMENT-DECISION.md`. This document is a historical proposal for the phone PWA/bridge, not a current dependency.
+
+
 - **Status:** **Proposal — no infrastructure change has been made.** Awaiting the
   owner's explicit approval (AGENTS §5.4). **Tracking:** P2-54. Refs: INC-001,
   ES-076 (temporary bridge).

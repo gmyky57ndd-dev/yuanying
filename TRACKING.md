@@ -204,13 +204,20 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-84] 部署决策记录：Desktop-first / Coolify Deferred — Done
+
+- **Status**: Done (2026-11-13) · **Refs**: AGENTS.md §14.4
+- **Decision**: desktop release = local build/sign/smoke; GitHub = code/CI; Supabase = data; Coolify deferred to phone/cloud; not a fenshen dependency.
+- **UI/API**: `deploy_production` generic; `DEPLOY_WEBHOOK_URL` optional, Coolify fallback only.
+- **Docs**: `docs/ops/DEPLOYMENT-DECISION.md`, ES-074 status banner.
+
 ### [P2-83] v0.02d 生产发布确认 — Done (partial)
 
 - **Status**: Done (2026-11-13) · **Refs**: approval #9
 - **UI**: Desktop Hub「沙箱设计」→红框「生产环境发布审批」；项目/版本/计划 → 一次性确认短语 → 触发。
 - **API**: `/api/deploy` request/confirm; 15 min TTL; phrase mismatch 403; no webhook → `missing_webhook` (no deploy).
 - **Verified**: request → phrase `DEPLOY yuanying vtest`; wrong → 403; correct → 400 missing webhook.
-- **Pending**: `COOLIFY_DEPLOY_WEBHOOK` not configured; `update_env_vars` still needs encrypted store.
+- **Pending**: provider webhook optional (`DEPLOY_WEBHOOK_URL`); desktop does not need it. `update_env_vars` still needs a Keychain/secret-store design.
 
 ### [P2-82] v0.02c Workspace runner — Done
 
@@ -463,9 +470,10 @@ never by the section they happened to be written under.
 - **拓维 file/PRD rules (2026-11-09)**: relative paths only; absolute paths rejected in code; missing local doc returns the paste/drag fallback; PRD contract (version/date, change summary, goals, flow, AI points, acceptance) in the prompt + local template.
 - **Docs**: `docs/specs/ES-078-ai-architect-rag.md`.
 
-### [P2-54] Coolify 迁移提案 (ES-074) — 待 owner 批准
+### [P2-54] Coolify 迁移提案 (ES-074) — Deferred（手机/云阶段，非 fenshen 依赖）
 
-- **Status**: Proposal (2026-11-07) · **Category**: Infrastructure · **Refs**: ES-074, INC-001
+- **Status**: Deferred (2026-11-13) · **Category**: Infrastructure · **Refs**: ES-074, INC-001
+- **Decision**: `docs/ops/DEPLOYMENT-DECISION.md` — desktop/local-first; Coolify only for future phone backend, not fenshen.
 - **Directive**: infrastructure changes need explicit approval; Tailscale Funnel is not production; Tailscale only as the VPS management network.
 - **Plan**: one VPS + Coolify + Docker Next.js app + real domain + Let's Encrypt; Supabase unchanged; Coolify scheduled task for the 21:35 summary; collector v1.0.45.
 - **Blocking questions**: VPS provider/region, domain/DNS, budget, cutover window. Bridge decision: **kept as debug-only** until Coolify is live.

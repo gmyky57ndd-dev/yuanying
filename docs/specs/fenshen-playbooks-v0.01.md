@@ -40,7 +40,7 @@ Retired: **Elara**, **Kael** (rows + project maps removed).
 ## v0.01 未启用的工具（需 Owner 批准后设计）
 
 `run_terminal_command`, `git_commit`, `submit_pr`, `run_test_suite`,
-`deploy_to_coolify`, `update_env_vars`, `read_server_logs`,
+`deploy_production`, `update_env_vars`, `read_server_logs`,
 `write_code_file`, `local_rag_search`（用 `search_local_kb` 替代）,
 `read_obsidian_vault`（用 `read_local_file` 替代）, `web_fetch`（用 `web_search` 替代）,
 `check_server_health`（用 `get_system_status` 替代）.
