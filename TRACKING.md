@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-88] ES-087 分身空闲 GitHub 巡检 — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: approval #5
+- **Poll**: idle 15m full / 30m light; `fenshen:<id>` labels; silent baseline; no change silent.
+- **Storage**: `fenshen_poll_state` (seen JSONB); launchd 60s gate.
+- **Auth**: role-scoped GitHub App tokens.
+- **Verified**: #166 new assignment → Workpad message; test cleaned.
+- **Limit**: notification only, no auto-LLM wake.
+
 ### [P2-87] ES-086 Supervisor tools & skills — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: ES-086

@@ -1,0 +1,47 @@
+# ES-087 — Fenshen idle GitHub polling
+
+**Status:** Done (2026-11-14), approval #5.
+**Scope:** all enabled fenshen in project rooms.
+
+## Rules
+
+- **Idle 15m** (no user message in the project) → full check:
+  assigned open/closed issues, new comments, state changes.
+- **Every 30m** → light check: new comments / new assignments only.
+- **Assignment** is the `fenshen:<id>` label (written by xiaowu's `assign_issue`).
+- **First run is a silent baseline** (no replay of historical issues).
+- **Change** → one Workpad assistant message, e.g.
+  `巡检 拓维：#166 新指派…`; **no change → silent**.
+- No LLM call; deterministic notification. No token cost.
+- State: `fenshen_poll_state` (last_full_at, last_light_at, seen JSONB).
+
+## Scheduling
+
+`launchd com.yuanying.sync` every 60s:
+
+```
+flush → pull → actions → /api/cron/fenshen-poll
+```
+
+The endpoint gates full/light checks; it does not poll every minute.
+
+## GitHub auth
+
+Each fenshen uses its **role-scoped GitHub App installation token**
+(`github-token.ts`), so a role can only read the issues its permissions allow.
+
+## Verified
+
+- Baseline: 13 checks, no messages.
+- Created `#166` with `fenshen:ai_pm` → force full poll:
+  `巡检 拓维：- 新指派：fenshen:ai_pm → #166 …`; message persisted locally.
+- Test issue/comment/message cleaned.
+
+## Limits
+
+- Notification only; it does **not** auto-invoke the fenshen LLM. The assignee
+  still needs Workpad @ or a future auto-wake step.
+- A fenshen in multiple rooms shares one poll state; project selection is the
+  first mapped room. Duplicate notifications are suppressed, but the room may
+  not be the one the owner is watching.
+- Only label-based assignment; native GitHub assignee is optional.

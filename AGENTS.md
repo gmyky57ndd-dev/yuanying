@@ -555,6 +555,14 @@ v0.01–v0.02b 不包含 `run_terminal_command`、`git_commit`、`submit_pr`、`
 - 审批以 `work_approvals` 为准：只有 `approved` 的审批项能 `push_to_dev`（见 #134）。
 - 每个 action 必须锚定 GitHub Issue（见 #130）。
 
+### 14.4 Fenshen 空闲巡检
+
+- 所有启用的分身按项目房间轮询 GitHub：闲置 15 分钟做完整检查，30 分钟做轻检。
+- 指派约定：Issue 标签 `fenshen:<id>`；小悟用 `assign_issue` 写标签 + @评论。
+- 有变化才在 Workpad 报一句；无变化沉默；首次运行只建基线，不回溯历史。
+- 轮询只做通知，不自动调用 LLM；需要时仍由 Owner @ 唤醒。
+- 实现：`lib/fenshen-poll.ts`、`/api/cron/fenshen-poll`、launchd `com.yuanying.sync`。
+
 ### 14.4 部署边界
 
 - 桌面端是本地发布：`tauri:build` + ad-hoc 签名 + smoke，不需要服务器或 Coolify。
