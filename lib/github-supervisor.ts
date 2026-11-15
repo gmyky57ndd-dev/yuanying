@@ -8,10 +8,10 @@ import { githubTokenForRole } from './github-token.ts';
 const ROLE = 'xiaowu';
 const REPO = () => process.env.GITHUB_REPO || '';
 
-async function gh(path: string, init: RequestInit = {}) {
+async function gh(path: string, init: RequestInit = {}, role = ROLE) {
   const repo = REPO();
   if (!repo) throw new Error('GITHUB_REPO missing');
-  const token = await githubTokenForRole(ROLE);
+  const token = await githubTokenForRole(role);
   const res = await fetch(`https://api.github.com/repos/${repo}${path}`, {
     ...init,
     headers: {
@@ -35,14 +35,14 @@ async function gh(path: string, init: RequestInit = {}) {
   return json;
 }
 
-export async function addProjectLabel(issueNumber: number, projectId: string): Promise<void> {
+export async function addProjectLabel(issueNumber: number, projectId: string, role = ROLE): Promise<void> {
   const pid = String(projectId ?? '').trim();
   if (!pid) return;
   try {
     await gh(`/issues/${issueNumber}/labels`, {
       method: 'POST',
       body: JSON.stringify({ labels: [`project:${pid}`] }),
-    });
+    }, role);
   } catch (e) {
     console.warn('project label failed', e);
   }
@@ -52,14 +52,15 @@ export async function createEpic(args: {
   title: string;
   body: string;
   project_id?: string;
+  role?: string;
 }): Promise<{ number: number; url: string; already: boolean }> {
   const title = String(args.title ?? '').trim();
   const body = String(args.body ?? '').trim();
   if (!title || !body) throw new Error('title and body required');
   const issue = await findOrCreateIssue(`[Epic] ${title}`.slice(0, 180), body, {
-    role: ROLE,
+    role: args.role ?? ROLE,
   });
-  if (args.project_id) await addProjectLabel(issue.number, args.project_id);
+  if (args.project_id) await addProjectLabel(issue.number, args.project_id, args.role ?? ROLE);
   return { number: issue.number, url: issue.issue_url, already: issue.already };
 }
 
@@ -67,6 +68,7 @@ export async function listIssues(opts: {
   state?: 'open' | 'closed' | 'all';
   labels?: string;
   limit?: number;
+  role?: string;
 }): Promise<
   Array<{ number: number; title: string; state: string; labels: string[]; assignees: string[]; url: string; updated_at: string }>
 > {
@@ -74,7 +76,7 @@ export async function listIssues(opts: {
   const limit = Math.min(Math.max(Number(opts.limit) || 30, 1), 50);
   const params = new URLSearchParams({ state, per_page: String(limit) });
   if (opts.labels) params.set('labels', opts.labels);
-  const rows = await gh(`/issues?${params.toString()}`);
+  const rows = await gh(`/issues?${params.toString()}`, {}, opts.role ?? ROLE);
   return (rows ?? [])
     .filter((r: any) => !r.pull_request)
     .map((r: any) => ({
@@ -94,6 +96,7 @@ export async function assignIssue(args: {
   note?: string;
   assignee?: string;
   project_id?: string;
+  role?: string;
 }): Promise<{
   number: number;
   label: string;
@@ -114,21 +117,23 @@ export async function assignIssue(args: {
   };
   const labels = [label];
   if (args.project_id) labels.push(`project:${args.project_id}`);
+  const role = args.role ?? ROLE;
   await gh(`/issues/${n}/labels`, {
     method: 'POST',
     body: JSON.stringify({ labels }),
-  });
-  const body = `@${display[args.fenshen_id]} ${args.note ?? '请接手这个任务。'}\n\n_Assigned by 小悟 (Supervisor)._`;
+  }, role);
+  const actor = args.role ?? 'xiaowu';
+  const body = `@${display[args.fenshen_id]} ${args.note ?? '请接手这个任务。'}\n\n_Assigned by ${display[actor] ?? actor}._`;
   const comment = await gh(`/issues/${n}/comments`, {
     method: 'POST',
     body: JSON.stringify({ body }),
-  });
+  }, role);
   let assignee: string | null = null;
   if (args.assignee) {
     const updated = await gh(`/issues/${n}`, {
       method: 'PATCH',
       body: JSON.stringify({ assignees: [args.assignee] }),
-    });
+    }, role);
     assignee = updated?.assignees?.[0]?.login ?? args.assignee;
   }
 
@@ -138,7 +143,7 @@ export async function assignIssue(args: {
   let workpadMessageId: number | null = null;
   if (args.project_id) {
     try {
-      const issue = await gh(`/issues/${n}`);
+      const issue = await gh(`/issues/${n}`, {}, role);
       const content = `@${display[args.fenshen_id]} 新任务 #${n} ${issue.title}\n\n${String(
         issue.body ?? ''
       ).slice(0, 1200)}\n\n${issue.html_url}\n\n请先调用 get_github_issue(${n}) 读全文，按 Issue 正文执行；完成后在 Issue 回帖。`;
@@ -149,7 +154,7 @@ export async function assignIssue(args: {
           content,
           session_id: randomUUID(),
           project_id: args.project_id,
-          responder_fenshen_id: 'xiaowu',
+          responder_fenshen_id: actor,
           metadata: {
             kind: 'assignment',
             issue_number: n,
@@ -185,6 +190,7 @@ export async function assignIssue(args: {
 export async function commentOnIssue(args: {
   issue_number: number;
   body: string;
+  role?: string;
 }): Promise<{ number: number; url: string | null }> {
   const n = Number(args.issue_number);
   const body = String(args.body ?? '').trim();
@@ -193,13 +199,14 @@ export async function commentOnIssue(args: {
   const comment = await gh(`/issues/${n}/comments`, {
     method: 'POST',
     body: JSON.stringify({ body }),
-  });
+  }, args.role ?? ROLE);
   return { number: n, url: comment?.html_url ?? null };
 }
 
 export async function updateIssueStatus(args: {
   issue_number: number;
   state: 'open' | 'closed';
+  role?: string;
 }): Promise<{ number: number; state: string }> {
   const n = Number(args.issue_number);
   if (!Number.isInteger(n) || n <= 0) throw new Error('issue_number required');
@@ -207,19 +214,20 @@ export async function updateIssueStatus(args: {
   const issue = await gh(`/issues/${n}`, {
     method: 'PATCH',
     body: JSON.stringify({ state: args.state }),
-  });
+  }, args.role ?? ROLE);
   return { number: n, state: issue?.state ?? args.state };
 }
 
 export async function listPullRequests(opts: {
   state?: 'open' | 'closed' | 'all';
   limit?: number;
+  role?: string;
 }): Promise<
   Array<{ number: number; title: string; state: string; head: string; base: string; url: string; updated_at: string }>
 > {
   const state = opts.state === 'closed' ? 'closed' : opts.state === 'all' ? 'all' : 'open';
   const limit = Math.min(Math.max(Number(opts.limit) || 20, 1), 50);
-  const rows = await gh(`/pulls?state=${state}&per_page=${limit}`);
+  const rows = await gh(`/pulls?state=${state}&per_page=${limit}`, {}, opts.role ?? ROLE);
   return (rows ?? []).map((p: any) => ({
     number: p.number,
     title: p.title,

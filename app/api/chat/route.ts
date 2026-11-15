@@ -275,7 +275,7 @@ async function runTool(name: string, args: any): Promise<any> {
     try {
       const issue = await findOrCreateIssue(title, body, {
         signal: controller.signal,
-        role: args?.fenshen_id as string | undefined,
+        role: args?.actor_fenshen_id as string | undefined,
       });
       if (approval) {
         const { error: upErr } = await supabase
@@ -921,7 +921,7 @@ async function runTool(name: string, args: any): Promise<any> {
     const body = String(args?.body ?? '').trim();
     if (!title || !body) return { success: false, error: 'title and body required' };
     try {
-      const issue = await createEpic({ title, body, project_id: pid });
+      const issue = await createEpic({ title, body, project_id: pid, role: args?.fenshen_id as string | undefined });
       const { data: action } = await supabase
         .from('workpad_actions')
         .insert({
@@ -949,6 +949,7 @@ async function runTool(name: string, args: any): Promise<any> {
           state: args?.state as any,
           labels: typeof args?.labels === 'string' ? args.labels : undefined,
           limit: Number(args?.limit) || 30,
+          role: args?.actor_fenshen_id as string | undefined,
         }),
       };
     } catch (e) {
@@ -966,6 +967,7 @@ async function runTool(name: string, args: any): Promise<any> {
           note: typeof args?.note === 'string' ? args.note : undefined,
           assignee: typeof args?.assignee === 'string' ? args.assignee : undefined,
           project_id: typeof args?.project_id === 'string' ? args.project_id : undefined,
+          role: args?.actor_fenshen_id as string | undefined,
         }),
       };
     } catch (e) {
@@ -980,6 +982,7 @@ async function runTool(name: string, args: any): Promise<any> {
         data: await commentOnIssue({
           issue_number: Number(args?.issue_number),
           body: String(args?.body ?? ''),
+          role: args?.actor_fenshen_id as string | undefined,
         }),
       };
     } catch (e) {
@@ -994,6 +997,7 @@ async function runTool(name: string, args: any): Promise<any> {
         data: await updateIssueStatus({
           issue_number: Number(args?.issue_number),
           state: args?.state === 'closed' ? 'closed' : 'open',
+          role: args?.actor_fenshen_id as string | undefined,
         }),
       };
     } catch (e) {
@@ -1008,6 +1012,7 @@ async function runTool(name: string, args: any): Promise<any> {
         data: await listPullRequests({
           state: args?.state as any,
           limit: Number(args?.limit) || 20,
+          role: args?.actor_fenshen_id as string | undefined,
         }),
       };
     } catch (e) {
@@ -2056,6 +2061,7 @@ ${bodyStatusReminder}`,
       const roleArgs = {
         ...args,
         fenshen_id: (args as any)?.fenshen_id ?? requestFenshen?.id ?? null,
+        actor_fenshen_id: requestFenshen?.id ?? null,
         ...(projectId && !(args as any)?.project_id ? { project_id: projectId } : {}),
       };
       try {
