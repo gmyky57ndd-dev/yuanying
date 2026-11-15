@@ -204,14 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
-### [P2-96] #174 model pool + failover — Done (OpenRouter key blocked)
+### [P2-96] #174 model pool + failover — Done
 
-- **Status**: Implementation done; OpenRouter live call blocked.
+- **Status**: Done (2026-11-15); OpenRouter live call verified.
 - **Pool**: deepseek-chat, deepseek-reasoner, openrouter-gpt-4o-mini, anthropic-claude-sonnet-4, openai-gpt-4o-mini.
 - **Defaults**: all 7 fenshen primary deepseek-chat; backup empty.
 - **UI**: Workpad per-fenshen primary/backup selectors.
 - **Failover**: 30s/60s; 5xx/429/network fallback; 4xx no; degraded fields; 60 tests pass.
-- **Blocker**: `OPENROUTER_API_KEY` absent in local/desktop runtime; `has_api_key=false`, do not bypass.
+- **OpenRouter**: key loaded from `secrets.env`; real call succeeded (`degraded=false`). Strict schema disabled for OpenRouter tools.
 
 ### [P2-95] #175 PM/Architect 白名单 + Handoff Protocol — Done
 

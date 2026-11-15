@@ -1,6 +1,6 @@
 # #174 — Per-fenshen model pool
 
-**Status:** implementation complete; OpenRouter live check blocked by missing runtime key.
+**Status:** Done (2026-11-15) — OpenRouter live call verified.
 
 ## Model rows
 
@@ -32,10 +32,15 @@ Workpad → 成员 → 每个分身有「主模型 / 备用模型」两个下拉
 - `cost_ledger.degraded` + `fallback_reason`; actual model recorded.
 - Tests in `lib/failover-policy.test.ts` cover 429, 5xx, 400, 401, 404, network.
 
-## OpenRouter blocker
+## OpenRouter verification
 
-`get_model_info('openrouter-gpt-4o-mini')` returns `has_api_key: false` on this
-machine. `OPENROUTER_API_KEY` is not in `.env.local` or the desktop
-`secrets.env`. Owner says it is configured in the server secret; the runtime
-here cannot see it. Per #174: do not bypass; configure the key in this runtime
-and restart before calling OpenRouter.
+`OPENROUTER_API_KEY` was added to the desktop `secrets.env`; after restarting
+the Tauri sidecar `has_api_key` is true and a real call succeeded:
+
+```text
+[model] fenshen=xiaowu model=openrouter-gpt-4o-mini degraded=false
+reply: 可用。
+```
+
+OpenRouter uses `structuredOutputs: false` to avoid OpenAI strict-schema
+rejection of optional tool fields (e.g. `complete_action.result_ref`).

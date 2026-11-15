@@ -77,7 +77,7 @@ export async function getModel(modelId?: string): Promise<LanguageModel> {
         baseURL: model.base_url || 'https://openrouter.ai/api/v1',
         apiKey,
       });
-      return openrouter(model.model_name);
+      return openrouter(model.model_name, { structuredOutputs: false });
     }
     case 'custom': {
       if (!model.base_url) {
