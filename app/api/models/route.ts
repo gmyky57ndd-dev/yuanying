@@ -45,7 +45,17 @@ export async function GET() {
         (m.provider === 'deepseek' && !!process.env.DEEPSEEK_API_KEY) ||
         (m.provider === 'anthropic' && !!process.env.ANTHROPIC_API_KEY) ||
         (m.provider === 'openai' && !!process.env.OPENAI_API_KEY) ||
-        (m.provider === 'openrouter' && !!process.env.OPENROUTER_API_KEY),
+        ([
+          'openrouter',
+          'baidu',
+          'z-ai',
+          'nvidia',
+          'qwen',
+          'minimax',
+          'dots-studio',
+          'moonshotai',
+        ].includes(m.provider) &&
+          !!process.env.OPENROUTER_API_KEY),
       created_at: m.created_at,
     })),
     active,

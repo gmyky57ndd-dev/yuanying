@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-98] #175 new model list + AC2 — Done
+
+- **Status**: Done (2026-11-15) · **Refs**: #175, #193
+- **Models**: 9 new vendor-split models; OpenRouter vendor routing; free marker; 14 total.
+- **Global selection**: active_model_id route verified with qwen free slug; real error surfaced.
+- **AC2**: target-rewritten notes; three-hop PM→Architect→DSH passed; labels atomic.
+- **Cleanup**: full repo scan, no issue with >1 fenshen label.
+
 ### [P2-97] ES-090 Architect diligence tools — Done
 
 - **Status**: Done (2026-11-15) · **Refs**: #180, #176

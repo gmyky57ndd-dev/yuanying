@@ -646,6 +646,7 @@ export default function Settings() {
                       {m.provider}
                       {m.base_url ? ` · ${m.base_url}` : ''}
                       {m.has_api_key ? '' : ' · env key'}
+                      {m.model_name.includes(':free') ? ' · free（限流）' : ''}
                     </span>
                   </span>
                 </label>

@@ -115,10 +115,25 @@ export async function assignIssue(args: {
     devops: '镇岳',
     librarian: '司书',
   };
+  const defaultNotes: Record<string, string> = {
+    ai_pm: '请写 PRD 并转阿构',
+    ai_architect: '请写 ADR 并转 DSH',
+    dsh: '请按 ADR 实现并提 PR',
+    qa: '请按验收标准测试并回帖',
+    devops: '请做部署/运维核查并回帖',
+    librarian: '请整理文档/知识库并回帖',
+  };
+  const noteForTarget = (target: string, provided?: string): string => {
+    const fallback = defaultNotes[target] ?? '请接手这个任务。';
+    if (!provided) return fallback;
+    // AC2: a note copied from the previous hop is not valid for the target.
+    if (target === 'ai_architect' && /PRD|拓维|转阿构/.test(provided)) return fallback;
+    if (target === 'dsh' && /PRD|阿构|转阿构|请写 ADR/.test(provided)) return fallback;
+    return provided;
+  };
   const actor = args.role ?? 'xiaowu';
-  const body = `@${display[args.fenshen_id]} ${
-    args.note ?? '请接手这个任务。'
-  }\n\n_Assigned by ${display[actor] ?? actor}._`;
+  const note = noteForTarget(args.fenshen_id, args.note);
+  const body = `@${display[args.fenshen_id]} ${note}\n\n_Assigned by ${display[actor] ?? actor}._`;
   const labels = [label];
   if (args.project_id) labels.push(`project:${args.project_id}`);
   const role = args.role ?? ROLE;
@@ -202,7 +217,7 @@ export async function assignIssue(args: {
           message: content,
           requiredTools,
           assignToFenshenId: nextAssignee,
-          assignNote: args.note,
+          assignNote: nextAssignee ? defaultNotes[nextAssignee] : undefined,
         });
       }
     } catch (e) {

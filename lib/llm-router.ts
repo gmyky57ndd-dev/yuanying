@@ -28,6 +28,8 @@ function apiKeyFor(model: ModelRow): string {
   if (model.provider === 'anthropic') return process.env.ANTHROPIC_API_KEY ?? '';
   if (model.provider === 'openai') return process.env.OPENAI_API_KEY ?? '';
   if (model.provider === 'openrouter') return process.env.OPENROUTER_API_KEY ?? '';
+  // OpenRouter vendor providers (baidu/z-ai/nvidia/qwen/...).
+  return process.env.OPENROUTER_API_KEY ?? '';
   return '';
 }
 
@@ -78,6 +80,20 @@ export async function getModel(modelId?: string): Promise<LanguageModel> {
         apiKey,
       });
       return openrouter(model.model_name, { structuredOutputs: false });
+    }
+    case 'baidu':
+    case 'z-ai':
+    case 'nvidia':
+    case 'qwen':
+    case 'minimax':
+    case 'dots-studio':
+    case 'moonshotai': {
+      if (!apiKey) throw new Error(`missing API key for ${model.id}`);
+      const vendor = createOpenAI({
+        baseURL: model.base_url || 'https://openrouter.ai/api/v1',
+        apiKey,
+      });
+      return vendor(`${model.provider}/${model.model_name}`, { structuredOutputs: false });
     }
     case 'custom': {
       if (!model.base_url) {
