@@ -693,7 +693,7 @@ async function runTool(name: string, args: any): Promise<any> {
   }
 
   if (name === 'get_model_info') {
-    const info = await getActiveModelInfo();
+    const info = await getActiveModelInfo(typeof args?.model_id === 'string' ? args.model_id : undefined);
     if (!info) {
       return { success: false, error: 'active model not found' };
     }
@@ -2214,8 +2214,10 @@ ${bodyStatusReminder}`,
       get_model_info: tool({
         description:
           'Return the active chat model (id, provider, model name, base URL, whether a key is available). Use when the owner asks which model is active, how model switching works, or why behavior changed. Never reveal API keys.',
-        parameters: z.object({}),
-        execute: async () => runToolForModel('get_model_info', {}),
+        parameters: z.object({
+          model_id: z.string().optional().describe('optional model id; default active'),
+        }),
+        execute: async ({ model_id }) => runToolForModel('get_model_info', { model_id }),
       }),
       web_search: tool({
         description:
