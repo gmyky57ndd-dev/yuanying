@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-93] ES-089 PM/Architect handoff tools — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: ES-089, #174
+- **Tools**: ai_pm gets comment_on_issue/assign_issue/get_github_issue; ai_architect gets comment_on_issue/assign_issue.
+- **Tokens**: actor-scoped App tokens; PM/architect have Issues write + Contents read only; no update_issue_status.
+- **Verified**: #174 PRD comment 23:45:08Z → architect auto-handoff → ADR comment 00:03:26Z → assign DSH 00:03:29Z.
+- **Bug fixed**: assignment used target token; now actor_fenshen_id vs fenshen_id.
+
 ### [P2-92] Supervisor project labels + verification — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: #168
