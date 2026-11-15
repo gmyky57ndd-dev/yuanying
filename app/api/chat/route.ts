@@ -1395,6 +1395,14 @@ export async function POST(req: NextRequest) {
       : [];
     const handoffToolRequired =
       internalHandoff && handoffRequiredTools.length > 0;
+    const handoffAssignTo =
+      internalHandoff && typeof body?.handoff_assign_to === 'string'
+        ? body.handoff_assign_to
+        : null;
+    const handoffAssignNote =
+      internalHandoff && typeof body?.handoff_assign_note === 'string'
+        ? body.handoff_assign_note
+        : null;
     const requestedFenshenId =
       typeof body?.fenshen_id === 'string' ? body.fenshen_id.trim() : '';
     const projectId =
@@ -2079,6 +2087,9 @@ ${bodyStatusReminder}`,
         fenshen_id: (args as any)?.fenshen_id ?? requestFenshen?.id ?? null,
         actor_fenshen_id: requestFenshen?.id ?? null,
         ...(projectId && !(args as any)?.project_id ? { project_id: projectId } : {}),
+        ...(name === 'assign_issue' && handoffAssignTo
+          ? { fenshen_id: handoffAssignTo, note: handoffAssignNote ?? args?.note }
+          : {}),
       };
       try {
         const raw = await runToolSafely(name, roleArgs);
@@ -2754,7 +2765,7 @@ ${bodyStatusReminder}`,
       tools: activeTools,
       toolChoice:
         handoffToolRequired
-          ? 'required'
+          ? undefined
           : writeIntent && activeTools.write_markdown
             ? ({ type: 'tool', toolName: 'write_markdown' } as const)
             : undefined,

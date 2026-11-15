@@ -204,6 +204,16 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-95] #175 PM/Architect 白名单 + Handoff Protocol — Done
+
+- **Status**: Done (2026-11-15) · **Refs**: #175, ES-089
+- **Whitelist**: ai_pm/ai_architect both have comment_on_issue + assign_issue; originals preserved.
+- **Skill**: exact Handoff Protocol + 铁律 injected; verified via playbook query.
+- **configure_fenshen**: returned success (ai_pm enabled=true).
+- **E2E PM**: #186 PRD comment 6897385654; PM assigned architect; label `fenshen:ai_architect`; no Owner relay.
+- **Label**: atomic replace keeps exactly one fenshen label.
+- **Note**: Architect auto-comment/assign still model-compliance sensitive; tracked separately.
+
 ### [P2-94] ADR-006 主备模型 Failover + Handoff 强制 — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: ADR-006, #174

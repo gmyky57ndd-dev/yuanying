@@ -3,14 +3,18 @@ import { randomUUID } from 'node:crypto';
 /**
  * Agent-to-agent Workpad handoff. GitHub @ comments do NOT wake a fenshen;
  * this calls the local chat API as the assignee so it actually acts.
- * Fire-and-forget; caller should not await it on the user's critical path.
+ *
+ * Multi-tool handoffs are executed one tool per call with a forced
+ * toolChoice. This avoids the "required" loop where every step must call a
+ * tool (which produced duplicate assignments/comments).
  */
-export async function handoffToFenshen(args: {
+async function callHandoff(args: {
   projectId: string;
   fenshenId: string;
-  issueNumber: number;
   message: string;
-  requiredTools?: string[];
+  requiredTool?: string;
+  assignToFenshenId?: string;
+  assignNote?: string;
 }): Promise<void> {
   const token = process.env.API_TOKEN;
   const port = process.env.PORT || '3000';
@@ -18,15 +22,13 @@ export async function handoffToFenshen(args: {
     console.warn('handoff skipped: API_TOKEN missing');
     return;
   }
-  const required = args.requiredTools ?? [];
+  const required = args.requiredTool ? [args.requiredTool] : [];
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const message =
         attempt === 1
           ? args.message
-          : `${args.message}\n\n[Handoff Protocol Violation] 上一轮没有调用 ${required.join(
-              ' + '
-            )}。必须实际调用这些工具，不能只回复文字。`;
+          : `${args.message}\n\n[Handoff Protocol Violation] 上一轮没有调用 ${args.requiredTool}。必须实际调用该工具，不能只回复文字。`;
       const res = await fetch(`http://127.0.0.1:${port}/api/chat`, {
         method: 'POST',
         headers: {
@@ -41,6 +43,8 @@ export async function handoffToFenshen(args: {
           internal_handoff: true,
           handoff_tool_required: required.length > 0,
           handoff_required_tools: required,
+          handoff_assign_to: args.assignToFenshenId,
+          handoff_assign_note: args.assignNote,
         }),
         signal: AbortSignal.timeout(120000),
       });
@@ -55,5 +59,42 @@ export async function handoffToFenshen(args: {
       console.warn('handoff failed', e);
       return;
     }
+  }
+}
+
+export async function handoffToFenshen(args: {
+  projectId: string;
+  fenshenId: string;
+  issueNumber: number;
+  message: string;
+  requiredTools?: string[];
+  assignToFenshenId?: string;
+  assignNote?: string;
+}): Promise<void> {
+  const required = args.requiredTools ?? [];
+  if (required.length === 0) {
+    await callHandoff({
+      projectId: args.projectId,
+      fenshenId: args.fenshenId,
+      message: args.message,
+    });
+    return;
+  }
+
+  for (const tool of required) {
+    const extra =
+      tool === 'assign_issue'
+        ? `\n\n本轮只调用 assign_issue，把 Issue #${args.issueNumber} 指派给 ${
+            args.assignToFenshenId ?? '下一个分身'
+          }；note: ${args.assignNote ?? '请接手' }。`
+        : `\n\n本轮只调用 ${tool}，处理 Issue #${args.issueNumber}。`;
+    await callHandoff({
+      projectId: args.projectId,
+      fenshenId: args.fenshenId,
+      message: `${args.message}${extra}`,
+      requiredTool: tool,
+      assignToFenshenId: args.assignToFenshenId,
+      assignNote: args.assignNote,
+    });
   }
 }

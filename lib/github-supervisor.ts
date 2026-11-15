@@ -115,15 +115,34 @@ export async function assignIssue(args: {
     devops: '镇岳',
     librarian: '司书',
   };
+  const actor = args.role ?? 'xiaowu';
+  const body = `@${display[args.fenshen_id]} ${
+    args.note ?? '请接手这个任务。'
+  }\n\n_Assigned by ${display[actor] ?? actor}._`;
   const labels = [label];
   if (args.project_id) labels.push(`project:${args.project_id}`);
   const role = args.role ?? ROLE;
-  await gh(`/issues/${n}/labels`, {
-    method: 'POST',
-    body: JSON.stringify({ labels }),
-  }, role);
-  const actor = args.role ?? 'xiaowu';
-  const body = `@${display[args.fenshen_id]} ${args.note ?? '请接手这个任务。'}\n\n_Assigned by ${display[actor] ?? actor}._`;
+  // Atomic label replace: exactly one fenshen label. Concurrent auto-handoffs
+  // must not leave PM + Architect + DSH labels on the same issue.
+  try {
+    const current = await gh(`/issues/${n}`, {}, role);
+    const keep = (current?.labels ?? [])
+      .map((l: any) => (typeof l === 'string' ? l : l?.name))
+      .filter(
+        (name: unknown): name is string =>
+          typeof name === 'string' && !name.startsWith('fenshen:')
+      );
+    await gh(`/issues/${n}/labels`, {
+      method: 'PUT',
+      body: JSON.stringify({ labels: Array.from(new Set([...keep, ...labels])) }),
+    }, role);
+  } catch (e) {
+    console.warn('label replace failed', e);
+    await gh(`/issues/${n}/labels`, {
+      method: 'POST',
+      body: JSON.stringify({ labels }),
+    }, role);
+  }
   const comment = await gh(`/issues/${n}/comments`, {
     method: 'POST',
     body: JSON.stringify({ body }),
@@ -167,16 +186,23 @@ export async function assignIssue(args: {
         workpadMessageId = data[0].id;
         mirrorMessages(data as any[]);
         // Actually wake the assignee. A GitHub comment cannot do this.
-        const requiredTools =
-          args.fenshen_id === 'ai_pm' || args.fenshen_id === 'ai_architect'
-            ? ['comment_on_issue', 'assign_issue']
-            : [];
+        const nextAssignee =
+          args.fenshen_id === 'ai_pm'
+            ? 'ai_architect'
+            : args.fenshen_id === 'ai_architect'
+              ? 'dsh'
+              : undefined;
+        const requiredTools = nextAssignee
+          ? ['comment_on_issue', 'assign_issue']
+          : [];
         void handoffToFenshen({
           projectId: args.project_id,
           fenshenId: args.fenshen_id,
           issueNumber: n,
           message: content,
           requiredTools,
+          assignToFenshenId: nextAssignee,
+          assignNote: args.note,
         });
       }
     } catch (e) {
