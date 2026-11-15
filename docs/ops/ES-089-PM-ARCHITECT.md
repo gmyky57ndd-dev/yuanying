@@ -49,3 +49,11 @@ A PM/architect token cannot write code contents; GitHub returns 403 if attempted
   and tokens work, but the LLM doesn't always call them from a vague handoff.
 - DSH auto-handoff is wired; DSH's implementation is outside this acceptance.
 - `update_issue_status` remains supervisor/owner-only.
+
+## #175 follow-up
+
+- Exact `## Handoff Protocol` + `## 纪律约束（铁律）` is injected into both skill prompts.
+- `configure_fenshen` verified success; originals preserved.
+- PM E2E on #186: PRD comment + assign architect, no Owner relay.
+- `assign_issue` now replaces fenshen labels atomically (one target only).
+- Architect auto-handoff still needs model compliance; forced specific `toolChoice` caused DSML/tool-loop, so it is not used for now.
