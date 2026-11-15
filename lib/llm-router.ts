@@ -27,6 +27,7 @@ function apiKeyFor(model: ModelRow): string {
   if (model.provider === 'deepseek') return process.env.DEEPSEEK_API_KEY ?? '';
   if (model.provider === 'anthropic') return process.env.ANTHROPIC_API_KEY ?? '';
   if (model.provider === 'openai') return process.env.OPENAI_API_KEY ?? '';
+  if (model.provider === 'openrouter') return process.env.OPENROUTER_API_KEY ?? '';
   return '';
 }
 
@@ -70,6 +71,14 @@ export async function getModel(modelId?: string): Promise<LanguageModel> {
       });
       return anthropic(model.model_name);
     }
+    case 'openrouter': {
+      if (!apiKey) throw new Error(`missing API key for ${model.id}`);
+      const openrouter = createOpenAI({
+        baseURL: model.base_url || 'https://openrouter.ai/api/v1',
+        apiKey,
+      });
+      return openrouter(model.model_name);
+    }
     case 'custom': {
       if (!model.base_url) {
         throw new Error(`missing base URL for ${model.id}`);
@@ -94,8 +103,8 @@ export type ActiveModelInfo = {
 };
 
 /** ES-029 / Issue #20: safe model info for 元婴 (never includes the key). */
-export async function getActiveModelInfo(): Promise<ActiveModelInfo | null> {
-  const id = await getActiveModelId();
+export async function getActiveModelInfo(modelId?: string): Promise<ActiveModelInfo | null> {
+  const id = modelId || (await getActiveModelId());
   const { data, error } = await supabase
     .from('models')
     .select('id, provider, model_name, api_key, base_url')

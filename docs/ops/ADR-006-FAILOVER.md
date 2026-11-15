@@ -21,9 +21,9 @@
 ## Implementation
 
 `lib/model-failover.ts`:
-- if a backup exists, probe the primary with a 1-token call (30s timeout);
+- if a backup exists, probe the primary with a 1-token call (30s timeout); fallback probe 60s;
 - cache healthy primary for 60s; mark retryable failures down for 5m;
-- 4xx (except 429) rethrow without fallback;
+- 4xx (except 429) rethrow without fallback (tests in `lib/failover-policy.test.ts`);
 - backup selection returns `degraded=true` + reason; `recordCost` writes them.
 
 Chat route uses `resolveModelWithFailover` before `streamText`; stream errors mark

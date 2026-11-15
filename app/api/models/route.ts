@@ -4,9 +4,10 @@ import { supabase } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const PROVIDERS = ['deepseek', 'openai', 'anthropic', 'custom'] as const;
+const PROVIDERS = ['deepseek', 'openai', 'anthropic', 'openrouter', 'custom'] as const;
 const DEFAULT_BASE_URLS: Record<string, string> = {
   deepseek: 'https://api.deepseek.com/v1',
+  openrouter: 'https://openrouter.ai/api/v1',
 };
 
 function field(value: unknown): string {
@@ -39,7 +40,12 @@ export async function GET() {
       provider: m.provider,
       model_name: m.model_name,
       base_url: m.base_url,
-      has_api_key: !!m.api_key,
+      has_api_key:
+        !!m.api_key ||
+        (m.provider === 'deepseek' && !!process.env.DEEPSEEK_API_KEY) ||
+        (m.provider === 'anthropic' && !!process.env.ANTHROPIC_API_KEY) ||
+        (m.provider === 'openai' && !!process.env.OPENAI_API_KEY) ||
+        (m.provider === 'openrouter' && !!process.env.OPENROUTER_API_KEY),
       created_at: m.created_at,
     })),
     active,

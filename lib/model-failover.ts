@@ -1,7 +1,9 @@
 import { generateText } from 'ai';
 import { getModel } from './llm-router';
+import { classifyModelError } from './failover-policy';
 
 const FAILOVER_TIMEOUT_MS = 30_000;
+const BACKUP_TIMEOUT_MS = 60_000;
 const PROBE_TTL_MS = 60_000;
 const DOWN_TTL_MS = 5 * 60_000;
 
@@ -15,28 +17,17 @@ export type ResolvedModel = {
   fallbackReason: string | null;
 };
 
-function statusOf(error: unknown): number | null {
-  const any = error as any;
-  const s = any?.statusCode ?? any?.status ?? any?.cause?.statusCode;
-  return typeof s === 'number' ? s : null;
-}
-
 function isRetryable(error: unknown): boolean {
-  const status = statusOf(error);
-  if (status === 429) return true;
-  if (status && status >= 500) return true;
-  if (status && status >= 400) return false; // 4xx except 429 = config error
-  const msg = error instanceof Error ? error.message : String(error);
-  return /timeout|abort|network|fetch failed|ECONN|ETIMEDOUT|ENOTFOUND|connect|bad port|socket/i.test(msg);
+  return classifyModelError(error).retryable;
 }
 
-async function probe(modelId: string | null, model: ResolvedModel['model']): Promise<void> {
+async function probe(modelId: string | null, model: ResolvedModel['model'], timeoutMs = FAILOVER_TIMEOUT_MS): Promise<void> {
   await generateText({
     model,
     prompt: 'ping',
     maxTokens: 1,
     maxRetries: 0,
-    abortSignal: AbortSignal.timeout(FAILOVER_TIMEOUT_MS),
+    abortSignal: AbortSignal.timeout(timeoutMs),
   });
   if (modelId) healthyUntil.set(modelId, Date.now() + PROBE_TTL_MS);
 }
@@ -74,14 +65,16 @@ export async function resolveModelWithFailover(args: {
     }
     try {
       const model = await getModel(primaryId ?? undefined);
-      await probe(primaryId, model);
+      await probe(primaryId, model, FAILOVER_TIMEOUT_MS);
       return { model, modelId: primaryLabel, degraded: false, fallbackReason: null };
     } catch (e) {
       if (!isRetryable(e)) throw e;
       downUntil.set(primaryLabel, Date.now() + DOWN_TTL_MS);
       const reason = e instanceof Error ? e.message : 'primary failed';
+      const backupModel = await getModel(backupId);
+      await probe(backupId, backupModel, BACKUP_TIMEOUT_MS);
       return {
-        model: await getModel(backupId),
+        model: backupModel,
         modelId: backupId,
         degraded: true,
         fallbackReason: reason.slice(0, 300),
@@ -89,8 +82,10 @@ export async function resolveModelWithFailover(args: {
     }
   }
 
+  const backupModel = await getModel(backupId);
+  await probe(backupId, backupModel, BACKUP_TIMEOUT_MS);
   return {
-    model: await getModel(backupId),
+    model: backupModel,
     modelId: backupId,
     degraded: true,
     fallbackReason: 'primary marked down after retryable failure',
