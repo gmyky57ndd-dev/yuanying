@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 type Artifact = { name: string; source: string; chars: number; updated_at: string };
 type Issue = { number: number; title: string; state: string; url: string; updated_at: string; labels: string[] };
 type Message = { id: number; role: string; content: string; created_at: string; responder_fenshen_id?: string | null; truncated?: boolean };
-type FenshenRow = { id: string; display_name: string; model_name: string | null; tools_whitelist: string[] | null };
+type FenshenRow = { id: string; display_name: string; model_name: string | null; primary_model: string | null; backup_model: string | null; tools_whitelist: string[] | null };
 type ModelRow = { id: string; provider: string; model_name: string };
 type Approval = { id: number; title: string; description: string | null; adr: string | null; status: string; approved_by: string | null; issue_number: number | null; issue_url: string | null; updated_at: string };
 
@@ -207,11 +207,15 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     }
   }
 
-  async function setModel(fenshenId: string, modelName: string) {
+  async function setModel(
+    fenshenId: string,
+    field: 'primary_model' | 'backup_model',
+    modelName: string
+  ) {
     const r = await fetch('/api/fenshen/config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: fenshenId, model_name: modelName || null }),
+      body: JSON.stringify({ id: fenshenId, [field]: modelName || null }),
     });
     if (!r.ok) {
       const d = await r.json().catch(() => ({}));
@@ -219,7 +223,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
       return;
     }
     setAllFenshen(prev =>
-      prev.map(f => (f.id === fenshenId ? { ...f, model_name: modelName || null } : f))
+      prev.map(f => (f.id === fenshenId ? { ...f, [field]: modelName || null } : f))
     );
     setMemberMsg('模型已更新');
   }
@@ -586,18 +590,32 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                     )}
                   </label>
                   {checked && (
-                    <select
-                      value={f.model_name ?? ''}
-                      onChange={e => void setModel(f.id, e.target.value)}
-                      className="mt-2 w-full rounded border border-stone-200 px-2 py-1 text-[11px]"
-                    >
-                      <option value="">模型：全局路由</option>
-                      {models.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.provider}/{m.model_name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="mt-2 space-y-1">
+                      <select
+                        value={f.primary_model ?? f.model_name ?? ''}
+                        onChange={e => void setModel(f.id, 'primary_model', e.target.value)}
+                        className="w-full rounded border border-stone-200 px-2 py-1 text-[11px]"
+                      >
+                        <option value="">主模型：全局路由</option>
+                        {models.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.provider}/{m.model_name}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={f.backup_model ?? ''}
+                        onChange={e => void setModel(f.id, 'backup_model', e.target.value)}
+                        className="w-full rounded border border-stone-200 px-2 py-1 text-[11px]"
+                      >
+                        <option value="">备用模型：无 failover</option>
+                        {models.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.provider}/{m.model_name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   )}
                 </div>
               );

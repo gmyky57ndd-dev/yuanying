@@ -20,9 +20,10 @@ import { findOrCreateIssue, getIssue } from '@/lib/github';
 import { commitFile, openPullRequest } from '@/lib/github-write';
 import { writeCodeFile, runTerminalCommand, runTestSuite } from '@/lib/workspace-runner';
 import { enforceBudget, recordCost, getProjectBudget, setProjectBudget } from '@/lib/budget';
+import { resolveModelWithFailover, markPrimaryDown } from '@/lib/model-failover';
 import { createEpic, addProjectLabel, listIssues, assignIssue, commentOnIssue, updateIssueStatus, listPullRequests } from '@/lib/github-supervisor';
 import { enqueuePushToDev } from '@/lib/jobs';
-import { getActiveModelInfo, getModel } from '@/lib/llm-router';
+import { getActiveModelInfo } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
 import { webSearch } from '@/lib/web-search';
 import { readMarkdown } from '@/lib/read-markdown';
@@ -802,16 +803,19 @@ async function runTool(name: string, args: any): Promise<any> {
       }
       patch.tools_whitelist = tools;
     }
-    if (args?.model_name === null || args?.model_name === '') {
-      patch.model_name = null;
-    } else if (typeof args?.model_name === 'string') {
-      const { data: model } = await supabase
-        .from('models')
-        .select('id')
-        .eq('id', args.model_name)
-        .maybeSingle();
-      if (!model) return { success: false, error: `unknown model: ${args.model_name}` };
-      patch.model_name = args.model_name;
+    for (const field of ['model_name', 'primary_model', 'backup_model'] as const) {
+      const value = args?.[field];
+      if (value === null || value === '') {
+        patch[field] = null;
+      } else if (typeof value === 'string') {
+        const { data: model } = await supabase
+          .from('models')
+          .select('id')
+          .eq('id', value)
+          .maybeSingle();
+        if (!model) return { success: false, error: `unknown model: ${value}` };
+        patch[field] = value;
+      }
     }
     if (!Object.keys(patch).length) return { success: false, error: 'nothing to update' };
     const { data, error } = await supabase
@@ -1383,6 +1387,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const message = body?.message;
+    const internalHandoff = body?.internal_handoff === true;
+    const handoffRequiredTools = Array.isArray(body?.handoff_required_tools)
+      ? (body.handoff_required_tools as unknown[]).filter(
+          (x): x is string => typeof x === 'string'
+        )
+      : [];
+    const handoffToolRequired =
+      internalHandoff && handoffRequiredTools.length > 0;
     const requestedFenshenId =
       typeof body?.fenshen_id === 'string' ? body.fenshen_id.trim() : '';
     const projectId =
@@ -1399,7 +1411,7 @@ export async function POST(req: NextRequest) {
     if (requestedFenshenId) {
       const { data: row } = await supabase
         .from('fenshen')
-        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, skill_prompt, has_all_tools')
+        .select('id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, primary_model, backup_model, skill_prompt, has_all_tools')
         .eq('id', requestedFenshenId)
         .maybeSingle();
       if (row) requestFenshen = row as any;
@@ -1465,7 +1477,7 @@ export async function POST(req: NextRequest) {
       const { data: map } = await supabase
         .from('project_fenshen_map')
         .select(
-          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, skill_prompt, enabled, has_all_tools)'
+          'fenshen_id, is_lead, fenshen:fenshen_id(id, display_name, prompt_md, avatar_url, tools_whitelist, kind, model_name, primary_model, backup_model, skill_prompt, enabled, has_all_tools)'
         )
         .eq('project_id', projectId)
         .order('is_lead', { ascending: false });
@@ -2021,12 +2033,17 @@ ${bodyStatusReminder}`,
 
     // 5. Route through the configured model and stream the reply.
     let model;
+    let modelFailover: Awaited<ReturnType<typeof resolveModelWithFailover>> | null = null;
     try {
-      // ES-080: a fenshen may pin its own model; null falls back to the global
-      // router (owner decision: no UI for per-request model choice).
-      model = await getModel(requestFenshen?.model_name || undefined);
+      // ADR-006: primary → backup failover; request-level.
+      modelFailover = await resolveModelWithFailover({
+        primaryId: requestFenshen?.primary_model ?? requestFenshen?.model_name ?? null,
+        backupId: requestFenshen?.backup_model ?? null,
+        globalModelId: modelInfo?.id ?? null,
+      });
+      model = modelFailover.model;
       console.log(
-        `[model] fenshen=${requestFenshen?.id ?? 'none'} model=${requestFenshen?.model_name ?? '(global)'}`
+        `[model] fenshen=${requestFenshen?.id ?? 'none'} model=${modelFailover.modelId} degraded=${modelFailover.degraded} reason=${modelFailover.fallbackReason ?? '-'}`
       );
     } catch (e) {
       const reason = e instanceof Error ? e.message : 'model unavailable';
@@ -2049,8 +2066,7 @@ ${bodyStatusReminder}`,
     }, 5000);
     const stopHeartbeat = () => clearInterval(heartbeat);
     const toolTrace: string[] = [];
-    const modelLabel =
-      requestFenshen?.model_name ?? modelInfo?.id ?? 'global';
+    const modelLabel = modelFailover?.modelId ?? requestFenshen?.model_name ?? modelInfo?.id ?? 'global';
 
     const runToolForModel = async (
       name: string,
@@ -2343,7 +2359,9 @@ ${bodyStatusReminder}`,
           'Configure a fenshen playbook: model, prompt, tool whitelist, has_all_tools, enabled. Owner-only (supervisor). Model must exist in the models table.',
         parameters: z.object({
           fenshen_id: z.string().describe('xiaowu, ai_pm, ai_architect, dsh, qa, devops, librarian'),
-          model_name: z.string().nullable().optional().describe('model id; null restores global default'),
+          model_name: z.string().nullable().optional().describe('legacy alias for primary_model'),
+          primary_model: z.string().nullable().optional(),
+          backup_model: z.string().nullable().optional(),
           prompt_md: z.string().optional(),
           skill_prompt: z.string().optional(),
           tools_whitelist: z.array(z.string()).optional(),
@@ -2735,9 +2753,11 @@ ${bodyStatusReminder}`,
       messages,
       tools: activeTools,
       toolChoice:
-        writeIntent && activeTools.write_markdown
-          ? ({ type: 'tool', toolName: 'write_markdown' } as const)
-          : undefined,
+        handoffToolRequired
+          ? 'required'
+          : writeIntent && activeTools.write_markdown
+            ? ({ type: 'tool', toolName: 'write_markdown' } as const)
+            : undefined,
       maxSteps: 5,
       temperature: parseFloat(process.env.DEEPSEEK_TEMPERATURE ?? '0.7'),
       maxTokens: isContinue
@@ -2748,6 +2768,7 @@ ${bodyStatusReminder}`,
       onError: ({ error }) => {
         stopHeartbeat();
         console.error('model stream error:', error);
+        if (modelFailover && !modelFailover.degraded) markPrimaryDown(modelFailover.modelId);
         streamError = error instanceof Error ? error.message : String(error);
         void recordSystemEvent({
           route: '/api/chat',
@@ -2768,6 +2789,26 @@ ${bodyStatusReminder}`,
       },
       onFinish: async ({ text, finishReason, usage }) => {
         let reply = text.trim();
+        if (handoffToolRequired) {
+          const missing = handoffRequiredTools.filter(t => !toolTrace.includes(t));
+          if (missing.length > 0) {
+            reply = `Handoff Protocol Violation: missing required tool call(s): ${missing.join(
+              ', '
+            )}. Retry with the tools.`;
+            void recordSystemEvent({
+              route: '/api/chat',
+              status: 500,
+              error: 'handoff protocol violation',
+              meta: {
+                kind: 'handoff_violation',
+                request_id: requestId,
+                required_tools: handoffRequiredTools,
+                tool_calls: toolTrace,
+                fenshen_id: requestFenshen?.id ?? null,
+              },
+            });
+          }
+        }
         if (!reply) {
           console.warn('empty model reply', {
             pushToDev: !!pushToDevResult,
@@ -3053,10 +3094,12 @@ ${bodyStatusReminder}`,
           await recordCost({
             projectId,
             fenshenId: requestFenshen?.id ?? null,
-            modelId: requestFenshen?.model_name || modelInfo?.id || 'unknown',
+            modelId: modelFailover?.modelId || requestFenshen?.model_name || modelInfo?.id || 'unknown',
             requestId,
             promptTokens: Number(u.promptTokens ?? u.inputTokens ?? 0),
             completionTokens: Number(u.completionTokens ?? u.outputTokens ?? 0),
+            degraded: modelFailover?.degraded ?? false,
+            fallbackReason: modelFailover?.fallbackReason ?? null,
           });
         }
 

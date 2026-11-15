@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-94] ADR-006 主备模型 Failover + Handoff 强制 — Done
+
+- **Status**: Done (2026-11-14) · **Refs**: ADR-006, #174
+- **Schema**: fenshen.primary_model/backup_model; cost_ledger.degraded/fallback_reason.
+- **Failover**: 30s probe; 5xx/429/network → backup; 4xx no fallback; 60s healthy/5m down; actual model recorded.
+- **Verified**: bad primary → deepseek-chat backup, `degraded=true`, reason in cost ledger; restored.
+- **Handoff**: toolChoice required + required tools check + retry on `Handoff Protocol Violation`.
+- **Limit**: health gate, not mid-stream switch; failed stream marks primary down for next request.
+
 ### [P2-93] ES-089 PM/Architect handoff tools — Done
 
 - **Status**: Done (2026-11-14) · **Refs**: ES-089, #174
