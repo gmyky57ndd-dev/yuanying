@@ -532,7 +532,7 @@ If a change makes 元婴 louder or more frequent without a clear, owner-approved
 
 - 小悟：`get_project_status`、`plan_actions`、`create_issue`、`list_issues`、`get_github_issue`、`assign_issue`、`comment_on_issue`、`update_issue_status`、`list_pull_requests`、`complete_action`、`propose_work`、`ask_owner`、`configure_fenshen`、`write_local_file`。只派活/催进度/建 Issue，不写产品代码、不改架构。`plan_actions` 每个计划只建一个 umbrella Issue + checklist；`assign_issue` 用 `fenshen:<id>` 标签 + @评论（无 per-fenshen GitHub 账号）。
 - 拓维：`web_search`、`read_local_file`、`write_local_file`、`push_to_dev`、`get_github_issue`、`get_project_status`、`comment_on_issue`、`assign_issue`。PRD 发评论后指派阿构；不关闭 Issue。
-- 阿构：`read_code_file`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`、`comment_on_issue`、`assign_issue`。ADR 发评论后指派 DSH；不关闭 Issue。
+- 阿构：`read_code_file`、`fetch_url_content`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`、`comment_on_issue`、`assign_issue`。ADR 发评论后指派 DSH；不关闭 Issue；技术选型必须走 6 维尽调 SOP。
 - DSH：`read_code_file`、`read_local_file`、`write_local_file`、`get_github_issue`、`get_project_status`、`git_commit`、`submit_pr`（v0.02b，仅 GitHub REST，不碰本地 .git）、`write_code_file`、`run_terminal_command`、`run_test_suite`（v0.02c，仅 workspace 白名单）。只实现已批准 ADR。
 - 司测：`read_code_file`、`get_github_issue`、`create_bug_issue`、`get_project_status`、`run_test_suite`（v0.02c）。只测/报 Bug，不改代码。
 - 镇岳：`get_system_status`、`read_local_file`、`read_server_logs`（v0.02a，只读脱敏）。生产发布必须 Owner 在 UI 明确确认。

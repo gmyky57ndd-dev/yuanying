@@ -9,6 +9,7 @@ const CAP_BY_TOOL: Record<string, number> = {
   // Reading a file is only useful with its body; keep a generous bound.
   read_markdown: 16000,
   read_code_file: 16000,
+  fetch_url_content: 22000,
   read_local_file: 70000,
   get_github_issue: 6000,
   search_local_kb: 6000,

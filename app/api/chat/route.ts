@@ -25,6 +25,7 @@ import { createEpic, addProjectLabel, listIssues, assignIssue, commentOnIssue, u
 import { enqueuePushToDev } from '@/lib/jobs';
 import { getActiveModelInfo } from '@/lib/llm-router';
 import { importDriveDoc } from '@/lib/google-drive';
+import { fetchUrlContent } from '@/lib/fetch-url';
 import { webSearch } from '@/lib/web-search';
 import { readMarkdown } from '@/lib/read-markdown';
 import { writeMarkdown } from '@/lib/write-markdown';
@@ -1239,6 +1240,16 @@ async function runTool(name: string, args: any): Promise<any> {
     return askExternalAgent(role || 'architect', prompt);
   }
 
+  if (name === 'fetch_url_content') {
+    const url = String(args?.url ?? '').trim();
+    if (!url) return { success: false, error: 'url required' };
+    try {
+      return { success: true, data: await fetchUrlContent(url) };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'fetch failed' };
+    }
+  }
+
   if (name === 'read_code_file') {
     // ES-079: repo code reader for the architect fenshen (safe roots, no secrets).
     const rel = String(args?.path ?? '')
@@ -2238,6 +2249,14 @@ ${bodyStatusReminder}`,
             ),
         }),
         execute: async ({ path }) => runToolForModel('read_markdown', { path }),
+      }),
+      fetch_url_content: tool({
+        description:
+          'Fetch a public http(s) page and return its readable plain text (title, text, url, fetched_at). 15s timeout, 20k chars max, no auth/JS execution.',
+        parameters: z.object({
+          url: z.string().url().describe('public http(s) URL'),
+        }),
+        execute: async ({ url }) => runToolForModel('fetch_url_content', { url }),
       }),
       read_code_file: tool({
         description:

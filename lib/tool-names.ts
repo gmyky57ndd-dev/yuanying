@@ -36,6 +36,7 @@ export const ALL_TOOL_NAMES = [
   'update_issue_status',
   'list_pull_requests',
   'set_budget',
+  'fetch_url_content',
   'read_code_file',
   'read_server_logs',
   'write_code_file',
