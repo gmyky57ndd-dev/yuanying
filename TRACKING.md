@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-97] ES-090 Architect diligence tools — Done
+
+- **Status**: Done (2026-11-15) · **Refs**: #180, #176
+- **Tools**: ai_architect gets fetch_url_content; read_code_file already present.
+- **SOP**: six-dimension diligence + "回退自研" rule injected into skill_prompt.
+- **Verified**: fetched octobroker README (20k cap); architect posted 6-dim table on #176.
+- **Note**: multi-step DSML is a model-compliance issue; two-step fetch → comment worked.
+
 ### [P2-96] #174 model pool + failover — Done
 
 - **Status**: Done (2026-11-15); OpenRouter live call verified.

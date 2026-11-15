@@ -11,7 +11,7 @@ Retired: **Elara**, **Kael** (rows + project maps removed).
 |---|---|---|
 | 小悟 `xiaowu` | Supervisor / 项目经理 | `get_project_status`, `plan_actions`, `create_issue`, `list_issues`, `get_github_issue`, `assign_issue`, `complete_action`, `comment_on_issue`, `update_issue_status`, `list_pull_requests`, `propose_work`, `ask_owner`, `configure_fenshen`, `write_local_file` |
 | 拓维 `ai_pm` | 产品经理 | `web_search`, `read_local_file`, `write_local_file`, `push_to_dev`, `get_github_issue`, `get_project_status`, `comment_on_issue`, `assign_issue` |
-| 阿构 `ai_architect` | 系统架构师 | `read_code_file`, `read_local_file`, `write_local_file`, `get_github_issue`, `get_project_status`, `comment_on_issue`, `assign_issue` |
+| 阿构 `ai_architect` | 系统架构师 | `read_code_file`, `fetch_url_content`, `read_local_file`, `write_local_file`, `get_github_issue`, `get_project_status`, `comment_on_issue`, `assign_issue` |
 | DSH `dsh` | 全栈工程师 | `read_code_file`, `read_local_file`, `write_local_file`, `get_github_issue`, `get_project_status`, `git_commit`, `submit_pr` (v0.02b), `write_code_file`, `run_terminal_command`, `run_test_suite` (v0.02c) |
 | 司测 `qa` | 质量保障 | `read_code_file`, `get_github_issue`, `create_bug_issue`, `get_project_status`, `run_test_suite` (v0.02c) |
 | 镇岳 `devops` | 运维/部署 | `get_system_status`, `read_local_file`, `read_server_logs` (v0.02a) |
