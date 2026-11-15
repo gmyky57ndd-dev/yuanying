@@ -167,11 +167,16 @@ export async function assignIssue(args: {
         workpadMessageId = data[0].id;
         mirrorMessages(data as any[]);
         // Actually wake the assignee. A GitHub comment cannot do this.
+        const requiredTools =
+          args.fenshen_id === 'ai_pm' || args.fenshen_id === 'ai_architect'
+            ? ['comment_on_issue', 'assign_issue']
+            : [];
         void handoffToFenshen({
           projectId: args.project_id,
           fenshenId: args.fenshen_id,
           issueNumber: n,
           message: content,
+          requiredTools,
         });
       }
     } catch (e) {

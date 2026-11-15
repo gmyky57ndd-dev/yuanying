@@ -117,6 +117,8 @@ export async function recordCost(args: {
   requestId: string;
   promptTokens: number;
   completionTokens: number;
+  degraded?: boolean;
+  fallbackReason?: string | null;
 }): Promise<number> {
   const price = await getModelPrice(args.modelId);
   const cost = price
@@ -132,6 +134,8 @@ export async function recordCost(args: {
       prompt_tokens: Math.max(0, Math.round(args.promptTokens)),
       completion_tokens: Math.max(0, Math.round(args.completionTokens)),
       estimated_cost: Number(cost.toFixed(6)),
+      degraded: args.degraded === true,
+      fallback_reason: args.fallbackReason ?? null,
     });
   } catch (e) {
     console.warn('cost ledger insert failed', e);

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const { data, error } = await supabase
     .from('fenshen')
-    .select('id, display_name, prompt_md, skill_prompt, tools_whitelist, model_name, kind, avatar_url, enabled, has_all_tools')
+    .select('id, display_name, prompt_md, skill_prompt, tools_whitelist, model_name, primary_model, backup_model, kind, avatar_url, enabled, has_all_tools')
     .order('id');
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ fenshen: data ?? [], tools: ALL_TOOL_NAMES });
@@ -29,10 +29,11 @@ export async function PUT(req: NextRequest) {
     if (typeof body?.has_all_tools === 'boolean') {
       patch.has_all_tools = body.has_all_tools;
     }
-    if ('model_name' in (body ?? {})) {
-      const value = body.model_name;
+    for (const field of ['model_name', 'primary_model', 'backup_model'] as const) {
+      if (!(field in (body ?? {}))) continue;
+      const value = body[field];
       if (value === null || value === '') {
-        patch.model_name = null;
+        patch[field] = null;
       } else if (typeof value === 'string') {
         const { data: model } = await supabase
           .from('models')
@@ -40,14 +41,11 @@ export async function PUT(req: NextRequest) {
           .eq('id', value)
           .maybeSingle();
         if (!model) {
-          return NextResponse.json(
-            { error: `unknown model: ${value}` },
-            { status: 400 }
-          );
+          return NextResponse.json({ error: `unknown model: ${value}` }, { status: 400 });
         }
-        patch.model_name = value;
+        patch[field] = value;
       } else {
-        return NextResponse.json({ error: 'invalid model_name' }, { status: 400 });
+        return NextResponse.json({ error: `invalid ${field}` }, { status: 400 });
       }
     }
     if (Array.isArray(body?.tools_whitelist)) {
@@ -70,7 +68,7 @@ export async function PUT(req: NextRequest) {
       .from('fenshen')
       .update(patch)
       .eq('id', id)
-      .select('id, display_name, tools_whitelist, model_name, enabled, has_all_tools')
+      .select('id, display_name, tools_whitelist, model_name, primary_model, backup_model, enabled, has_all_tools')
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ fenshen: data });
