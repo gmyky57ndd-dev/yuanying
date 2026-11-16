@@ -204,6 +204,13 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-99] DeepSeek flash model-name fix — Done
+
+- **Status**: Done (2026-11-16) · **Refs**: #175
+- **Bug**: `deepseek-flash-1017` is not a valid DeepSeek API model name.
+- **Fix**: row id kept, `model_name=deepseek-flash`; added `deepseek-v4-pro`.
+- **Verified**: selecting the row returned `可用。`; active restored to deepseek-chat.
+
 ### [P2-98] #175 new model list + AC2 — Done
 
 - **Status**: Done (2026-11-15) · **Refs**: #175, #193
