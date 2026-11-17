@@ -204,6 +204,13 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-100] Workpad text/image attachments — Done
+
+- **Status**: Done (2026-11-16)
+- **UI**: Workpad 群聊 + picker + drag/drop, 4 attachments, image thumbnails, text/image.
+- **API**: `/api/chat` accepts attachments; text appended; images as AI SDK image parts.
+- **Verified**: text `bluebird`; 1x1 PNG with VL model → `红`; non-vision error surfaced.
+
 ### [P2-99] DeepSeek flash model-name fix — Done
 
 - **Status**: Done (2026-11-16) · **Refs**: #175

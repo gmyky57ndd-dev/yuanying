@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
-import { postChat } from '@/lib/api';
-import { useCallback, useEffect, useState } from 'react';
+import { postChat, type ChatAttachment } from '@/lib/api';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type Artifact = { name: string; source: string; chars: number; updated_at: string };
 type Issue = { number: number; title: string; state: string; url: string; updated_at: string; labels: string[] };
@@ -18,6 +18,7 @@ const tabs = [
   { id: 'ledger', label: '台账' },
 ] as const;
 type Tab = (typeof tabs)[number]['id'];
+type PendingAttachment = ChatAttachment & { preview?: string };
 
 function fmt(iso: string | null | undefined) {
   if (!iso) return '';
@@ -41,6 +42,10 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
   const [memberMsg, setMemberMsg] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [attachMsg, setAttachMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedMsgs, setExpandedMsgs] = useState<Record<string, boolean>>({});
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [ledger, setLedger] = useState<any[]>([]);
@@ -94,20 +99,103 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
     void load();
   }, [load]);
 
+  const TEXT_EXT = /\.(md|txt|json|csv|log|ts|tsx|js|jsx|py|html|css|ya?ml|xml|toml|sh)$/i;
+
+  async function readImage(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ''));
+      reader.onerror = () => reject(new Error('读取图片失败'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function attachFiles(list: FileList | File[]) {
+    const incoming = Array.from(list).slice(0, 4);
+    const next: PendingAttachment[] = [];
+    for (const file of incoming) {
+      if (attachments.length + next.length >= 4) {
+        setAttachMsg('最多附加 4 个文件');
+        break;
+      }
+      const isImage = file.type.startsWith('image/');
+      const isText = file.type.startsWith('text/') || TEXT_EXT.test(file.name);
+      if (!isImage && !isText) {
+        setAttachMsg(`不支持的文件类型：${file.name}`);
+        continue;
+      }
+      if (isImage && file.size > 8 * 1024 * 1024) {
+        setAttachMsg(`图片过大（上限 8MB）：${file.name}`);
+        continue;
+      }
+      if (!isImage && file.size > 2 * 1024 * 1024) {
+        setAttachMsg(`文本文件过大（上限 2MB）：${file.name}`);
+        continue;
+      }
+      try {
+        if (isImage) {
+          const data = await readImage(file);
+          next.push({
+            name: file.name,
+            kind: 'image',
+            mime_type: file.type || 'image/*',
+            data,
+            size: file.size,
+            preview: data,
+          });
+        } else {
+          const text = await file.text();
+          next.push({
+            name: file.name,
+            kind: 'text',
+            mime_type: file.type || 'text/plain',
+            data: text.slice(0, 60_000),
+            size: file.size,
+          });
+        }
+      } catch {
+        setAttachMsg(`读取失败：${file.name}`);
+      }
+    }
+    if (next.length) {
+      setAttachments(prev => [...prev, ...next].slice(0, 4));
+      setAttachMsg(`已附加 ${next.length} 个文件`);
+    }
+  }
+
   async function sendRoom() {
     const text = draft.trim();
-    if (!text || sending) return;
+    if ((!text && attachments.length === 0) || sending) return;
     setSending(true);
+    const payload = attachments.map(a => ({
+      name: a.name,
+      kind: a.kind,
+      mime_type: a.mime_type,
+      data: a.data,
+      size: a.size,
+    }));
     setDraft('');
+    setAttachments([]);
+    setAttachMsg(null);
     try {
       const sid =
         (typeof window !== 'undefined' && window.localStorage.getItem('yy_session_id')) ||
         (crypto.randomUUID?.() ?? `s-${Date.now()}`);
       if (typeof window !== 'undefined') window.localStorage.setItem('yy_session_id', sid);
-      await postChat(text, sid, undefined, undefined, undefined, projectId, memberIds);
+      await postChat(
+        text || '请查看附件图片。',
+        sid,
+        undefined,
+        undefined,
+        undefined,
+        projectId,
+        memberIds,
+        payload
+      );
       await load();
     } catch (e) {
       setMemberMsg(`发送失败：${e instanceof Error ? e.message : 'unknown'}`);
+      setAttachMsg(`发送失败：${e instanceof Error ? e.message : 'unknown'}`);
     } finally {
       setSending(false);
     }
@@ -254,7 +342,26 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
       <div className="flex">
         <main className="min-w-0 flex-1 px-8 py-6">
           {tab === 'chat' && (
-            <div className="rounded-xl border border-stone-200 bg-white">
+            <div
+              className="relative rounded-xl border border-stone-200 bg-white"
+              onDragOver={e => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={e => {
+                if (e.currentTarget === e.target) setDragging(false);
+              }}
+              onDrop={e => {
+                e.preventDefault();
+                setDragging(false);
+                if (e.dataTransfer.files?.length) void attachFiles(e.dataTransfer.files);
+              }}
+            >
+              {dragging && (
+                <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-xl bg-stone-900/70 text-sm text-white">
+                  松开以附加文本或图片文件
+                </div>
+              )}
               <div className="border-b border-stone-100 px-4 py-3">
                 <h2 className="text-sm font-semibold text-stone-600">群聊 · {projectId}</h2>
                 <p className="mt-1 text-[12px] text-stone-400">
@@ -328,7 +435,53 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                     );
                   })}
                 </div>
+                {attachments.length > 0 && (
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    {attachments.map((a, i) => (
+                      <div
+                        key={`${a.name}-${i}`}
+                        className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] text-stone-600"
+                      >
+                        {a.kind === 'image' && a.preview ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={a.preview} alt={a.name} className="h-8 w-8 rounded object-cover" />
+                        ) : (
+                          <span>📄</span>
+                        )}
+                        <span className="max-w-[140px] truncate">{a.name}</span>
+                        <span className="text-stone-400">{Math.ceil(a.size / 1024)}KB</span>
+                        <button
+                          onClick={() => setAttachments(prev => prev.filter((_, j) => j !== i))}
+                          className="text-stone-400 hover:text-stone-700"
+                          aria-label={`移除 ${a.name}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {attachMsg && <p className="mb-2 text-[11px] text-stone-500">{attachMsg}</p>}
                 <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".md,.txt,.json,.csv,.log,.ts,.tsx,.js,.jsx,.py,.html,.css,.yaml,.yml,.xml,.toml,.sh,image/*"
+                    className="hidden"
+                    onChange={e => {
+                      if (e.target.files?.length) void attachFiles(e.target.files);
+                      e.target.value = '';
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-lg border border-stone-200 px-3 text-sm text-stone-500 hover:bg-stone-50"
+                    title="附加文本或图片"
+                    aria-label="附加文件"
+                  >
+                    ＋
+                  </button>
                   <textarea
                     value={draft}
                     onChange={e => setDraft(e.target.value)}
@@ -344,7 +497,7 @@ export default function WorkpadPage({ params }: { params: { project_id: string }
                   />
                   <button
                     onClick={sendRoom}
-                    disabled={sending || !draft.trim()}
+                    disabled={sending || (!draft.trim() && attachments.length === 0)}
                     className="rounded-lg bg-stone-800 px-4 text-sm text-white disabled:opacity-40"
                   >
                     {sending ? '…' : '发送'}
