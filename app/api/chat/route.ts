@@ -1397,7 +1397,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const message = body?.message;
+    const message = typeof body?.message === 'string' ? body.message : '';
+    const incomingAttachments = Array.isArray(body?.attachments)
+      ? (body.attachments as unknown[])
+      : [];
     const internalHandoff = body?.internal_handoff === true;
     const handoffRequiredTools = Array.isArray(body?.handoff_required_tools)
       ? (body.handoff_required_tools as unknown[]).filter(
@@ -1414,6 +1417,47 @@ export async function POST(req: NextRequest) {
       internalHandoff && typeof body?.handoff_assign_note === 'string'
         ? body.handoff_assign_note
         : null;
+    const textAttachments: Array<{ name: string; text: string }> = [];
+    const imageAttachments: Array<{ name: string; data: string; mime: string }> = [];
+    if (incomingAttachments.length > 4) {
+      return NextResponse.json({ success: false, error: '最多附加 4 个文件' }, { status: 400 });
+    }
+    for (const raw of incomingAttachments) {
+      if (!raw || typeof raw !== 'object') continue;
+      const a = raw as Record<string, unknown>;
+      const name = String(a.name ?? 'attachment').slice(0, 200);
+      const kind = a.kind === 'image' ? 'image' : 'text';
+      const data = typeof a.data === 'string' ? a.data : '';
+      const mime = String(a.mime_type ?? a.mime ?? '');
+      if (kind === 'image') {
+        if (!/^data:image\/(png|jpe?g|webp|gif);base64,/i.test(data)) {
+          return NextResponse.json({ success: false, error: `图片格式不支持：${name}` }, { status: 400 });
+        }
+        if (data.length > 8 * 1024 * 1024) {
+          return NextResponse.json({ success: false, error: `图片过大：${name}` }, { status: 400 });
+        }
+        imageAttachments.push({ name, data, mime: mime || 'image/*' });
+        continue;
+      }
+      if (!data.trim()) continue;
+      if (data.length > 60_000) {
+        return NextResponse.json({ success: false, error: `文本附件过大：${name}` }, { status: 400 });
+      }
+      textAttachments.push({ name, text: data.slice(0, 60_000) });
+    }
+    let enrichedMessage = message;
+    if (textAttachments.length) {
+      enrichedMessage = `${textAttachments
+        .map(a => `【附件 ${a.name}】\n${a.text}`)
+        .join('\n\n')}\n\n${message}`.trim();
+    }
+    const attachmentNote = imageAttachments.length
+      ? `\n\n[用户附加了 ${imageAttachments.map(a => a.name).join('、')}，请查看图片内容]`
+      : '';
+    if (imageAttachments.length && !enrichedMessage.trim()) {
+      enrichedMessage = '请查看附件图片。';
+    }
+
     const requestedFenshenId =
       typeof body?.fenshen_id === 'string' ? body.fenshen_id.trim() : '';
     const projectId =
@@ -2047,7 +2091,19 @@ export async function POST(req: NextRequest) {
 
 ${bodyStatusReminder}`,
       },
-      { role: 'user' as const, content: message },
+      {
+        role: 'user' as const,
+        content:
+          imageAttachments.length > 0
+            ? ([
+                { type: 'text' as const, text: enrichedMessage + attachmentNote },
+                ...imageAttachments.map(a => ({
+                  type: 'image' as const,
+                  image: a.data,
+                })),
+              ] as any)
+            : enrichedMessage + attachmentNote,
+      },
     ];
 
     // 5. Route through the configured model and stream the reply.
@@ -3062,7 +3118,7 @@ ${bodyStatusReminder}`,
           .insert([
             {
               role: 'user',
-              content: message,
+              content: enrichedMessage + attachmentNote,
               session_id,
               device_id,
               project_id: projectId || null,
@@ -3070,6 +3126,7 @@ ${bodyStatusReminder}`,
                 device,
                 project_id: projectId || null,
                 active_fenshen_ids: roomMemberIds,
+                attachments: [...textAttachments.map(a => ({ name: a.name, kind: 'text' })), ...imageAttachments.map(a => ({ name: a.name, kind: 'image', mime: a.mime }))],
               },
             },
             {

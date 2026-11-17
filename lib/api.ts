@@ -142,6 +142,14 @@ async function postChatOnce(
  * ES-084: retry a network/504 failure before any text (1s, then 2s). A partial
  * response is never replayed blindly — the caller keeps what it received.
  */
+export type ChatAttachment = {
+  name: string;
+  kind: 'text' | 'image';
+  mime_type: string;
+  data: string;
+  size: number;
+};
+
 export async function postChat(
   message: string,
   session_id?: string,
@@ -149,7 +157,8 @@ export async function postChat(
   device_id?: string,
   fenshenId?: string,
   projectId?: string,
-  activeFenshenIds?: string[]
+  activeFenshenIds?: string[],
+  attachments?: ChatAttachment[]
 ) {
   // ES-062: a coarse device label; never a fingerprint.
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
@@ -168,6 +177,7 @@ export async function postChat(
     fenshen_id: fenshenId || undefined,
     project_id: projectId || undefined,
     active_fenshen_ids: activeFenshenIds?.length ? activeFenshenIds : undefined,
+    attachments: attachments?.length ? attachments : undefined,
   };
 
   let lastError: any = null;
