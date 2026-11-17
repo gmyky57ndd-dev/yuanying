@@ -1,13 +1,14 @@
 # 元婴项目：多智能体协作与工作流规范 v2
 
-> 唯一真理源：本文件。与 Chat 口头决定冲突时，以本文件 + GitHub Issue 为准。
+> 唯一真理源：GitHub（代码与任务）· Workpad 数据库与 local_kb（上下文与记忆）· GitHub Issue 评论（沟通留痕）
+> Chat 里的口头决定不算数，必须由 Supervisor 归档为 Issue 评论。
 
 ## 一、核心原则与角色边界
 
 ### 1. 唯一真理源
 - **代码与任务**：GitHub（唯一事实源）。
 - **上下文与记忆**：Workpad 数据库与本地 local_kb。
-- **沟通记录**：所有决定、报告必须留痕在 GitHub Issue 下。**Chat 里的口头决定不算数**，必须被 Supervisor 归档为 Issue 评论。
+- **沟通记录**：所有决定、报告必须留痕在 GitHub Issue 下（Chat 里的口头决定不算数，必须被 Supervisor 归档为 Issue 评论）。
 
 ### 2. 角色矩阵与标签 (Labels)
 
@@ -24,7 +25,7 @@
 
 ## 二、人类审批门槛 (Human Gates G1-G7)
 
-**除了 G1-G7 之外的所有事情，AI 必须自主闭环，严禁中途向 Owner 请示。**
+**除 G1-G7 之外的所有事情，AI 必须自主闭环，严禁中途向 Owner 请示。**
 
 - **G1 产品与范围**：PRD 终审、大需求立项。
 - **G2 生产环境**：Coolify/Vercel 正式发布。
@@ -62,6 +63,7 @@ Owner 在 Workpad UI 或 GitHub 中使用 `/approve`、`/reject`、`/changes` �
 所有分身向 GitHub 提交评论时，**必须**遵循以下格式。
 
 ### 1. 报告块 (Report Block)
+
 不超过 12 行，必须包含以下四段：
 
 ```
@@ -71,27 +73,31 @@ NEXT: [不依赖任何人，接下来立刻要做的事]
 STATUS: DONE | BLOCKED | STOPPED | WAITING
 ```
 
-*注：如果状态是 BLOCKED，必须明确写出被谁阻塞（如：等待 Owner 审批、等待 DSH 修复）。*
+如果状态是 `BLOCKED`，必须明确写出被谁阻塞（如：等待 Owner 审批、等待 DSH 修复）。
 
 ### 2. 跨分身交接规则 (Hand-off)
 - **禁止私下交接**：任何交接必须在 Issue 下留痕。
-- 交接方必须打出 @下一个分身，并附上交接凭证（如：PR 链接、ADR 文件路径）。
+- 交接方必须打出 @下一个分身，并附上交接凭证（PR 链接、ADR 文件路径）。
 - 接收方被唤醒后，必须在 10 分钟内回帖响应。
 
 ## 五、给 AI 代理的系统级 Prompt 设定
 
-*(此部分需写入各分身的 skills_prompt 或 system_prompt 中)*
+（写入各分身的 skills_prompt 或 system_prompt）
 
 ### 【GitHub 协同铁律】
 1. **GitHub First**：所有的决定和进度必须在 GitHub Issue 下回复，严禁只在 Chat/Workpad 里说。聊天不算交付。
-2. **报告先行**：每次在 Issue 下留言，必须使用 Report Block 格式。任务完成时，必须明确写 `STATUS: DONE` 并把 Issue 指派给下一个环节。
+2. **报告先行**：每次在 Issue 下留言，必须使用 Report Block 格式。任务完成必须明确写 `STATUS: DONE` 并把 Issue 指派给下一个环节。
 3. **不要傻等**：报告完 NEXT 之后，立刻开始干，不要等 Owner 或 Supervisor 回复"好的"。
-4. **路径通用化**：不要使用 `cd /Users/justinzero/...` 这种绝对路径。所有路径基于仓库根目录 `~/yuanying/workspace/` 推算。
+4. **路径通用化**：不要使用 `cd /Users/justinzero/...` 这类绝对路径。所有路径基于仓库根目录 `~/yuanying/workspace/` 推算。
 5. **禁止写入密钥**：绝对不要把 API Key、GitHub Token 写在任何 Issue 或代码里。
+
+### 【报告块格式】
+见 §四.1，所有分身一致，不增删字段。
 
 ## 六、分身上手清单 (Onboarding Checklist)
 
-当新创建或唤醒一个分身时，必须完成以下自检：
+新创建或唤醒一个分身时，必须完成以下自检：
+
 - [ ] 我读取了 AGENTS.md。
 - [ ] 我查看了当前项目中 `fenshen:<my-role>` 标签下的所有 Open Issues。
 - [ ] 我确认了自己当前主模型（Primary）和备用模型（Fallback）已配置。
