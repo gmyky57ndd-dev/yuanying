@@ -78,6 +78,25 @@ export async function writeCodeFile(args: {
   };
 }
 
+const SQLITE_DB_PATHS = new Set([
+  path.join(os.homedir(), 'yuanying', 'local_kb', 'index', 'sqlite.db'),
+  path.join(os.homedir(), 'yuanying', 'local_kb', 'index.db'),
+]);
+
+function sqliteReadOnly(a: string[]): boolean {
+  if (a.length === 1 && a[0] === '-version') return true;
+  if (a.length < 3 || a[0] !== '-readonly') return false;
+  const dbPath = path.resolve(a[1]);
+  if (!SQLITE_DB_PATHS.has(dbPath)) return false;
+  const sql = a[2].trim();
+  if (!sql) return false;
+  if (/^\.(tables|schema)(\s+\S+)?$/i.test(sql)) return true;
+  if (!/^(select|pragma|with)\b/i.test(sql)) return false;
+  // Single statement only; read-only sqlite connection is the second guard.
+  if (/;\s*\S/.test(sql)) return false;
+  return true;
+}
+
 const COMMANDS: Array<{ cmd: string; args: (a: string[]) => boolean; label: string }> = [
   { cmd: 'node', args: a => a.length === 1 && a[0] === '--version', label: 'node --version' },
   { cmd: 'pwd', args: a => a.length === 0, label: 'pwd' },
@@ -87,6 +106,11 @@ const COMMANDS: Array<{ cmd: string; args: (a: string[]) => boolean; label: stri
   { cmd: 'npm', args: a => a.length === 1 && a[0] === 'test', label: 'npm test' },
   { cmd: 'npm', args: a => a.length === 1 && a[0] === 'ci', label: 'npm ci' },
   { cmd: 'npm', args: a => a.length === 1 && a[0] === 'install', label: 'npm install' },
+  {
+    cmd: 'sqlite3',
+    args: sqliteReadOnly,
+    label: 'sqlite3 -readonly local_kb/index/{sqlite.db} SELECT|PRAGMA|.tables|.schema',
+  },
 ];
 
 function allowedCommand(argv: string[]): string {

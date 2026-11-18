@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-102] DSH read-only SQLite access — Done
+
+- **Status**: Done (2026-11-18) · **Refs**: #106
+- **Grant**: approval #14 (yuanying, approved); sqlite3 read-only allowlist.
+- **Paths**: exact local_kb index DB paths only.
+- **SQL**: SELECT/PRAGMA/WITH + .tables/.schema; no multi-statement/writes.
+- **Verified**: DSH `.tables` returned all KB/FTS tables.
+
 ### [P2-101] ES-091 DSML leak + DSH GitHub tools — Done
 
 - **Status**: Done (2026-11-18) · **Refs**: ES-091
