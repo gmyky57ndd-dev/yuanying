@@ -43,3 +43,11 @@ test('parses single-bar DSML and maps command to argv', () => {
     argv: ['node', '--version'],
   });
 });
+
+test('parses malformed single-bar DSML with missing angle bracket', (): void => {
+  const r = extractTextualToolCalls('｜DSML｜invoke name="get_github_issue">\n106\n</parameter>\n</invoke>');
+  assert.equal(r.calls.length, 1);
+  assert.equal(r.calls[0].name, 'get_github_issue');
+  assert.equal(r.calls[0].args.issue_number, 106);
+  assert.equal(r.text, '');
+});

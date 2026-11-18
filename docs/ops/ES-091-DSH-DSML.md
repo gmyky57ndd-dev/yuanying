@@ -26,8 +26,12 @@ lost and only parameter text remained. Single-bar `｜DSML｜` was also not pars
 - Whitelisted textual/DSML calls execute through `runToolForModel`; terminal
   result is returned directly (exit code + stdout/stderr).
 - Final guard strips any residual DSML before streaming and before DB insert.
+- Handles malformed single-bar blocks with a missing `'<'` and missing
+  `<parameter>` opening tag; infers `get_github_issue` number from the body.
+- Final sanitizer removes dangling `</parameter>`/`</invoke>` and bare
+  `｜DSML｜` lines.
 - Unit tests: `lib/textual-tool-call.test.ts` (double-bar, single-bar, unclosed,
-  command→argv).
+  malformed missing `<`, command→argv).
 
 ## DSH tools
 

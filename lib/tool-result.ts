@@ -285,6 +285,11 @@ export function stripToolMarkers(input: string): {
     }
     pattern.lastIndex = 0;
   }
-  text = text.replace(/^\s*[｜|]{2}\s*DSML.*$/gim, '');
+  text = text.replace(/^\s*[｜|]{1,2}\s*DSML.*$/gim, '');
+  // ES-091: dangling malformed DSML fragments (missing '<' or closing tags).
+  text = text
+    .replace(/^[ \t]*[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^\n]*$/gim, '')
+    .replace(/<\/?(?:parameter|invoke|calls)>/gi, '')
+    .replace(/[｜|]{1,2}\s*DSML\s*[｜|]{1,2}/gi, '');
   return { text: text.replace(/\n{3,}/g, '\n\n').trim(), hadMarkers };
 }
