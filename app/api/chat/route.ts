@@ -2737,7 +2737,7 @@ ${bodyStatusReminder}`,
       }),
       run_terminal_command: tool({
         description:
-          'v0.02c: run an allowlisted command (argv array, no shell) inside ~/yuanying/workspace/<project>. Allowed: node --version, pwd, ls, git status/diff, npm test, npm run test|lint|build, npm ci/install. Requires approved approval_id.',
+          'v0.02c: run an allowlisted command (argv array, no shell) inside ~/yuanying/workspace/<project>. Allowed: node --version, pwd, ls, git status/diff, npm test, npm run test|lint|build, npm ci/install, and read-only sqlite3 against ~/yuanying/local_kb/index/sqlite.db (SELECT/PRAGMA/.tables/.schema). Requires approved approval_id.',
         parameters: z.object({
           approval_id: z.number().int().positive(),
           project_id: z.string(),
