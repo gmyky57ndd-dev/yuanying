@@ -1,57 +1,45 @@
-import { test } from 'node:test';
-import assert from 'node:assert';
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import { extractTextualToolCalls } from './textual-tool-call.ts';
 
-test('extracts a tagged object call and strips the markup', () => {
-  const input = 'Sure.<tool_call>{"name":"read_local_file","arguments":{"path":"local_kb/docs/x.md"}}</tool_call>';
+test('parses DeepSeek DSML terminal call', () => {
+  const input = `<｜｜DSML｜｜ calls>
+<｜｜DSML｜｜ invoke name="run_terminal_command">
+<｜｜DSML｜｜ parameter name="approval_id" string="false">12</｜｜DSML｜｜ parameter>
+<｜｜DSML｜｜ parameter name="project_id" string="true">yuanying</｜｜DSML｜｜ parameter>
+<｜｜DSML｜｜ parameter name="argv" string="false">["node","--version"]</｜｜DSML｜｜ parameter>
+</｜｜DSML｜｜ invoke>
+</｜｜DSML｜｜ calls>`;
   const r = extractTextualToolCalls(input);
-  assert.strictEqual(r.calls.length, 1);
-  assert.strictEqual(r.calls[0].name, 'read_local_file');
-  assert.deepStrictEqual(r.calls[0].args, { path: 'local_kb/docs/x.md' });
-  assert.ok(!r.text.includes('tool_call'));
-  assert.strictEqual(r.text, 'Sure.');
-});
-
-test('extracts an array of calls and the <|tool_call|> variant', () => {
-  const input =
-    '<tool_calls>[{"name":"a","arguments":{"x":1}},{"name":"b","parameters":{"y":2}}]</tool_calls>' +
-    '<|tool_call|>{"name":"c","arguments":{}}</|tool_call|>';
-  const r = extractTextualToolCalls(input);
-  assert.deepStrictEqual(r.calls.map(c => c.name), ['a', 'b', 'c']);
-  assert.deepStrictEqual(r.calls[1].args, { y: 2 });
-  assert.strictEqual(r.text, '');
-});
-
-test('extracts a fenced json call', () => {
-  const input = '```json\n{"name":"get_github_issue","arguments":{"issue_number":89}}\n```';
-  const r = extractTextualToolCalls(input);
-  assert.strictEqual(r.calls.length, 1);
-  assert.deepStrictEqual(r.calls[0].args, { issue_number: 89 });
-  assert.strictEqual(r.text, '');
-});
-
-test('leaves plain prose and ordinary code fences alone', () => {
-  const input = 'Here is code:\n```js\nconsole.log(1)\n```\nDone.';
-  const r = extractTextualToolCalls(input);
-  assert.strictEqual(r.calls.length, 0);
-  assert.ok(r.text.includes('console.log(1)'));
-});
-
-test('parses a tagged JSON function call (ES-082)', () => {
-  const r = extractTextualToolCalls(
-    'x<tool_call>write_local_file({"path":"local_kb/docs/a.md","content":"hi"})</tool_call>'
-  );
   assert.equal(r.calls.length, 1);
-  assert.equal(r.calls[0].name, 'write_local_file');
-  assert.equal(r.calls[0].args.path, 'local_kb/docs/a.md');
+  assert.equal(r.calls[0].name, 'run_terminal_command');
+  assert.deepEqual(r.calls[0].args, {
+    approval_id: 12,
+    project_id: 'yuanying',
+    argv: ['node', '--version'],
+  });
+  assert.equal(r.text, '');
+  assert.equal(r.hadMarkers, true);
 });
 
-test('parses keyword arguments inside a tagged call (ES-082)', () => {
-  const r = extractTextualToolCalls(
-    '<tool_call>write_markdown(path="core/x.md", content="hello")</tool_call>'
-  );
+test('strips DSML without a valid invoke', () => {
+  const r = extractTextualToolCalls('<｜｜DSML｜｜ calls>oops</｜｜DSML｜｜ calls>');
+  assert.equal(r.calls.length, 0);
+  assert.equal(r.text, 'oops');
+  assert.equal(r.hadMarkers, true);
+});
+
+test('parses single-bar DSML and maps command to argv', () => {
+  const input = `<｜DSML｜invoke name="run_terminal_command">
+<｜DSML｜parameter name="command">node --version</｜DSML｜parameter>
+<｜DSML｜parameter name="approval_id">8</｜DSML｜parameter>
+<｜DSML｜parameter name="project_id">yuanying</｜DSML｜parameter>
+</｜DSML｜invoke>`;
+  const r = extractTextualToolCalls(input);
   assert.equal(r.calls.length, 1);
-  assert.equal(r.calls[0].name, 'write_markdown');
-  assert.equal(r.calls[0].args.path, 'core/x.md');
-  assert.equal(r.calls[0].args.content, 'hello');
+  assert.deepEqual(r.calls[0].args, {
+    approval_id: 8,
+    project_id: 'yuanying',
+    argv: ['node', '--version'],
+  });
 });

@@ -204,6 +204,14 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-101] ES-091 DSML leak + DSH GitHub tools — Done
+
+- **Status**: Done (2026-11-18) · **Refs**: ES-091
+- **DSML**: parse single/double-bar invoke before stripping; unclosed blocks; terminal command→argv; final guard.
+- **Tools**: DSH gets get_github_issue/comment_on_issue/assign_issue; App token already issues/PR write.
+- **Skill**: PR Fixes #n → comment Done/NEXT → assign QA.
+- **Verified**: terminal `v26.3.1`; DSH comment/assign test issue #202.
+
 ### [P2-100] Workpad text/image attachments — Done
 
 - **Status**: Done (2026-11-16)

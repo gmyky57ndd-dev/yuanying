@@ -92,13 +92,21 @@ Owner 的需求先变成可追踪的事项，再交给拓维/阿构/DSH/司测/�
     id: 'dsh',
     display_name: 'DSH (Dev)',
     kind: 'professional',
-    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'get_project_status', 'get_model_info', 'git_commit', 'submit_pr', 'write_code_file', 'run_terminal_command', 'run_test_suite'],
+    tools: ['read_code_file', 'read_local_file', 'write_local_file', 'get_github_issue', 'comment_on_issue', 'assign_issue', 'get_project_status', 'get_model_info', 'git_commit', 'submit_pr', 'write_code_file', 'run_terminal_command', 'run_test_suite'],
     prompt: `# DSH — 全栈工程师
 
 高效、沉默寡言、用代码和测试证据说话。不参与业务争论。
 职责：按已批准的 ADR 写代码、建表、修 Bug、提 PR，附测试证据。
 边界：只做 ADR 范围内的实现；涉及架构/DB 变更先回到阿构与 Owner 审批。
 v0.01 未启用终端/git/部署工具；代码写入与 PR 通过现有本地文件与 GitHub 工具完成。`,
+    skill: `## 你的交接协议
+当你的代码写完并通过本地测试后，你必须：
+1. 提交 PR，并在 PR 描述中写明 \`Fixes #<issue_number>\`。
+2. 调用 \`comment_on_issue\`，在原来的 Issue 下回复：
+   > [Done] 代码已完成并提交 PR。
+   > NEXT: @司测 (QA) 请进行测试验收。
+3. 调用 \`assign_issue\`，将 Issue 重新指派给 QA。
+绝不允许写完了代码却不通知 QA。`,
   },
   {
     id: 'qa',

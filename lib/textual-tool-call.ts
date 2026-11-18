@@ -105,10 +105,94 @@ function parseBody(body: string, out: TextualToolCall[]): void {
   }
 }
 
+
+/** DeepSeek DSML: <｜｜DSML｜｜ calls>…<｜｜DSML｜｜ invoke name="x">… */
+function parseDsml(input: string, out: TextualToolCall[]): { text: string; had: boolean } {
+  let text = input;
+  let had = false;
+  const invokeRe =
+    /<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*invoke\b([^>]*)>([\s\S]*?)<\/[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*invoke>/gi;
+  text = text.replace(invokeRe, (_m, attrs: string, body: string) => {
+    had = true;
+    const nameMatch = /name\s*=\s*["']([^"']+)["']/i.exec(attrs);
+    const name = nameMatch?.[1]?.trim();
+    if (!name) return '';
+    const args: Record<string, unknown> = {};
+    const paramRe =
+      /<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*parameter\b([^>]*)>([\s\S]*?)<\/[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*parameter>/gi;
+    let pm: RegExpExecArray | null;
+    while ((pm = paramRe.exec(body))) {
+      const pAttrs = pm[1] ?? '';
+      const pName = /name\s*=\s*["']([^"']+)["']/i.exec(pAttrs)?.[1]?.trim();
+      if (!pName) continue;
+      const raw = pm[2].trim();
+      const isString = /string\s*=\s*["']true["']/i.test(pAttrs);
+      if (isString) {
+        args[pName] = raw;
+      } else {
+        try {
+          args[pName] = JSON.parse(raw);
+        } catch {
+          args[pName] = raw;
+        }
+      }
+    }
+    if (name === 'run_terminal_command' && typeof args.command === 'string' && !args.argv) {
+      args.argv = args.command.trim().split(/\s+/).filter(Boolean);
+      delete args.command;
+    }
+    out.push({ name, args });
+    return '';
+  });
+  // Some streams cut the closing invoke tag. Parse an unclosed invoke too.
+  if (out.length === 0) {
+    const openRe =
+      /<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*invoke\b([^>]*)>([\s\S]*?)(?=<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*invoke|$)/gi;
+    text = text.replace(openRe, (_m, attrs: string, body: string) => {
+      const name = /name\s*=\s*["']([^"']+)["']/i.exec(attrs)?.[1]?.trim();
+      if (!name) return '';
+      had = true;
+      const args: Record<string, unknown> = {};
+      const paramRe =
+        /<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*parameter\b([^>]*)>([\s\S]*?)(?:<\/[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*parameter>|$)/gi;
+      let pm: RegExpExecArray | null;
+      while ((pm = paramRe.exec(body))) {
+        const pName = /name\s*=\s*["']([^"']+)["']/i.exec(pm[1] ?? '')?.[1]?.trim();
+        if (!pName) continue;
+        const raw = pm[2].trim();
+        try {
+          args[pName] = JSON.parse(raw);
+        } catch {
+          args[pName] = raw;
+        }
+      }
+      if (name === 'run_terminal_command' && typeof args.command === 'string' && !args.argv) {
+        args.argv = args.command.trim().split(/\s+/).filter(Boolean);
+        delete args.command;
+      }
+      out.push({ name, args });
+      return '';
+    });
+  }
+
+  // Remove wrapper tags and any remaining DSML markers.
+  const before = text;
+  text = text
+    .replace(/<[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*calls\s*>/gi, '')
+    .replace(/<\/[｜|]{1,2}\s*DSML\s*[｜|]{1,2}\s*calls\s*>/gi, '')
+    .replace(/<\/?[｜|]{1,2}\s*DSML\s*[｜|]{1,2}[^>]*>/gi, '');
+  if (text !== before) had = true;
+  return { text: text.replace(/\n{3,}/g, '\n\n').trim(), had };
+}
+
 export function extractTextualToolCalls(input: string): TextualToolCallResult {
   const calls: TextualToolCall[] = [];
   let text = input;
   let hadMarkers = false;
+
+  const dsml = parseDsml(text, calls);
+  text = dsml.text;
+  hadMarkers = hadMarkers || dsml.had;
 
   // <tool_call>…</tool_call> / <tool_calls>…</tool_calls> /
   // <function_call>…</function_call> and the <|tool_call|> variant.
