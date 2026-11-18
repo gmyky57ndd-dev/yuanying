@@ -141,6 +141,10 @@ function parseDsml(input: string, out: TextualToolCall[]): { text: string; had: 
       args.argv = args.command.trim().split(/\s+/).filter(Boolean);
       delete args.command;
     }
+    if (name === 'get_github_issue' && !args.issue_number) {
+      const num = body.match(/\b(\d{1,7})\b/);
+      if (num) args.issue_number = Number(num[1]);
+    }
     out.push({ name, args });
     return '';
   });
@@ -170,6 +174,10 @@ function parseDsml(input: string, out: TextualToolCall[]): { text: string; had: 
         args.argv = args.command.trim().split(/\s+/).filter(Boolean);
         delete args.command;
       }
+      if (name === 'get_github_issue' && !args.issue_number) {
+        const num = body.match(/\b(\d{1,7})\b/);
+        if (num) args.issue_number = Number(num[1]);
+      }
       out.push({ name, args });
       return '';
     });
@@ -187,7 +195,9 @@ function parseDsml(input: string, out: TextualToolCall[]): { text: string; had: 
 
 export function extractTextualToolCalls(input: string): TextualToolCallResult {
   const calls: TextualToolCall[] = [];
-  let text = input;
+  let text = input
+    // Some streams lose the leading '<' but keep ｜DSML｜...
+    .replace(/^[ \t]*[｜|]{1,2}\s*DSML\s*[｜|]{1,2}/gim, '<｜DSML｜');
   let hadMarkers = false;
 
   const dsml = parseDsml(text, calls);

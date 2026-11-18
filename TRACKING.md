@@ -207,7 +207,7 @@ never by the section they happened to be written under.
 ### [P2-101] ES-091 DSML leak + DSH GitHub tools — Done
 
 - **Status**: Done (2026-11-18) · **Refs**: ES-091
-- **DSML**: parse single/double-bar invoke before stripping; unclosed blocks; terminal command→argv; final guard.
+- **DSML**: parse single/double-bar, unclosed, and malformed missing `<` blocks; terminal command→argv; final guard strips dangling tags.
 - **Tools**: DSH gets get_github_issue/comment_on_issue/assign_issue; App token already issues/PR write.
 - **Skill**: PR Fixes #n → comment Done/NEXT → assign QA.
 - **Verified**: terminal `v26.3.1`; DSH comment/assign test issue #202.
