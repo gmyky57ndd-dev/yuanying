@@ -2967,8 +2967,10 @@ ${bodyStatusReminder}`,
           reply = ragError;
         }
 
-        // ES-067: strip leaked tool-call markers before the text reaches the UI.
-        const cleaned = stripToolMarkers(reply);
+        // ES-091: parse textual/DSML tool markup BEFORE stripping it, otherwise
+        // the call is lost and only the raw markers disappear.
+        const textual = extractTextualToolCalls(reply);
+        const cleaned = stripToolMarkers(textual.text);
         if (cleaned.hadMarkers) {
           console.warn('stripped tool markers from reply');
         }
@@ -2976,7 +2978,6 @@ ${bodyStatusReminder}`,
 
         // ES-079: execute textual <tool_call> markup as a real call (whitelist
         // only), then summarise the result instead of showing raw JSON.
-        const textual = extractTextualToolCalls(reply);
         const toolSet = activeTools as Record<string, unknown>;
         if (textual.calls.length > 0) {
           reply = textual.text;
@@ -3006,6 +3007,16 @@ ${bodyStatusReminder}`,
             console.log(
               `[textual tool] ${call.name} -> ${toolResult?.success === false ? 'error' : 'ok'}`
             );
+            if (call.name === 'run_terminal_command') {
+              const d = toolResult?.data ?? {};
+              reply =
+                toolResult?.success === false
+                  ? `命令执行失败：${toolResult?.error ?? 'unknown'}`
+                  : `已执行 ${d.command ?? 'command'}（exit ${d.exit_code ?? '?'}）\n${
+                      d.stdout || d.stderr || '(no output)'
+                    }${d.truncated ? '\n…（输出已截断）' : ''}`;
+              continue;
+            }
             try {
               const follow = await generateText({
                 model,
@@ -3105,6 +3116,8 @@ ${bodyStatusReminder}`,
           reply = `工具已执行，但生成回复失败（${streamError ?? '模型返回空内容'}）。请重试；如果再次失败，可以让我查系统日志。`;
         }
 
+        // ES-091: final guard — no raw DSML may reach the client or history.
+        reply = stripToolMarkers(reply).text;
         if (!text.trim() || reply !== text.trim()) {
           // ES-052/ES-082: the client must receive the final visible text even
           // when the model ends on a tool call or the server rewrites the reply.
@@ -3112,7 +3125,9 @@ ${bodyStatusReminder}`,
         }
 
         // #84: never persist an empty assistant turn.
-        const safeReply = reply.trim() || '（这次没有生成内容，请重试）';
+        const safeReply =
+          stripToolMarkers(reply).text.trim() ||
+          '（这次没有生成内容，请重试）';
         const { data: inserted, error: insErr } = await supabase
           .from('messages')
           .insert([
