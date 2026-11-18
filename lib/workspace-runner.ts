@@ -78,6 +78,25 @@ export async function writeCodeFile(args: {
   };
 }
 
+const LOCAL_KB_ROOT = path.join(os.homedir(), 'yuanying', 'local_kb');
+const LOCAL_KB_INDEX = path.join(LOCAL_KB_ROOT, 'index');
+const LOCAL_KB_ALLOWED = new Set([
+  LOCAL_KB_ROOT,
+  LOCAL_KB_INDEX,
+  path.join(LOCAL_KB_ROOT, 'index.db'),
+  path.join(LOCAL_KB_INDEX, 'sqlite.db'),
+]);
+
+function localKbPathAllowed(value: string): boolean {
+  return LOCAL_KB_ALLOWED.has(path.resolve(value));
+}
+
+function lsArgs(a: string[]): boolean {
+  if (a.length === 0) return true;
+  if (a.length === 1 && a[0] === '-la') return true;
+  return a.length === 2 && a[0] === '-la' && localKbPathAllowed(a[1]);
+}
+
 const SQLITE_DB_PATHS = new Set([
   path.join(os.homedir(), 'yuanying', 'local_kb', 'index', 'sqlite.db'),
   path.join(os.homedir(), 'yuanying', 'local_kb', 'index.db'),
@@ -100,7 +119,7 @@ function sqliteReadOnly(a: string[]): boolean {
 const COMMANDS: Array<{ cmd: string; args: (a: string[]) => boolean; label: string }> = [
   { cmd: 'node', args: a => a.length === 1 && a[0] === '--version', label: 'node --version' },
   { cmd: 'pwd', args: a => a.length === 0, label: 'pwd' },
-  { cmd: 'ls', args: a => a.length === 0 || (a.length === 1 && a[0] === '-la'), label: 'ls' },
+  { cmd: 'ls', args: lsArgs, label: 'ls | ls -la local_kb path' },
   { cmd: 'git', args: a => a.length === 1 && (a[0] === 'status' || a[0] === 'diff'), label: 'git status|diff' },
   { cmd: 'npm', args: a => a.length === 2 && a[0] === 'run' && ['test', 'lint', 'build'].includes(a[1]), label: 'npm run test|lint|build' },
   { cmd: 'npm', args: a => a.length === 1 && a[0] === 'test', label: 'npm test' },
