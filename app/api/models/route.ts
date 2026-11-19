@@ -4,7 +4,7 @@ import { supabase } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const PROVIDERS = ['deepseek', 'openai', 'anthropic', 'openrouter', 'custom'] as const;
+const PROVIDERS = ['deepseek', 'openai', 'anthropic', 'openrouter', 'particle-ai', 'custom'] as const;
 const DEFAULT_BASE_URLS: Record<string, string> = {
   deepseek: 'https://api.deepseek.com/v1',
   openrouter: 'https://openrouter.ai/api/v1',
@@ -54,6 +54,7 @@ export async function GET() {
           'minimax',
           'dots-studio',
           'moonshotai',
+          'particle-ai',
         ].includes(m.provider) &&
           !!process.env.OPENROUTER_API_KEY),
       created_at: m.created_at,
