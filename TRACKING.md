@@ -204,6 +204,15 @@ never by the section they happened to be written under.
 - **Fix**: every tool result hard-capped at **1000 chars** (`lib/tool-result.ts`, both silent and verbose); one automatic `generateText` retry with a compact instruction when the tool turn yields no text; fallback now names the real error (`empty output` / retry error) and points at `get_system_status`; each chat turn writes a `system_events` row.
 - **Acceptance**: 5k-char tool result summarizes normally; empty generation retried once; fallback contains the actual error; a `system_events` row exists per request.
 
+### [P2-103] OpenRouter catalog refresh — Done
+
+- **Status**: Done (2026-11-19)
+- **Root cause**: Baidu free 429 (`tpm_rate_limit_exceeded`), not OpenRouter outage.
+- **Removed**: z-ai, qwen-coder, minimax, dots3, kimi stale free slugs.
+- **Added**: particle-ai/particle-1:free; openrouter/auto generic router.
+- **Routing**: all fenshen overrides cleared; active `openrouter-auto`; verified both new models.
+- **Models**: 12 live rows; free entries marked rate-limited.
+
 ### [P2-102] DSH read-only SQLite access — Done
 
 - **Status**: Done (2026-11-18) · **Refs**: #106

@@ -87,7 +87,8 @@ export async function getModel(modelId?: string): Promise<LanguageModel> {
     case 'qwen':
     case 'minimax':
     case 'dots-studio':
-    case 'moonshotai': {
+    case 'moonshotai':
+    case 'particle-ai': {
       if (!apiKey) throw new Error(`missing API key for ${model.id}`);
       const vendor = createOpenAI({
         baseURL: model.base_url || 'https://openrouter.ai/api/v1',
